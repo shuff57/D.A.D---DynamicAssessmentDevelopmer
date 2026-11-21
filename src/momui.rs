@@ -191,7 +191,8 @@ fn take(st: &mut State, outcome: Outcome) {
                 }
             }
             let failing = st.library.questions.iter().filter(|s| !s.passed).count();
-            st.lib_note = Some(format!("Tested {} saved questions: {} need fixes{}.", st.library.questions.len(), failing,
+            let n = st.library.questions.len();
+            st.lib_note = Some(format!("Tested {n} saved question{}: {failing} need{} fixes{}.", if n == 1 { "" } else { "s" }, if failing == 1 { "s" } else { "" },
                 if changed > 0 { format!(", {changed} changed since they were saved") } else { String::new() }));
             let _ = crate::store::save_json(LIBRARY, &st.library);
         }

@@ -4,6 +4,9 @@ The D.A.D engine (IMathAS + `engine/serve.php`) on PHP compiled to WebAssembly, 
 no engine server: it can be hosted as static files (Cloudflare Pages) and works offline once loaded.
 GPL-2.0-only, like the rest of `engine/` (see `../LICENSE.md`).
 
+Run `build.sh` before `trunk build`: the web app's index.html copies `engine/browser/dist`, so a fresh
+clone's web build fails until it exists.
+
 ```
 engine/browser/build.sh      # builds dist/; Trunk copies it to the web app's engine/
 node engine/browser/test-node.mjs dist/imathas-engine.zip <question.php>   # same code under Node
