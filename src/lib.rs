@@ -47,6 +47,7 @@ pub mod kit;
 pub mod pageshell;
 pub mod layout;
 pub mod model;
+pub mod mom;
 pub mod platform;
 pub mod qcheck;
 pub mod qedit;
