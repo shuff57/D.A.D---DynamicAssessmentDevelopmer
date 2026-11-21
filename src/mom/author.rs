@@ -59,6 +59,42 @@ impl AuthorEngine for HttpEngine {
     }
 }
 
+/// The engine address that means "the engine built into this page" (browser build only).
+pub const BUNDLED_ENGINE: &str = "bundled";
+
+/// The engine built into the page: `window.dadEngine.post(route, body)`, a PHP-in-WebAssembly
+/// worker loaded from engine/ (see engine/browser).
+#[cfg(target_arch = "wasm32")]
+async fn post_bundled(route: &str, body: &serde_json::Value) -> Result<serde_json::Value, String> {
+    use wasm_bindgen::JsCast as _;
+    let window = web_sys::window().ok_or("no window")?;
+    let engine = js_sys::Reflect::get(&window, &"dadEngine".into()).map_err(|_| "no dadEngine".to_string())?;
+    if engine.is_undefined() {
+        return Err("The built-in question engine is missing from this page (engine/dad-engine.js).".into());
+    }
+    let post: js_sys::Function = js_sys::Reflect::get(&engine, &"post".into())
+        .ok().and_then(|f| f.dyn_into().ok()).ok_or("dadEngine.post is missing")?;
+    let promise: js_sys::Promise = post.call2(&engine, &route.into(), &body.to_string().into())
+        .map_err(|e| format!("{e:?}"))?.dyn_into().map_err(|_| "dadEngine.post returned no promise".to_string())?;
+    let text = wasm_bindgen_futures::JsFuture::from(promise).await
+        .map_err(|e| format!("The built-in question engine failed: {}", e.as_string().or_else(|| js_sys::Reflect::get(&e, &"message".into()).ok().and_then(|m| m.as_string())).unwrap_or_else(|| format!("{e:?}"))))?
+        .as_string().unwrap_or_default();
+    serde_json::from_str(&text).map_err(|e| format!("The built-in engine did not answer with JSON ({e})"))
+}
+
+/// Start downloading the built-in engine now (browser build), so it is ready by the first test.
+pub fn warm_bundled_engine() {
+    #[cfg(target_arch = "wasm32")]
+    {
+        use wasm_bindgen::JsCast as _;
+        let Some(window) = web_sys::window() else { return };
+        let Ok(engine) = js_sys::Reflect::get(&window, &"dadEngine".into()) else { return };
+        if let Some(warm) = js_sys::Reflect::get(&engine, &"warm".into()).ok().and_then(|f| f.dyn_into::<js_sys::Function>().ok()) {
+            let _ = warm.call0(&engine);
+        }
+    }
+}
+
 /// One JSON POST to the engine: blocking HTTP on the desktop, fetch in the browser.
 pub async fn post_engine(base: &str, path: &str, body: &serde_json::Value) -> Result<serde_json::Value, String> {
     let url = format!("{}{path}", base.trim_end_matches('/'));
@@ -73,6 +109,10 @@ pub async fn post_engine(base: &str, path: &str, body: &serde_json::Value) -> Re
     }
     #[cfg(target_arch = "wasm32")]
     {
+        if base == BUNDLED_ENGINE {
+            let _ = &url;
+            return post_bundled(path, body).await;
+        }
         crate::ai::post_json_browser(&url, body).await
             .map_err(|e| format!("Can't reach the question engine at {base}. ({e})"))
     }

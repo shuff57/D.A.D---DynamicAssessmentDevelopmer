@@ -17,6 +17,8 @@ python3 engine/triage.py <mom-content folder>   # rewrite docs/dad/bank-triage.m
 | `POST /api/score` | `{src, seed?, answers: {part: value}}` | `scores`, `raw`, `total`, `errors` |
 | `POST /api/selftest` | `{src, seeds?}` | per seed: the correct answers submitted the way a student would (each part must score 1) and a blank attempt (each part must score 0) |
 | `POST /api/vars` | `{src, seed?}` | the question's variables after its code runs (`answer`, `anstypes`, `questions`, ...) |
+| `POST /api/student` | `{src, seed?, static, engine, post?}` | the sandbox: MyOpenMath's own one-question student view (a port of IMathAS's `embedq2.php`, through its real `header.php`/`footer.php`); with `post`, its Submit / Try a similar question answers (`student.php`) |
+| `GET /javascript/…`, `/mathquill/…`, `/assess2/vue/…`, `/*.css` … | | IMathAS's scripts, styles and images for that page, with CORS (never PHP source) |
 
 The self-test types the author's own `$answer`, not the display form (which reads "4 × 3 = 12" or
 "xge5"), and like a student retries a missed part with up to four forms (raw, display converted to
@@ -33,6 +35,9 @@ section: a comment banner like `// === Scenario picker ===` inside the code stay
 
 Current bank (2026-11-20): 1,167 of 1,239 pass at seeds 4242, 7, 99. The 72 failures are triaged in
 `docs/dad/bank-triage.md`: 57 are question defects, 15 need a look. `baseline.json` records pass/fail.
+
+The same engine runs in the browser on PHP compiled to WebAssembly (`engine/browser/`), with the
+same verdict on all 1,239 bank questions. Licensing: `engine/LICENSE.md` (GPL-2.0-only, like IMathAS).
 
 `serve-vps-original.php` is the render-only sandbox that runs on the VPS today
 (`mom.huffpalmer.fyi`), kept for reference.

@@ -121,3 +121,18 @@ is kept.
 - Engine feedback to the model keeps a code error's root cause and drops its consequences.
 - In the browser, the engine allows any origin (dev only); a provider must allow the page's origin
   (Ollama: `OLLAMA_ORIGINS`).
+
+## Status (2026-11-20, later)
+
+- **Sandbox is MyOpenMath's own student view** (`engine/student.php`, a port of `embedq2.php`):
+  answer boxes, MathQuill, previews, score markers, Submit and Try a similar question. Copying into
+  MyOpenMath is locked until the question is approved in it; any edit locks it again.
+- **The engine runs in the browser** (`engine/browser/`): PHP 8.2 in WebAssembly in a Web Worker. Same
+  verdict as the Docker engine on all 1,239 bank questions. The web build defaults to it ("bundled"),
+  so the web app can be hosted as static files on Cloudflare Pages. Not yet deployed anywhere.
+- **Harness**: deepseek-v4.1-flash 40/40, claude-sonnet-5.5 40/40, gemma4-31b 32/40
+  (`harness/runs/2026-11-20/report.md`). Claude through the Cloudflare proxy times out past 100 s;
+  streaming would fix it.
+- **License**: `engine/` is GPL-2.0-only (IMathAS); the Rust app stays MIT. Publish `engine/` before the
+  browser build is deployed for anyone outside the project.
+

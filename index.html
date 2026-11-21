@@ -39,6 +39,10 @@
   <link rel="preload" href="fonts/NotoSans-ExtraBold.ttf" as="fetch" crossorigin />
   <!-- hayro's 14 standard PDF fonts (src/fonts.rs, PDF_STANDARD_FONTS), for PDF imports. -->
   <link data-trunk rel="copy-dir" href="assets/pdf-fonts" data-target-path="pdf-fonts" />
+  <!-- D.A.D: the question engine (IMathAS on PHP compiled to WebAssembly), built by engine/browser/build.sh.
+       Its client defines window.dadEngine; the engine itself downloads only when first used. -->
+  <link data-trunk rel="copy-dir" href="engine/browser/dist" data-target-path="engine" />
+  <script src="engine/dad-engine.js"></script>
   <link rel="preload" href="pdf-fonts/FoxitSans.pfb" as="fetch" crossorigin />
   <link rel="preload" href="pdf-fonts/FoxitSansBold.pfb" as="fetch" crossorigin />
   <link rel="preload" href="pdf-fonts/FoxitSansItalic.pfb" as="fetch" crossorigin />

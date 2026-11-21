@@ -17,6 +17,10 @@ use serde::{Deserialize, Serialize};
 use std::cell::RefCell;
 use std::sync::{Arc, Mutex};
 
+/// The browser build runs the engine in the page itself; the desktop talks to engine/run.sh.
+#[cfg(target_arch = "wasm32")]
+pub const DEFAULT_ENGINE: &str = crate::mom::author::BUNDLED_ENGINE;
+#[cfg(not(target_arch = "wasm32"))]
 pub const DEFAULT_ENGINE: &str = "http://127.0.0.1:8791";
 const LIBRARY: &str = "mom/library.json";
 const MAX_TRIES: usize = 4;
@@ -96,6 +100,8 @@ struct State {
     preview_html: Option<String>,
     preview_for: String,
     library: Library,
+    /// What happened to the saved questions (saved, tested), shown in their card.
+    lib_note: Option<String>,
     confirm_delete: Option<String>,
 }
 
@@ -116,6 +122,7 @@ impl crate::App {
         if !st.inited {
             st.inited = true;
             st.engine = crate::store::load_json::<String>("mom/engine.json").unwrap_or_else(|| DEFAULT_ENGINE.to_string());
+            if st.engine == crate::mom::author::BUNDLED_ENGINE { crate::mom::author::warm_bundled_engine(); }
             st.library = crate::store::load_json(LIBRARY).unwrap_or_default();
             // Screenshot/test hook: DAD_MOM_REQUEST pre-fills the request box.
             if let Ok(r) = crate::env_var("DAD_MOM_REQUEST") { st.request = r; }
@@ -184,7 +191,7 @@ fn take(st: &mut State, outcome: Outcome) {
                 }
             }
             let failing = st.library.questions.iter().filter(|s| !s.passed).count();
-            st.note = Some(format!("Tested {} saved questions: {} need fixes{}.", st.library.questions.len(), failing,
+            st.lib_note = Some(format!("Tested {} saved questions: {} need fixes{}.", st.library.questions.len(), failing,
                 if changed > 0 { format!(", {changed} changed since they were saved") } else { String::new() }));
             let _ = crate::store::save_json(LIBRARY, &st.library);
         }
@@ -260,8 +267,10 @@ fn start_preview(st: &mut State, ctx: &egui::Context) {
     let job = start(st, "Drawing the preview");
     let (engine, ctx) = (st.engine.clone(), ctx.clone());
     run_bg(async move {
-        let body = serde_json::json!({"src": src, "seed": DEFAULT_SEEDS[0]});
-        let r = post_engine(&engine, "/api/preview", &body).await
+        // The page's own Check Answers / New Version calls go to the same engine: "bundled" makes the
+        // page ask the app's window.dadEngine instead of fetching a server.
+        let body = serde_json::json!({"src": src, "seed": DEFAULT_SEEDS[0], "engine": engine, "static": sandbox_static(&engine)});
+        let r = post_engine(&engine, "/api/student", &body).await
             .and_then(|v| v.get("html").and_then(|h| h.as_str()).map(str::to_string).ok_or_else(|| "The engine sent no preview.".to_string()));
         finish(&job, &ctx, Outcome::Preview(r));
     });
@@ -298,7 +307,7 @@ fn save_current(st: &mut State) {
         Some(s) => *s = entry,
         None => st.library.questions.insert(0, entry),
     }
-    st.note = Some(match crate::store::save_json(LIBRARY, &st.library) {
+    st.lib_note = Some(match crate::store::save_json(LIBRARY, &st.library) {
         Ok(()) => if c.passed == Some(true) { "Saved. It passed the self-test.".into() } else { "Saved, marked as needing fixes.".into() },
         Err(e) => format!("Could not save: {e}"),
     });
@@ -377,7 +386,11 @@ fn left(ui: &mut Ui, ctx: &egui::Context, st: &mut State, cfg: &crate::ai::AiCfg
     library(ui, ctx, st);
     ui.add_space(12.0);
     egui::CollapsingHeader::new(theme::muted("Engine").size(13.0)).id_salt("mom_engine").show(ui, |ui| {
-        ui.label(theme::muted("The IMathAS engine that tests questions. Start it with engine/run.sh.").size(12.0));
+        ui.label(theme::muted(if st.engine == crate::mom::author::BUNDLED_ENGINE {
+            "Built in: IMathAS runs inside this page. Type a server address to use one instead."
+        } else {
+            "The IMathAS engine that tests questions. Start it with engine/run.sh."
+        }).size(12.0));
         ui.horizontal(|ui| {
             let r = ui.add(egui::TextEdit::singleline(&mut st.engine).desired_width(240.0).hint_text(DEFAULT_ENGINE));
             r.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::TextEdit, true, "Engine address"));
@@ -408,13 +421,13 @@ fn library(ui: &mut Ui, ctx: &egui::Context, st: &mut State) {
                 let (mark, col, tip) = if s.passed { ("✔", theme::green(), "Passed the self-test") } else { ("✖", theme::red(), "Needs fixes") };
                 ui.label(RichText::new(mark).color(col)).on_hover_text(tip);
                 let name = if q.name.is_empty() { "Untitled question".to_string() } else { q.name.clone() };
-                let short: String = name.chars().take(52).collect::<String>() + if name.chars().count() > 52 { "…" } else { "" };
+                let short: String = name.chars().take(40).collect::<String>() + if name.chars().count() > 40 { "…" } else { "" };
                 if ui.link(short).on_hover_text(&name).clicked() { open = Some(s.clone()); }
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                     if st.confirm_delete.as_deref() == Some(s.id.as_str()) {
                         if ui.button("Cancel").clicked() { st.confirm_delete = None; }
                         if ui.button(RichText::new("Delete").color(theme::red())).clicked() { delete = Some(s.id.clone()); }
-                    } else if ui.small_button("✕").on_hover_text("Delete this saved question").clicked() {
+                    } else if ui.small_button("Delete").on_hover_text("Delete this saved question").clicked() {
                         st.confirm_delete = Some(s.id.clone());
                     }
                 });
@@ -435,7 +448,7 @@ fn library(ui: &mut Ui, ctx: &egui::Context, st: &mut State) {
             }
             let _ = crate::store::save_json(LIBRARY, &st.library);
         }
-        if let Some(n) = &st.note {
+        if let Some(n) = &st.lib_note {
             ui.add_space(4.0);
             ui.label(theme::muted(n).size(12.0));
         }
@@ -560,9 +573,9 @@ fn preview_tab(ui: &mut Ui, ctx: &egui::Context, st: &mut State, working: bool) 
         ui.add_space(10.0);
         if let Some(html) = &st.preview_html {
             ui.label(theme::strong(format!("Quick look at version {} (the sandbox shows the math typeset)", DEFAULT_SEEDS[0])).size(13.0));
-            let form = html.split_once("<form id=\"dadq\"").map(|(_, rest)| rest.split_once("</form>").map(|(f, _)| f).unwrap_or(rest)).unwrap_or("");
+            let question = sandbox_question_html(html).unwrap_or_default();
             egui::ScrollArea::vertical().id_salt("mom_qtext").max_height(ui.available_height() - 4.0).show(ui, |ui| {
-                ui.add(egui::Label::new(RichText::new(plain(form.split_once('>').map(|(_, f)| f).unwrap_or(form))).size(14.0)).wrap());
+                ui.add(egui::Label::new(RichText::new(plain(&question)).size(14.0)).wrap());
             });
         }
     }
@@ -578,7 +591,7 @@ fn review_bar(ui: &mut Ui, st: &mut State) {
         });
         return;
     }
-    ui.add(egui::Label::new(theme::muted("Try it as a student: answer it, press Check Answers, and draw a New Version or two. When it is right, approve it to unlock copying into MyOpenMath.").size(13.0)).wrap());
+    ui.add(egui::Label::new(theme::muted("Try it as a student in MyOpenMath's own view: answer it, press Submit, and Try a similar question once or twice. When it is right, approve it to unlock copying into MyOpenMath.").size(13.0)).wrap());
     ui.add_space(4.0);
     let why = if c.passed != Some(true) {
         Some("It has to pass the self-test first.")
@@ -596,6 +609,27 @@ fn review_bar(ui: &mut Ui, st: &mut State) {
         }
         if let Some(why) = why { ui.label(theme::muted(why).size(12.0)); }
     });
+}
+
+/// The question's own HTML inside the sandbox page, which hands it to IMathAS's `showandinit(0, {...})`.
+fn sandbox_question_html(page: &str) -> Option<String> {
+    let rest = &page[page.find("showandinit(")? ..];
+    let rest = &rest[rest.find(',')? + 1..];
+    let v: serde_json::Value = serde_json::Deserializer::from_str(rest).into_iter().next()?.ok()?;
+    v.get("html").and_then(|h| h.as_str()).map(str::to_string)
+}
+
+/// Where the sandbox page loads MyOpenMath's scripts and styles from: the web app's own copy when the
+/// engine is built in, else the engine server, which serves them.
+fn sandbox_static(engine: &str) -> String {
+    #[cfg(target_arch = "wasm32")]
+    if engine == crate::mom::author::BUNDLED_ENGINE {
+        let base = web_sys::window().and_then(|w| w.document()).and_then(|d| d.base_uri().ok().flatten()).unwrap_or_default();
+        let base = base.split(['?', '#']).next().unwrap_or("").to_string();
+        let dir = &base[..base.rfind('/').map(|i| i + 1).unwrap_or(base.len())];
+        return format!("{dir}engine/imathas");
+    }
+    engine.trim_end_matches('/').to_string()
 }
 
 /// Question text without its HTML (and without style or script blocks), for the desktop's quick look.
@@ -767,7 +801,7 @@ mod overlay {
         let Ok(title) = doc.create_element("div") else { return };
         let _ = title.set_attribute("style", "margin-right:auto;min-width:0");
         title.set_inner_html(if can_approve {
-            "<b style=\"font-size:17px\">Sandbox</b> &nbsp;Answer it as a student, press Check Answers, and try a New Version or two."
+            "<b style=\"font-size:17px\">Sandbox</b> &nbsp;Answer it as a student, press Submit, and Try a similar question once or twice."
         } else {
             "<b style=\"font-size:17px\">Sandbox</b> &nbsp;This question has problems left: fix them before approving it."
         });
@@ -820,6 +854,13 @@ mod tests {
         let v: serde_json::Value = serde_json::from_str(&p[7..]).unwrap();
         assert_eq!(v["control"], "$a=1\n\n$solutionguide='s'");
         assert_eq!(v["qtype"], "number");
+    }
+
+    #[test]
+    fn the_question_is_read_out_of_the_sandbox_page() {
+        let page = r#"<script>$(function() { showandinit(0,{"html":"<p>What is 2?</p>","jsparams":{}}); });</script>"#;
+        assert_eq!(sandbox_question_html(page).as_deref(), Some("<p>What is 2?</p>"));
+        assert_eq!(sandbox_question_html("<p>nothing</p>"), None);
     }
 
     #[test]

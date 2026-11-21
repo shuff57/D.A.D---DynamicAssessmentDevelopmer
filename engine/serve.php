@@ -30,6 +30,19 @@ if (getenv('DAD_ENGINE_CORS') !== '0') {
 }
 if ($method === 'OPTIONS') { http_response_code(204); exit; }
 if ($path === '/health') { header('Content-Type: text/plain'); echo "ok\n"; exit; }
+// IMathAS's scripts, styles and images, for the sandbox page (never PHP source). Served here rather
+// than by php -S so they carry the CORS header: MathJax 4 loads as an ES module, which needs it.
+const DAD_STATIC_TYPES = ['js' => 'text/javascript', 'mjs' => 'text/javascript', 'css' => 'text/css', 'png' => 'image/png',
+    'gif' => 'image/gif', 'svg' => 'image/svg+xml', 'jpg' => 'image/jpeg', 'woff' => 'font/woff', 'woff2' => 'font/woff2',
+    'ttf' => 'font/ttf', 'otf' => 'font/otf', 'eot' => 'application/vnd.ms-fontobject', 'json' => 'application/json', 'map' => 'application/json'];
+if ($method === 'GET' && !str_contains($path, '..')
+    && preg_match('#^/((javascript|mathquill|assess2/vue|iconfonts|img|katex)/[\w./-]+|[\w-]+\.css)$#', $path)
+    && is_file(__DIR__ . $path) && isset(DAD_STATIC_TYPES[strtolower(pathinfo($path, PATHINFO_EXTENSION))])) {
+    header('Content-Type: ' . DAD_STATIC_TYPES[strtolower(pathinfo($path, PATHINFO_EXTENSION))]);
+    header('Cache-Control: public, max-age=86400');
+    readfile(__DIR__ . $path);
+    exit;
+}
 if ($method !== 'POST') {
     header('Content-Type: text/html; charset=utf-8');
     echo '<!doctype html><h1>D.A.D engine</h1><p>POST a question to /, /api/render, /api/score or /api/selftest.</p>';
@@ -71,6 +84,7 @@ require_once __DIR__ . '/includes/sanitize.php';
 require_once __DIR__ . '/filter/filter.php';
 require_once __DIR__ . '/assess2/AssessStandalone.php';
 require_once __DIR__ . '/momformat.php';
+require_once __DIR__ . '/student.php';
 $GLOBALS['RND'] = new Rand();
 $dbh = new PDO('sqlite::memory:');
 
@@ -280,7 +294,10 @@ function dad_student_candidates(array $render, bool $multi, string $qtype, array
     $cands = []; $problems = []; $untested = [];
     $doc = new DOMDocument();
     libxml_use_internal_errors(true);
-    $doc->loadHTML('<?xml encoding="utf-8"?><div>' . $render['html'] . '</div>');
+    // A "<" that cannot start a tag ("X <= k" in an option) is text. libxml versions disagree on it
+    // (the one in the browser build cut "X <= k" to "X"), so escape it before parsing.
+    $html = preg_replace('/<(?![a-zA-Z\/!?])/', '&lt;', $render['html']);
+    $doc->loadHTML('<?xml encoding="utf-8"?><div>' . $html . '</div>');
     libxml_clear_errors();
     $xp = new DOMXPath($doc);
     $labelText = function (DOMElement $in) use ($xp, $doc): string {
@@ -434,6 +451,11 @@ function fields() {
   return post;
 }
 async function call(path, body) {
+  if (D.engine === 'bundled') {
+    const host = window.parent !== window && window.parent.dadEngine;
+    if (!host) throw new Error('the built-in engine is not reachable from this page');
+    return JSON.parse(await host.post(path, JSON.stringify(body)));
+  }
   const r = await fetch(D.engine + path, {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)});
   if (!r.ok) throw new Error('the engine answered ' + r.status);
   return r.json();
@@ -503,7 +525,9 @@ if ($path === '/api/preview') {
     $seed = (int)($body['seed'] ?? 4242);
     $r = dad_render($dbh, $qdata, $seed);
     $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
-    $engine = $scheme . '://' . ($_SERVER['HTTP_HOST'] ?? '127.0.0.1:8791');
+    // "bundled": the engine runs inside the app's page (PHP in WebAssembly); the preview asks it there.
+    $engine = is_string($body['engine'] ?? null) && $body['engine'] !== '' ? $body['engine']
+        : $scheme . '://' . ($_SERVER['HTTP_HOST'] ?? '127.0.0.1:8791');
     dad_json(['seed' => $seed, 'errors' => $r['errors'], 'html' => dad_preview_page($r, (string)($body['src'] ?? ''), $body['question'] ?? null, $seed, $engine)]);
 }
 
@@ -514,6 +538,10 @@ if ($path === '/api/vars') {
     $vars = dad_raw_vars($qdata, $seed);
     dad_json(['vars' => $vars, 'unset_printed' => dad_unset_printed($qdata, $vars), 'displayed' => $render['answers'],
               'parts' => array_filter($render['jsparams'], fn($k) => is_numeric($k), ARRAY_FILTER_USE_KEY)]);
+}
+
+if ($path === '/api/student') {
+    dad_student($dbh, $qdata, $body);
 }
 
 if ($path === '/api/selftest') {

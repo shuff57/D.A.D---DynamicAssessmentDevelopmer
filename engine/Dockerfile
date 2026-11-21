@@ -17,7 +17,7 @@ RUN apt-get update \
  && apt-get purge -y git && apt-get autoremove -y && rm -rf /var/lib/apt/lists/*
 
 COPY php.ini /usr/local/etc/php/conf.d/dad-engine.ini
-COPY serve.php momformat.php /imathas/
+COPY serve.php momformat.php student.php /imathas/
 
 WORKDIR /imathas
 USER www-data

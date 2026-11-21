@@ -1,0 +1,13 @@
+{
+  "name": "dad-browser-engine",
+  "private": true,
+  "license": "GPL-2.0-only",
+  "description": "The D.A.D engine (IMathAS + engine/serve.php) on PHP compiled to WebAssembly, in a Web Worker.",
+  "type": "module",
+  "dependencies": {
+    "@php-wasm/web": "3.1.65",
+    "@php-wasm/universal": "3.1.65",
+    "@php-wasm/stream-compression": "3.1.65",
+    "@php-wasm/node": "3.1.65"
+  }
+}
