@@ -201,11 +201,14 @@ fn engine_files(log: &mut dyn FnMut(&str)) -> Result<PathBuf, String> {
     Ok(dir)
 }
 
-/// Where the checker files ship: DAD_ENGINE_FILES, `engine/` beside the app, or this repo's build.
+/// Where the checker files ship: DAD_ENGINE_FILES, `engine/` beside the app (Resources/engine in a
+/// macOS .app), or this repo's build.
 fn source() -> Option<PathBuf> {
     let candidates = [
         std::env::var_os("DAD_ENGINE_FILES").map(PathBuf::from),
         std::env::current_exe().ok().and_then(|e| e.parent().map(|d| d.join("engine"))),
+        // A macOS .app keeps them in Contents/Resources.
+        std::env::current_exe().ok().and_then(|e| e.parent().map(|d| d.join("../Resources/engine"))),
         Some(Path::new(env!("CARGO_MANIFEST_DIR")).join("engine/browser/dist")),
     ];
     candidates.into_iter().flatten().find(|d| d.join("imathas-engine.zip").is_file())

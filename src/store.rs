@@ -17,7 +17,24 @@ fn store_dir_from_env() -> PathBuf {
             return PathBuf::from(dir);
         }
     }
+    if let Some(dir) = portable_dir() {
+        return dir;
+    }
     data_base().join("vershion")
+}
+
+/// Portable mode (desktop): a file named `portable` beside the app keeps everything in `DAD-data`
+/// beside it, so the app runs from a USB stick or a folder on a machine where it can't install.
+fn portable_dir() -> Option<PathBuf> {
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        let exe = std::env::current_exe().ok()?;
+        let dir = exe.parent()?;
+        if dir.join("portable").is_file() {
+            return Some(dir.join("DAD-data"));
+        }
+    }
+    None
 }
 
 /// Legacy path helper. New code goes through the backend (`save_json`, `read_media`, …) so the

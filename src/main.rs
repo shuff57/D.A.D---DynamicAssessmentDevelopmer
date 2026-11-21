@@ -1,3 +1,6 @@
+// No console window behind the app on Windows (release builds; headless hooks are for development).
+#![cfg_attr(all(windows, not(debug_assertions)), windows_subsystem = "windows")]
+
 //! verSHion desktop binary: native entry, headless hooks, and the eframe adapter.
 use eframe::egui;
 use vershion::{
