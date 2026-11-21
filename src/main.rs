@@ -80,6 +80,29 @@ fn main() -> Result<(), eframe::Error> {
         std::fs::write(vershion::env_var("VERSHION_OUT").expect("VERSHION_OUT"), png).expect("write");
         return Ok(());
     }
+    // Headless one-shot: DAD_AUTHOR="<what the teacher asked for>" writes a MyOpenMath question with the
+    // configured AI, tests and repairs it against the engine (DAD_ENGINE, default http://127.0.0.1:8791),
+    // prints the log and the question file, and exits 0 only if it passed. DAD_AI_PROVIDER / DAD_AI_MODEL
+    // override the saved settings; DAD_TRIES caps the attempts (default 4).
+    #[cfg(not(target_arch = "wasm32"))]
+    if let Ok(request) = vershion::env_var("DAD_AUTHOR") {
+        let mut settings: Settings = store::load_json("settings.json").unwrap_or_default();
+        if let Ok(p) = vershion::env_var("DAD_AI_PROVIDER") { settings.ai_provider = p; }
+        if let Ok(m) = vershion::env_var("DAD_AI_MODEL") { settings.ai_model = m; }
+        let cfg = ai::AiCfg::from(&settings);
+        let mut chat = vershion::figure_agent::ModelChat { cfg: &cfg };
+        let mut engine = vershion::mom::author::HttpEngine {
+            base: vershion::env_var("DAD_ENGINE").unwrap_or_else(|_| "http://127.0.0.1:8791".into()),
+        };
+        let tries = vershion::env_var("DAD_TRIES").ok().and_then(|t| t.parse().ok()).unwrap_or(4);
+        eprintln!("authoring with {} / {}", cfg.provider, cfg.model);
+        let run = vershion::mom::author::author(&request, &mut chat, &mut engine, tries);
+        for line in &run.log { eprintln!("{line}"); }
+        if let Some(e) = &run.error { eprintln!("error: {e}"); }
+        for p in &run.problems { eprintln!("  problem: {p}"); }
+        if let Some(q) = &run.question { println!("{}", q.emit()); }
+        std::process::exit(if run.passed { 0 } else { 1 });
+    }
     // Headless one-shot: VERSHION_FIND_MODELS=1 runs the Settings "Find models" check against the configured
     // provider and prints the note and the models kept.
     #[cfg(not(target_arch = "wasm32"))]

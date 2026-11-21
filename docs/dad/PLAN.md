@@ -106,3 +106,16 @@ is kept.
   with `Access-Control-Allow-Origin: *`; that stops once the API exists.
 - Server browser profiles belong to one teacher each, are encrypted at rest and never shared. The
   agent stays on an allowlist of hosts (myopenmath.com).
+
+## Status (2026-11-20)
+
+- Step 1 done: `engine/`. 1,171 of 1,239 bank questions pass; `docs/dad/bank-triage.md` lists the rest.
+- Step 2 done: `src/mom/` (format, health, engine types). Every bank file round-trips.
+- Step 3 working headless: `src/mom/author.rs` and `DAD_AUTHOR="<request>"` on the desktop binary.
+  First live runs with local Ollama (deepseek-v4.1-flash:cloud): `example-slope.php` passed on
+  try 1 (20 s); `example-mean-median.php` passed on try 4 (84 s) after the engine sent back 6
+  problems. Tries 2 and 3 were lost to invalid JSON: escaping a long PHP block inside JSON is
+  error-prone for the model. Next: have the model reply in the mom file format itself (no JSON
+  escaping), and do not count an unreadable reply as a full try.
+- The loop is blocking for now (D.A.D's `main` has only `chat_turns`); the web build needs the
+  async chat from verSHion's newer branch.
