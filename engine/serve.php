@@ -540,6 +540,24 @@ if ($path === '/api/vars') {
               'parts' => array_filter($render['jsparams'], fn($k) => is_numeric($k), ARRAY_FILTER_USE_KEY)]);
 }
 
+if ($path === '/api/dialect') {
+    // What this IMathAS accepts, read from its own runtime after a render has loaded every macro
+    // library: the functions question code may call, the variable names it may not use, and the
+    // answer types the scorer knows. The authoritative source for D.A.D's reference.
+    dad_render($dbh, $qdata, 1);
+    global $disallowedvar;
+    $fns = array_values(array_unique(array_map('strval', $GLOBALS['allowedmacros'] ?? [])));
+    sort($fns);
+    preg_match_all("/case '([a-z]+)':/", file_get_contents(__DIR__ . '/assess2/questions/scorepart/ScorePartFactory.php'), $m);
+    dad_json([
+        'imathas' => 'pinned in engine/Dockerfile',
+        'allowed_functions' => $fns,
+        'internal_functions' => interpretInternalFunctions(),
+        'disallowed_vars' => array_values((array)($disallowedvar ?? $GLOBALS['disallowedvar'] ?? [])),
+        'answer_types' => array_values(array_unique($m[1])),
+    ]);
+}
+
 if ($path === '/api/student') {
     dad_student($dbh, $qdata, $body);
 }

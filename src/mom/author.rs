@@ -15,6 +15,7 @@
 use super::engine::{SelftestRequest, SelftestResponse, DEFAULT_SEEDS};
 use super::format::MomQuestion;
 use super::health;
+use super::reference;
 use crate::ai::{AiCfg, Turn};
 
 /// Unreadable replies asked for again, per run, without spending a try.
@@ -135,6 +136,18 @@ pub struct AuthorRun {
     pub tries: usize,
     /// Set when the run could not produce a question at all (AI or engine unreachable).
     pub error: Option<String>,
+    /// Fresh conversations started after the first (see [`Budget::restarts`]).
+    pub restarts: usize,
+    /// Repair rounds asked for by the critic.
+    pub critic_rounds: usize,
+    /// The critic's last verdict: None when there is no critic or it never ran.
+    pub critic_ok: Option<bool>,
+    /// The critic's last notes, when it wanted changes.
+    pub critic_notes: Vec<String>,
+    /// Reference lookups the writer asked for (not tries).
+    pub lookups: usize,
+    /// Tries whose problems the pre-flight check found without running the engine.
+    pub preflight_catches: usize,
 }
 
 const REPLY_SHAPE: &str = "Reply with the complete question file and nothing else, in exactly this format:
@@ -151,8 +164,15 @@ const REPLY_SHAPE: &str = "Reply with the complete question file and nothing els
 // === ANSWER ===
 <code run after the control, such as $solutionguide = '...'; may be left empty>";
 
-/// The system prompt: what IMathAS is, the reply shape, and the learned rules.
+/// The system prompt with the MyOpenMath reference (see [`system_prompt_with`]).
 pub fn system_prompt() -> String {
+    system_prompt_with(true)
+}
+
+/// The system prompt: what IMathAS is, the reply shape, optionally the reference cheat sheet and its
+/// LOOKUP tools, and the learned rules.
+pub fn system_prompt_with(use_docs: bool) -> String {
+    let docs = if use_docs { format!("\n\n{}", reference::cheat_sheet()) } else { String::new() };
     format!(
         "You write questions for MyOpenMath, which runs IMathAS. A question is IMathAS question code: \
          a Common Control block (variables, randomization with rand/diffrands/randfrom, and the answer \
@@ -162,7 +182,7 @@ pub fn system_prompt() -> String {
          $answer[i] to the index of the right one.\n\n\
          Every question you write is rendered by a real IMathAS at several random seeds, its correct \
          answers are typed in like a student would, and any error or wrong score is sent back to you \
-         to fix. Write questions that are correct at EVERY seed.\n\n{REPLY_SHAPE}\n\n\
+         to fix. Write questions that are correct at EVERY seed.\n\n{REPLY_SHAPE}{docs}\n\n\
          RULES for this dialect, each learned from a real failure:\n{}",
         include_str!("learned-rules.md")
     )
@@ -198,6 +218,61 @@ pub fn static_problems(q: &MomQuestion) -> Vec<String> {
     )]
 }
 
+/// How much effort one request may take.
+#[derive(Clone, Copy, Debug)]
+pub struct Budget {
+    /// Questions the engine tests within one conversation.
+    pub max_tries: usize,
+    /// Fresh conversations after the first one fails (0: none). Small models dig in during a long
+    /// repair thread; a new start, told what went wrong last time, often does better.
+    pub restarts: usize,
+    /// Give the writer the MyOpenMath reference: the cheat sheet in the prompt, LOOKUP tools, and the
+    /// pre-flight check of its code against IMathAS's allowed functions (src/mom/reference.rs).
+    pub use_docs: bool,
+}
+
+impl Budget {
+    pub fn tries(max_tries: usize) -> Budget { Budget { max_tries, restarts: 0, use_docs: true } }
+}
+
+/// An optional reader after the engine passes (the harness's judge): `Ok(Some(notes))` sends the
+/// notes back as one more repair round; `Ok(None)` accepts the question.
+#[allow(async_fn_in_trait)]
+pub trait AuthorCritic {
+    async fn critique(&mut self, request: &str, q: &MomQuestion) -> Result<Option<Vec<String>>, String>;
+}
+
+/// No critic: the engine's verdict is final.
+pub struct NoCritic;
+impl AuthorCritic for NoCritic {
+    async fn critique(&mut self, _: &str, _: &MomQuestion) -> Result<Option<Vec<String>>, String> { Ok(None) }
+}
+
+/// The control as the engine runs it: Common Control, then ANSWER code, one newline apart, so
+/// IMathAS's "on line N of Common Control" points into it.
+fn engine_control(q: &MomQuestion) -> String {
+    if q.answer_code.trim().is_empty() { q.control.clone() } else { format!("{}\n{}", q.control, q.answer_code) }
+}
+
+/// IMathAS names a line ("syntax error ... on line 57 of Common Control") and the model has to count
+/// to find it; quote that line and its neighbours under the problem instead.
+pub fn with_code_context(problems: &[String], q: &MomQuestion) -> Vec<String> {
+    let code = engine_control(q);
+    let lines: Vec<&str> = code.lines().collect();
+    problems.iter().map(|p| {
+        let Some(at) = p.find("on line ") else { return p.clone() };
+        let digits: String = p[at + 8..].chars().take_while(|c| c.is_ascii_digit()).collect();
+        let Ok(n) = digits.parse::<usize>() else { return p.clone() };
+        if n == 0 || n > lines.len() || p[at..].contains("in file") || p[at..].contains(".php") { return p.clone(); }
+        let mut out = p.clone();
+        out.push_str("\n  The code around that line:");
+        for i in n.saturating_sub(2)..(n + 1).min(lines.len()) {
+            out.push_str(&format!("\n  {}{:>4} | {}", if i + 1 == n { ">" } else { " " }, i + 1, lines[i]));
+        }
+        out
+    }).collect()
+}
+
 /// Write a question for `request`, test it, and repair it until it passes or `max_tries` runs out.
 pub async fn author_async<C: AuthorChat, E: AuthorEngine>(request: &str, chat: &mut C, engine: &mut E, max_tries: usize) -> AuthorRun {
     author_async_logged(request, chat, engine, max_tries, |_| {}).await
@@ -205,13 +280,59 @@ pub async fn author_async<C: AuthorChat, E: AuthorEngine>(request: &str, chat: &
 
 /// [`author_async`], calling `on_log` with each log line as it happens (the screen's live progress).
 pub async fn author_async_logged<C: AuthorChat, E: AuthorEngine>(
-    request: &str, chat: &mut C, engine: &mut E, max_tries: usize, mut on_log: impl FnMut(&str),
+    request: &str, chat: &mut C, engine: &mut E, max_tries: usize, on_log: impl FnMut(&str),
+) -> AuthorRun {
+    author_full(request, chat, engine, &mut NoCritic, Budget::tries(max_tries), on_log).await
+}
+
+/// The whole loop: conversations of up to `budget.max_tries` engine tests each, up to
+/// `budget.restarts` fresh ones after a failure, and the critic (if any) after the engine passes.
+/// Returns the best attempt: passing beats failing, accepted by the critic beats not, then fewest
+/// problems. `tries` counts every engine test across conversations.
+pub async fn author_full<C: AuthorChat, E: AuthorEngine, K: AuthorCritic>(
+    request: &str, chat: &mut C, engine: &mut E, critic: &mut K, budget: Budget, mut on_log: impl FnMut(&str),
+) -> AuthorRun {
+    let mut best: Option<AuthorRun> = None;
+    let mut total_tries = 0;
+    let mut lessons: Vec<String> = Vec::new();
+    for round in 0..=budget.restarts {
+        if round > 0 {
+            on_log(&format!("starting over (fresh attempt {} of {})…", round + 1, budget.restarts + 1));
+        }
+        let ask = if lessons.is_empty() {
+            request.to_string()
+        } else {
+            format!("{request}\n\nAn earlier attempt at this question failed IMathAS's test with:\n- {}\nWrite it fresh and avoid those mistakes.",
+                lessons.iter().take(4).cloned().collect::<Vec<_>>().join("\n- "))
+        };
+        let mut run = conversation(&ask, request, chat, engine, critic, budget.max_tries, budget.use_docs, &mut on_log).await;
+        total_tries += run.tries;
+        run.restarts = round;
+        let rank = |r: &AuthorRun| (r.passed, r.critic_ok != Some(false), usize::MAX - r.problems.len());
+        let done = run.passed && run.critic_ok != Some(false) || run.error.is_some() && run.question.is_none();
+        lessons = run.problems.iter().map(|p| p.lines().next().unwrap_or("").to_string()).collect();
+        if best.as_ref().is_none_or(|b| rank(&run) > rank(b)) {
+            if let Some(b) = best.take() { run.log.splice(0..0, b.log); }
+            best = Some(run);
+        } else if let Some(b) = best.as_mut() {
+            b.log.extend(run.log);
+        }
+        if done { break; }
+    }
+    let mut best = best.unwrap_or_default();
+    best.tries = total_tries;
+    best
+}
+
+/// One conversation: write, test, repair, up to `max_tries` engine tests; then the critic.
+async fn conversation<C: AuthorChat, E: AuthorEngine, K: AuthorCritic>(
+    ask: &str, request: &str, chat: &mut C, engine: &mut E, critic: &mut K, max_tries: usize, use_docs: bool, on_log: &mut impl FnMut(&str),
 ) -> AuthorRun {
     let mut run = AuthorRun::default();
     let mut logged = 0;
     macro_rules! flush { () => { while logged < run.log.len() { on_log(&run.log[logged]); logged += 1; } } }
     on_log("writing the question…");
-    let mut turns = vec![Turn::new("system", system_prompt()), Turn::new("user", request.to_string())];
+    let mut turns = vec![Turn::new("system", system_prompt_with(use_docs)), Turn::new("user", ask.to_string())];
     let mut format_retries = 0;
     while run.tries < max_tries.max(1) {
         // One retry: a provider or proxy hiccup (a gateway error page instead of JSON) is not the question's fault.
@@ -229,6 +350,16 @@ pub async fn author_async_logged<C: AuthorChat, E: AuthorEngine>(
             }
         };
         turns.push(Turn::new("assistant", reply.clone()));
+        let asked = if use_docs { reference::lookup_lines(&reply) } else { Vec::new() };
+        if !asked.is_empty() && run.lookups < reference::MAX_LOOKUPS {
+            run.lookups += asked.len();
+            run.log.push(format!("looked up: {}", asked.join("; ")));
+            flush!();
+            let docs: Vec<String> = asked.iter().map(|l| format!("LOOKUP: {l}\n{}", reference::lookup(l))).collect();
+            let more = if run.lookups >= reference::MAX_LOOKUPS { "That was the last lookup; now write the question file." } else { "Look up more, or write the question file." };
+            turns.push(Turn::new("user", format!("{}\n\n{more}", docs.join("\n\n"))));
+            continue;
+        }
         let q = match parse_reply(&reply) {
             Ok(q) => q,
             Err(e) if format_retries < FORMAT_RETRIES => {
@@ -247,6 +378,23 @@ pub async fn author_async_logged<C: AuthorChat, E: AuthorEngine>(
         };
         run.tries += 1;
         let attempt = run.tries;
+        if use_docs {
+            let caught = reference::preflight(&q);
+            if !caught.is_empty() {
+                // IMathAS's code checker would reject this; say why, with the fix, without running it.
+                run.preflight_catches += 1;
+                run.log.push(format!("try {attempt}: \"{}\" caught before testing: {} problem(s)", q.name, caught.len()));
+                run.log.extend(caught.iter().map(|p| format!("    {p}")));
+                run.passed = false;
+                run.problems = caught.clone();
+                run.question = Some(q);
+                flush!();
+                turns.push(Turn::new("user", format!(
+                    "IMathAS's code checker would reject that question. Problems:\n- {}\n\nFix every one and reply with the whole \
+                     question file again in the same format.", caught.join("\n- "))));
+                continue;
+            }
+        }
         on_log(&format!("try {attempt}: testing \"{}\" at seeds {:?}…", q.name, DEFAULT_SEEDS));
         let report = match engine.selftest(&q.emit(), &DEFAULT_SEEDS).await {
             Ok(r) => r,
@@ -260,30 +408,53 @@ pub async fn author_async_logged<C: AuthorChat, E: AuthorEngine>(
         };
         // The engine checks never-set variables at run time, per seed; the static check is only
         // the offline fallback, so it is not repeated here.
-        let problems = report.problems();
+        let mut problems = with_code_context(&report.problems(), &q);
+        if use_docs {
+            for p in problems.iter_mut() {
+                if let Some(i) = p.find("unallowed macro ") {
+                    let name: String = p[i + 16..].chars().take_while(|c| c.is_ascii_alphanumeric() || *c == '_').collect();
+                    if !name.is_empty() { p.push_str(&format!("\n  {}", reference::check(&[name.as_str()]))); }
+                }
+            }
+        }
         run.log.push(if problems.is_empty() {
             format!("try {attempt}: \"{}\" passes at seeds {:?}", q.name, DEFAULT_SEEDS)
         } else {
             format!("try {attempt}: \"{}\" has {} problem(s)", q.name, problems.len())
         });
-        run.log.extend(problems.iter().map(|p| format!("    {p}")));
+        run.log.extend(problems.iter().map(|p| format!("    {}", p.lines().next().unwrap_or(""))));
         run.passed = report.pass && problems.is_empty();
         run.problems = problems.clone();
         run.report = Some(report);
         run.question = Some(q);
         flush!();
-        if run.passed {
-            return run;
-        }
-        on_log("sending the problems back to the AI…");
-        turns.push(Turn::new(
-            "user",
+        let feedback = if run.passed {
+            // The engine is satisfied; ask the critic, if there is one.
+            match critic.critique(request, run.question.as_ref().unwrap()).await {
+                Ok(None) => { if run.critic_rounds > 0 || run.critic_ok.is_some() { run.critic_ok = Some(true); } return run; }
+                Ok(Some(notes)) if notes.is_empty() => { run.critic_ok = Some(true); return run; }
+                Ok(Some(notes)) => {
+                    run.critic_ok = Some(false);
+                    run.critic_notes = notes.clone();
+                    run.log.push(format!("try {attempt}: a reviewer wants changes: {}", notes.first().cloned().unwrap_or_default()));
+                    flush!();
+                    if run.tries >= max_tries.max(1) { return run; }
+                    run.critic_rounds += 1;
+                    format!(
+                        "IMathAS tested that question and it works. A teacher reviewing it asked for changes:\n- {}\n\nMake those \
+                         changes, keep it working, and reply with the whole question file again in the same format.",
+                        notes.join("\n- "))
+                }
+                Err(e) => { run.log.push(format!("the reviewer did not answer ({e}); keeping the question")); flush!(); return run; }
+            }
+        } else {
             format!(
                 "IMathAS tested that question. Problems:\n- {}\n\nFix every one and reply with the whole \
                  question file again in the same format.",
-                problems.join("\n- ")
-            ),
-        ));
+                problems.join("\n- "))
+        };
+        on_log("sending the problems back to the AI…");
+        turns.push(Turn::new("user", feedback));
     }
     flush!();
     run
@@ -292,6 +463,11 @@ pub async fn author_async_logged<C: AuthorChat, E: AuthorEngine>(
 /// The desktop's blocking entry point.
 pub fn author<C: AuthorChat, E: AuthorEngine>(request: &str, chat: &mut C, engine: &mut E, max_tries: usize) -> AuthorRun {
     block_on_ready(author_async(request, chat, engine, max_tries))
+}
+
+/// The blocking [`author_full`].
+pub fn author_with<C: AuthorChat, E: AuthorEngine, K: AuthorCritic>(request: &str, chat: &mut C, engine: &mut E, critic: &mut K, budget: Budget) -> AuthorRun {
+    block_on_ready(author_full(request, chat, engine, critic, budget, |_| {}))
 }
 
 /// Drive a future whose awaits never actually wait (blocking chat and engine calls). Not a general
@@ -376,6 +552,112 @@ mod tests {
     fn a_never_set_variable_is_a_problem_even_when_the_engine_passes() {
         let q = MomQuestion { control: "$answer = 2".into(), qtext: "`$m x` $answerbox".into(), ..Default::default() };
         assert_eq!(static_problems(&q).len(), 1);
+    }
+
+    #[test]
+    fn a_fresh_restart_is_told_what_went_wrong_and_can_pass() {
+        // Two tries of BAD in the first conversation, then a fresh one that writes GOOD.
+        struct Seen(Vec<String>, usize);
+        impl AuthorChat for Seen {
+            async fn chat(&mut self, turns: &[Turn]) -> Result<String, String> {
+                self.0.push(turns[1].text.clone());
+                self.1 += 1;
+                Ok(if self.1 <= 2 { BAD } else { GOOD }.to_string())
+            }
+        }
+        let mut chat = Seen(vec![], 0);
+        let run = author_with("Add one", &mut chat, &mut FakeEngine, &mut NoCritic, Budget { max_tries: 2, restarts: 1, use_docs: false });
+        assert!(run.passed, "{:?}", run.log);
+        assert_eq!((run.tries, run.restarts), (3, 1));
+        assert!(chat.0[2].contains("An earlier attempt at this question failed"), "{}", chat.0[2]);
+        assert!(chat.0[2].contains("no correct answers exposed"));
+    }
+
+    #[test]
+    fn without_restarts_a_failure_stays_a_failure() {
+        let run = author_with("x", &mut Scripted(vec![BAD, BAD, GOOD], 0), &mut FakeEngine, &mut NoCritic, Budget { max_tries: 2, restarts: 0, use_docs: false });
+        assert!(!run.passed);
+        assert_eq!(run.tries, 2);
+    }
+
+    #[test]
+    fn the_line_imathas_names_is_quoted() {
+        let q = MomQuestion { control: "$a = 1\n$b = 2 +\n$c = 3".into(), answer_code: "$solutionguide = 'x'".into(), ..Default::default() };
+        let out = with_code_context(&["Caught error: syntax error on line 2 of Common Control (seed 7)".into(), "no line here".into()], &q);
+        assert!(out[0].contains(">   2 | $b = 2 +"), "{}", out[0]);
+        assert!(out[0].contains("   1 | $a = 1") && out[0].contains("   3 | $c = 3"), "{}", out[0]);
+        assert_eq!(out[1], "no line here");
+        // Line 4 is the ANSWER code, which the engine runs right after the control.
+        let out = with_code_context(&["syntax error on line 4 of Common Control".into()], &q);
+        assert!(out[0].contains(">   4 | $solutionguide = 'x'"), "{}", out[0]);
+        // An error inside IMathAS's own files is not the question's line.
+        let out = with_code_context(&["Undefined index on line 2 in file /imathas/x.php".into()], &q);
+        assert!(!out[0].contains("code around"));
+    }
+
+    #[test]
+    fn a_critic_round_sends_notes_back_and_accepts_the_revision() {
+        struct Picky(usize);
+        impl AuthorCritic for Picky {
+            async fn critique(&mut self, _: &str, _: &MomQuestion) -> Result<Option<Vec<String>>, String> {
+                self.0 += 1;
+                Ok(Some(if self.0 == 1 { vec!["Say what to round to.".into()] } else { vec![] }))
+            }
+        }
+        struct Echo(Vec<String>);
+        impl AuthorChat for Echo {
+            async fn chat(&mut self, turns: &[Turn]) -> Result<String, String> {
+                self.0.push(turns.last().unwrap().text.clone());
+                Ok(GOOD.to_string())
+            }
+        }
+        let mut chat = Echo(vec![]);
+        let run = author_with("x", &mut chat, &mut FakeEngine, &mut Picky(0), Budget { max_tries: 4, restarts: 0, use_docs: false });
+        assert!(run.passed);
+        assert_eq!((run.tries, run.critic_rounds, run.critic_ok), (2, 1, Some(true)));
+        assert!(chat.0[1].contains("Say what to round to."));
+    }
+
+    #[test]
+    fn a_lookup_is_answered_without_spending_a_try() {
+        struct Asks(Vec<String>, usize);
+        impl AuthorChat for Asks {
+            async fn chat(&mut self, turns: &[Turn]) -> Result<String, String> {
+                self.1 += 1;
+                self.0.push(turns.last().unwrap().text.clone());
+                Ok(if self.1 == 1 { "LOOKUP: check shuffle\nLOOKUP: answer_type numfunc".to_string() } else { GOOD.to_string() })
+            }
+        }
+        let mut chat = Asks(vec![], 0);
+        let run = author_with("x", &mut chat, &mut FakeEngine, &mut NoCritic, Budget { max_tries: 1, restarts: 0, use_docs: true });
+        assert!(run.passed, "{:?}", run.log);
+        assert_eq!((run.tries, run.lookups), (1, 2));
+        assert!(chat.0[1].contains("shuffle: NOT allowed") && chat.0[1].contains("numfunc"), "{}", chat.0[1]);
+    }
+
+    #[test]
+    fn preflight_sends_the_fix_back_before_the_engine_runs() {
+        const SHUFFLES: &str = "// === NAME - DESCRIPTION: Add one ===\n// === SET QUESTION TYPE TO: number ===\n// === COMMON CONTROL ===\n$a = shuffle(array(2,3))\n$answer = 1\n// === QUESTION TEXT ===\nx $answerbox\n";
+        struct Seen(Vec<String>, usize);
+        impl AuthorChat for Seen {
+            async fn chat(&mut self, turns: &[Turn]) -> Result<String, String> {
+                self.1 += 1;
+                self.0.push(turns.last().unwrap().text.clone());
+                Ok(if self.1 == 1 { SHUFFLES } else { GOOD }.to_string())
+            }
+        }
+        struct NoEngineFor(&'static str);
+        impl AuthorEngine for NoEngineFor {
+            async fn selftest(&mut self, src: &str, seeds: &[i64]) -> Result<SelftestResponse, String> {
+                assert!(!src.contains(self.0), "the engine ran a question preflight should have caught");
+                FakeEngine.selftest(src, seeds).await
+            }
+        }
+        let mut chat = Seen(vec![], 0);
+        let run = author_with("x", &mut chat, &mut NoEngineFor("shuffle("), &mut NoCritic, Budget { max_tries: 3, restarts: 0, use_docs: true });
+        assert!(run.passed, "{:?}", run.log);
+        assert_eq!((run.tries, run.preflight_catches), (2, 1));
+        assert!(chat.0[1].contains("jointshuffle"), "{}", chat.0[1]);
     }
 
     #[test]

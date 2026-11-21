@@ -1,0 +1,3201 @@
+{
+ "source": "IMathAS pinned in engine/Dockerfile; docs/dad/mom-reference (MyOpenMath help page, IMathAS libs)",
+ "allowed_functions": [
+  "ABarray",
+  "abs",
+  "acosh",
+  "acot",
+  "acoth",
+  "acsc",
+  "acsch",
+  "addcopytablebutton",
+  "adddrawcommand",
+  "addfractionaxislabels",
+  "addimageborder",
+  "addlabel",
+  "addlabelabs",
+  "addplotborder",
+  "arccos",
+  "arccosh",
+  "arccot",
+  "arccoth",
+  "arccsc",
+  "arccsch",
+  "arcsec",
+  "arcsech",
+  "arcsin",
+  "arcsinh",
+  "arctan",
+  "arctanh",
+  "are_numeric",
+  "array",
+  "array_flip",
+  "array_keys",
+  "array_reverse",
+  "array_unique",
+  "array_values",
+  "arrayfindindex",
+  "arrayfindindices",
+  "arrayhasduplicates",
+  "arraysetvalues",
+  "arraystodoteqns",
+  "arraystodots",
+  "arraytolist",
+  "asec",
+  "asech",
+  "asinh",
+  "atan",
+  "atan2",
+  "atanh",
+  "calclisttoarray",
+  "calconarray",
+  "calconarrayif",
+  "cases",
+  "ceil",
+  "changeimagesize",
+  "checkanswerformat",
+  "checkreqtimes",
+  "checksigfigs",
+  "checkvarvarname",
+  "comparecomplex",
+  "comparefunctions",
+  "compareintervals",
+  "comparelogic",
+  "comparentuples",
+  "comparenumbers",
+  "comparenumberswithunits",
+  "comparesameform",
+  "comparesetexp",
+  "connectthedots",
+  "consecutive",
+  "cos",
+  "cosh",
+  "cosn",
+  "cot",
+  "coth",
+  "cotn",
+  "count",
+  "csc",
+  "csch",
+  "cscn",
+  "dechex",
+  "decimaltofraction",
+  "definefunc",
+  "diffarrays",
+  "diffrands",
+  "diffrandsfrom",
+  "diffrrands",
+  "dispreducedfraction",
+  "e",
+  "evalfunc",
+  "evalnumstr",
+  "exp",
+  "explode",
+  "factorial",
+  "false",
+  "fillarray",
+  "floatval",
+  "floor",
+  "fmod",
+  "for",
+  "formatcomplex",
+  "formhoverover",
+  "forminlinebutton",
+  "formpopup",
+  "fractowords",
+  "gcd",
+  "getdotsdata",
+  "getfeedbackbasic",
+  "getfeedbacktxt",
+  "getfeedbacktxtcalculated",
+  "getfeedbacktxtessay",
+  "getfeedbacktxtnumber",
+  "getfeedbacktxtnumfunc",
+  "getineqdata",
+  "getlinesdata",
+  "getntupleparts",
+  "getnumbervalue",
+  "getopendotsdata",
+  "getsigfigs",
+  "getsnapwidthheight",
+  "getstuans",
+  "gettwopointdata",
+  "gettwopointformulas",
+  "gettwopointlinedata",
+  "hexdec",
+  "horizshowarrays",
+  "htmldisp",
+  "htmlentities",
+  "if",
+  "ifthen",
+  "importcodefrom",
+  "in_array",
+  "includecodefrom",
+  "intersectarrays",
+  "intval",
+  "invertplot",
+  "is_array",
+  "is_nan",
+  "is_nicenumber",
+  "is_numeric",
+  "is_string",
+  "isset",
+  "joinarray",
+  "jointrandfrom",
+  "jointshuffle",
+  "jointsort",
+  "keepif",
+  "lcfirst",
+  "lcm",
+  "levenshtein",
+  "listtoarray",
+  "ln",
+  "loadlibrary",
+  "log",
+  "log10",
+  "loopcut",
+  "loopreset",
+  "loopstart",
+  "loopstep",
+  "ltrim",
+  "makenumberrequiretimes",
+  "makepretty",
+  "makeprettydisp",
+  "makeprettynegative",
+  "makereducedfraction",
+  "makereducedmixednumber",
+  "makescinot",
+  "makexpretty",
+  "makexprettydisp",
+  "makexxpretty",
+  "makexxprettydisp",
+  "max",
+  "mergearrays",
+  "mergeplots",
+  "min",
+  "mod",
+  "multicalconarray",
+  "nonzerodiffrands",
+  "nonzerodiffrrands",
+  "nonzerorand",
+  "nonzerorands",
+  "nonzerorrand",
+  "nonzerorrands",
+  "normalizefunc",
+  "nthlog",
+  "null",
+  "numtoroman",
+  "numtowords",
+  "off",
+  "parseInterval",
+  "parseNtuple",
+  "pi",
+  "polymakepretty",
+  "polymakeprettydisp",
+  "preg_match",
+  "preg_match_all",
+  "preg_replace",
+  "prettyint",
+  "prettynegs",
+  "prettyreal",
+  "prettyreal_instring",
+  "prettysigfig",
+  "prettysigfig_instring",
+  "prettysmallnumber",
+  "prettytime",
+  "print_r",
+  "rand",
+  "randcities",
+  "randcity",
+  "randcountries",
+  "randcountry",
+  "randfemalename",
+  "randfemalenames",
+  "randfrom",
+  "randkeyfrom",
+  "randkeysfrom",
+  "randmalename",
+  "randmalenames",
+  "randname",
+  "randnames",
+  "randnamewpronouns",
+  "randpythag",
+  "rands",
+  "randsfrom",
+  "randstate",
+  "randstates",
+  "rawurlencode",
+  "replacealttext",
+  "root",
+  "round",
+  "round_instring",
+  "roundsigfig",
+  "rrand",
+  "rrands",
+  "rtrim",
+  "safeacos",
+  "safeasin",
+  "safepow",
+  "scoremultiorder",
+  "scoreperiodic",
+  "scorestring",
+  "sec",
+  "sech",
+  "secn",
+  "setseed",
+  "setupmathquillfillin",
+  "sgn",
+  "showarrays",
+  "showasciisvg",
+  "showdataarray",
+  "showplot",
+  "showrecttable",
+  "sign",
+  "simplifyexpr",
+  "sin",
+  "singleshuffle",
+  "sinh",
+  "sinn",
+  "sortarray",
+  "sorttwopointdata",
+  "splicearray",
+  "sprintf",
+  "sqrt",
+  "str_replace",
+  "stringappend",
+  "stringclean",
+  "stringlen",
+  "stringpos",
+  "stringprepend",
+  "stringtoarray",
+  "stringtopolyterms",
+  "strtolower",
+  "strtoupper",
+  "stuansready",
+  "subarray",
+  "substr",
+  "substr_count",
+  "sumarray",
+  "tan",
+  "tanh",
+  "tann",
+  "textonimage",
+  "today",
+  "trim",
+  "true",
+  "ucfirst",
+  "unionarrays",
+  "uniqid",
+  "where"
+ ],
+ "libraries": {
+  "JSXG": [
+   "JSXG_addAngle",
+   "JSXG_addArrow",
+   "JSXG_addCircle",
+   "JSXG_addFunction",
+   "JSXG_addGlider",
+   "JSXG_addLine",
+   "JSXG_addParametric",
+   "JSXG_addPoint",
+   "JSXG_addPolar",
+   "JSXG_addPolygon",
+   "JSXG_addRay",
+   "JSXG_addSegment",
+   "JSXG_addSlider",
+   "JSXG_addTangent",
+   "JSXG_addText",
+   "JSXG_createAxes",
+   "JSXG_createBlankBoard",
+   "JSXG_createPolarAxes",
+   "JSXG_getLabel",
+   "JSXG_setAttribute",
+   "loadJSX"
+  ],
+  "acct": [
+   "makeTchart",
+   "makeTchartsfromjournal",
+   "makeaccttable",
+   "makeaccttable2",
+   "makeaccttable3",
+   "makeinventory",
+   "makejournal",
+   "makeledgerfromjournal",
+   "makestatement",
+   "maketrialbalance",
+   "maketrialbalancefromjournal",
+   "prettyacct",
+   "scoreTchart",
+   "scoreTchartsfromjournal",
+   "scoreinventory",
+   "scorejournal",
+   "scorestatement",
+   "scoretrialbalance",
+   "scoretrialbalancefromjournal",
+   "totalsfromjournal"
+  ],
+  "biology": [
+   "bio_anticodon",
+   "bio_getcodonname",
+   "bio_randcodon",
+   "bio_splitcodons",
+   "bio_translation"
+  ],
+  "calculus": [
+   "calculusdiffquotient",
+   "calculusnumint"
+  ],
+  "chemistry": [
+   "chem_balancereaction",
+   "chem_decomposecompound",
+   "chem_diffrandelementsbyfamily",
+   "chem_disp",
+   "chem_eqndisp",
+   "chem_getboilingpoint",
+   "chem_getcompoundmolmass",
+   "chem_getdiffrandcompounds",
+   "chem_getfamily",
+   "chem_getmeltingpoint",
+   "chem_getname",
+   "chem_getnumber",
+   "chem_getrandcompound",
+   "chem_getsolubility",
+   "chem_getsymbol",
+   "chem_getweight",
+   "chem_isotopedisp",
+   "chem_makeioniccompound",
+   "chem_mathdisp",
+   "chem_randanion",
+   "chem_randcation",
+   "chem_randelementbyfamily",
+   "chem_showmolecule",
+   "chem_vsepr"
+  ],
+  "chgbase": [
+   "asciitodec",
+   "baseconvert",
+   "bindec",
+   "bitwise_xor",
+   "decbin",
+   "dectoascii",
+   "draw_babylonian_number",
+   "draw_mayan_number"
+  ],
+  "complex": [
+   "cx_add",
+   "cx_arg",
+   "cx_conj",
+   "cx_cubicRoot",
+   "cx_div",
+   "cx_format2pol",
+   "cx_format2std",
+   "cx_matrixreduce",
+   "cx_modul",
+   "cx_mul",
+   "cx_plot",
+   "cx_pol2std",
+   "cx_polEu",
+   "cx_pow",
+   "cx_prettyquadRoot",
+   "cx_quadRoot",
+   "cx_root",
+   "cx_std2pol",
+   "cx_sub"
+  ],
+  "construct2": [
+   "addConstruct2"
+  ],
+  "conversion": [
+   "conversionAbbreviations",
+   "conversionArea",
+   "conversionArea2",
+   "conversionCapacity",
+   "conversionCapacity2",
+   "conversionDisplay",
+   "conversionDisplay2HTML",
+   "conversionDisplay2HTMLwithBorder",
+   "conversionFormulaAbbreviations",
+   "conversionFormulaGeometry",
+   "conversionFormulaTemperature",
+   "conversionLength",
+   "conversionLength2",
+   "conversionLiquid",
+   "conversionLiquid2",
+   "conversionPrefix",
+   "conversionTime",
+   "conversionTime2",
+   "conversionUnits2ScreenReader1",
+   "conversionUnits2ScreenReader2",
+   "conversionVer",
+   "conversionVolume",
+   "conversionVolume2",
+   "conversionWeight",
+   "conversionWeight2",
+   "conversion_extract_column_array"
+  ],
+  "crypto": [
+   "chunktext",
+   "cryptorsakeys",
+   "modularexponent",
+   "randfiveletterword",
+   "randmilphrase",
+   "randsubmap",
+   "shiftcipher",
+   "subcipher",
+   "transcipher"
+  ],
+  "dates": [
+   "dates_adddays",
+   "dates_addmonths",
+   "dates_addweeks",
+   "dates_addyears",
+   "dates_bomonth",
+   "dates_dateformat",
+   "dates_diffdays",
+   "dates_eomonth",
+   "dates_randdate"
+  ],
+  "diffeq": [
+   "diffeq_comparegensoln",
+   "diffeq_slopefield"
+  ],
+  "finance": [
+   "futureValue",
+   "interest",
+   "numberOfPeriods",
+   "payment",
+   "presentValue",
+   "vmTVM"
+  ],
+  "finance2": [
+   "fin_DBD",
+   "fin_FV",
+   "fin_IRR",
+   "fin_IY",
+   "fin_NPV",
+   "fin_Nper",
+   "fin_PMT",
+   "fin_PV",
+   "fin_TVM",
+   "fin_iPMT",
+   "fin_pPMT"
+  ],
+  "finderiv": [
+   "finderiv_bsm",
+   "finderiv_checkpayout",
+   "finderiv_convertrate",
+   "finderiv_equityfutdate",
+   "finderiv_fairforwardrate",
+   "finderiv_fra",
+   "finderiv_fwdcontract",
+   "finderiv_fwdprice",
+   "finderiv_fwdpricediv",
+   "finderiv_immdate",
+   "finderiv_payout"
+  ],
+  "fractions": [
+   "fractionadd",
+   "fractiondiffdrands",
+   "fractiondiffdrandsfrom",
+   "fractiondivide",
+   "fractionmultiply",
+   "fractionneg",
+   "fractionparse",
+   "fractionpower",
+   "fractionrand",
+   "fractionreduce",
+   "fractionroot",
+   "fractionsubtract",
+   "fractiontodecimal",
+   "fractiontomixed"
+  ],
+  "fractions2": [
+   "diffrandfractions",
+   "dispsimplifyfraction",
+   "fractiondenominator",
+   "fractionnumerator",
+   "isreducedfraction",
+   "makerepeatingdecimal",
+   "randfraction",
+   "randfractions",
+   "repeatingdecimal2fraction",
+   "simplifyfraction"
+  ],
+  "functioneval": [
+   "fe_lpfnc"
+  ],
+  "geogebra": [
+   "addGeogebra",
+   "addGeogebraJava",
+   "ggb_addobject",
+   "ggb_addslider",
+   "ggb_axes",
+   "ggb_getparams"
+  ],
+  "geom": [
+   "drawrect",
+   "drawtriSSS"
+  ],
+  "graphtheory": [
+   "graphadjacencytoincidence",
+   "graphbackflow",
+   "graphbipartite",
+   "graphcircle",
+   "graphcircledstar",
+   "graphcircledstarlayout",
+   "graphcircleladder",
+   "graphcirclelayout",
+   "graphcircuittoarray",
+   "graphcircuittostringans",
+   "graphcomparecircuits",
+   "graphcriticaltimelist",
+   "graphdecreasingtimelist",
+   "graphdijkstra",
+   "graphdrawit",
+   "graphdrawschedule",
+   "graphemptygraph",
+   "graphgetcriticalpath",
+   "graphgetedges",
+   "graphgetedgesarray",
+   "graphgetpathlength",
+   "graphgettotalcost",
+   "graphgetvalence",
+   "graphgrid",
+   "graphgridlayout",
+   "graphincidencetoadjacency",
+   "graphisconnected",
+   "graphkruskal",
+   "graphlistprocessing",
+   "graphmakesymmetric",
+   "graphmaketable",
+   "graphnearestneighbor",
+   "graphnestedpolygons",
+   "graphpathlayout",
+   "graphprereqtable",
+   "graphrandom",
+   "graphrandomgridschedule",
+   "graphrepeatednearestneighbor",
+   "graphschedulecompletion",
+   "graphscheduleidle",
+   "graphschedulelayout",
+   "graphschedulemultchoice",
+   "graphscheduleproctasks",
+   "graphscheduletaskinfo",
+   "graphsequenceeuleredgedups",
+   "graphsequenceishamiltonian",
+   "graphshortestpath",
+   "graphsortededges",
+   "graphspringlayout"
+  ],
+  "ineq": [
+   "ineqbetweenplot",
+   "ineqplot"
+  ],
+  "inplacecalculator": [
+   "inplacecalc",
+   "inplacecalcload",
+   "inplacecalculator"
+  ],
+  "interval": [
+   "forminterval",
+   "intervalstodraw",
+   "linegraph",
+   "linegraphbrackets"
+  ],
+  "interval_ext": [
+   "canonicInterval",
+   "intersection"
+  ],
+  "jsxgraph": [
+   "jsxAngle",
+   "jsxBoard",
+   "jsxCircle",
+   "jsxFunction",
+   "jsxGlider",
+   "jsxImage",
+   "jsxIntegral",
+   "jsxIntersection",
+   "jsxLine",
+   "jsxParametric",
+   "jsxPoint",
+   "jsxPolar",
+   "jsxPolygon",
+   "jsxRay",
+   "jsxRiemannSum",
+   "jsxSegment",
+   "jsxSetChild",
+   "jsxSlider",
+   "jsxSuspendUpdate",
+   "jsxTangent",
+   "jsxText",
+   "jsxUnsuspendUpdate",
+   "jsxVector",
+   "jsx_getCoords",
+   "jsx_getXCoord",
+   "jsx_getYCoord"
+  ],
+  "lineutil": [
+   "lineboundarycoord"
+  ],
+  "logic": [
+   "logicallyequivalent",
+   "logicallyimplies",
+   "logicevaluate",
+   "logicevaluateall",
+   "logiclegend",
+   "logicmakepretty",
+   "logicrand",
+   "logicsteps",
+   "truthtable",
+   "truthtableanswers"
+  ],
+  "logistic": [
+   "logisticpredict",
+   "logisticregression",
+   "logisticsolve"
+  ],
+  "matrix": [
+   "arrayIsZeroVector",
+   "matrix",
+   "matrixAbasisForB",
+   "matrixAspansB",
+   "matrixAxbHasSolution",
+   "matrixCompare",
+   "matrixDet",
+   "matrixFormMatrixFromEigValEigVec",
+   "matrixFormatEigenvecs",
+   "matrixFromCols",
+   "matrixFromEigenvals",
+   "matrixFromRows",
+   "matrixGetColumnSpace",
+   "matrixGetMinor",
+   "matrixGetRank",
+   "matrixGetRowSpace",
+   "matrixIsColsLinInd",
+   "matrixIsEigVal",
+   "matrixIsEigVec",
+   "matrixIsRowsLinInd",
+   "matrixNumberOfColumns",
+   "matrixNumberOfRows",
+   "matrixParseStuans",
+   "matrixRandomMatrix",
+   "matrixRandomSpan",
+   "matrixaugment",
+   "matrixdiff",
+   "matrixdisplaytable",
+   "matrixformat",
+   "matrixformatfrac",
+   "matrixgetcol",
+   "matrixgetentry",
+   "matrixgetrow",
+   "matrixgetsubmatrix",
+   "matrixidentity",
+   "matrixinverse",
+   "matrixinversefrac",
+   "matrixnumsolutions",
+   "matrixprod",
+   "matrixrandinvertible",
+   "matrixrandunreduce",
+   "matrixreduce",
+   "matrixround",
+   "matrixrowcombine",
+   "matrixrowcombine3",
+   "matrixrowscale",
+   "matrixrowswap",
+   "matrixscalar",
+   "matrixsolve",
+   "matrixsolvefrac",
+   "matrixsum",
+   "matrixsystemdisp",
+   "matrixtranspose",
+   "polyregression"
+  ],
+  "normalcurve": [
+   "normalcurve",
+   "normalcurve2",
+   "normalcurve3"
+  ],
+  "plot3d": [
+   "CalcPlot3Dembed",
+   "CalcPlot3Dlink",
+   "plot3d",
+   "replace3dalttext",
+   "spacecurve"
+  ],
+  "poly3": [
+   "dividepoly3",
+   "formpoly3fromresults",
+   "formpoly3fromstring",
+   "longdivisionpoly3",
+   "writepoly3"
+  ],
+  "polys": [
+   "addpolys",
+   "checkpolypowerorder",
+   "derivepoly",
+   "describepoly",
+   "describerational",
+   "divpolys",
+   "formpoly",
+   "formpolyfromroots",
+   "getcoef",
+   "multpolys",
+   "polypower",
+   "polys_getdegree",
+   "quadroot",
+   "roundpoly",
+   "scalepoly",
+   "subtpolys",
+   "writepoly",
+   "writepolyfrac"
+  ],
+  "polys2": [
+   "addpolys2",
+   "formpoly2",
+   "getcoef2",
+   "multpolys2",
+   "polypower2",
+   "scalepoly2",
+   "subtpolys2",
+   "writepoly2"
+  ],
+  "primes": [
+   "getprime",
+   "getprimes",
+   "isprime"
+  ],
+  "radicals": [
+   "reducequadraticform",
+   "reduceradical",
+   "reduceradicalfrac",
+   "reduceradicalfrac2",
+   "reduceradicalfrac3"
+  ],
+  "setexp": [
+   "setexpequals",
+   "setexpevaluate",
+   "setexplegend",
+   "setexpmakepretty",
+   "setexprand",
+   "setexpsteps",
+   "setexpsubset",
+   "venn2diagram",
+   "venn3diagram"
+  ],
+  "shapes": [
+   "draw_angle",
+   "draw_circle",
+   "draw_circlesector",
+   "draw_cone",
+   "draw_cylinder",
+   "draw_polygon",
+   "draw_polyomino",
+   "draw_prismcubes",
+   "draw_pyramid",
+   "draw_rectangle",
+   "draw_rectprism",
+   "draw_sphere",
+   "draw_square",
+   "draw_triangle"
+  ],
+  "simplex": [
+   "simplex",
+   "simplexchecksolution",
+   "simplexconverttodecimals",
+   "simplexconverttofraction",
+   "simplexcreateanswerboxentrytable",
+   "simplexcreateinequalities",
+   "simplexcreatelatexinequalities",
+   "simplexdebug",
+   "simplexdefaultheaders",
+   "simplexdisplaycolortable",
+   "simplexdisplaylatex",
+   "simplexdisplaylatex2",
+   "simplexdisplaytable",
+   "simplexdisplaytable2",
+   "simplexdisplaytable2string",
+   "simplexfindpivotpoint",
+   "simplexfindpivotpointmixed",
+   "simplexgetentry",
+   "simplexnumberofsolutions",
+   "simplexpivot",
+   "simplexreadsolution",
+   "simplexreadsolutionarray",
+   "simplexreadtoanswerarray",
+   "simplexsetentry",
+   "simplexsolutiontolatex",
+   "simplexsolve",
+   "simplexsolve2",
+   "simplexver"
+  ],
+  "socchoice": [
+   "apportion",
+   "apportion_info",
+   "banzhafpower",
+   "shapleyshubikpower"
+  ],
+  "solvers": [
+   "bisectionsolve",
+   "discretenewtons"
+  ],
+  "stats": [
+   "Excelquartile",
+   "Excelquartileexc",
+   "Nplus1percentile",
+   "Nplus1quartile",
+   "TIquartile",
+   "absmeandev",
+   "allquartile",
+   "anova1way",
+   "anova1way_f",
+   "anova2way",
+   "anova2way_f",
+   "anova_table",
+   "back_to_back_stem_plot",
+   "beta_cdf",
+   "beta_inv",
+   "binomialcdf",
+   "binomialpdf",
+   "boxplot",
+   "checkdrawnlineagainstdata",
+   "checklineagainstdata",
+   "chi2cdf",
+   "chi2teststat",
+   "chicdf",
+   "cluster_bargraph",
+   "countif",
+   "csvdownloadlink",
+   "dotplot",
+   "expdistrand",
+   "expreg",
+   "fcdf",
+   "fdbargraph",
+   "fdhistogram",
+   "forceonemode",
+   "freqdist",
+   "frequency",
+   "gamma_cdf",
+   "gamma_inv",
+   "gamma_log",
+   "geometricdf",
+   "geometripdf",
+   "histogram",
+   "hypgeomcdf",
+   "hypgeompdf",
+   "interppercentile",
+   "invchi2cdf",
+   "invchicdf",
+   "invfcdf",
+   "invnormalcdf",
+   "invtcdf",
+   "invtcdf2",
+   "linreg",
+   "mean",
+   "median",
+   "modes",
+   "mosaicplot",
+   "nCr",
+   "nPr",
+   "negbinomialcdf",
+   "negbinomialpdf",
+   "normalcdf",
+   "normrand",
+   "percentile",
+   "piechart",
+   "poissoncdf",
+   "poissonpdf",
+   "quartile",
+   "stats_randF",
+   "stats_randchi2",
+   "stats_randg",
+   "stats_randpoisson",
+   "stats_randt",
+   "stdev",
+   "stem_plot",
+   "student_t",
+   "tcdf",
+   "variance"
+  ],
+  "timedate": [
+   "thisyear",
+   "timetominutes"
+  ],
+  "units": [
+   "parseunits"
+  ],
+  "vector": [
+   "crossp",
+   "dotp",
+   "veccomparesamespan",
+   "veccompareset",
+   "vecdiff",
+   "vecnorm",
+   "vecprod",
+   "vecsum"
+  ],
+  "virtmanip": [
+   "vmchipmodelgetcount",
+   "vmdrawclock",
+   "vmdrawcmruler",
+   "vmdrawinchruler",
+   "vmgetfractioncompareval",
+   "vmgetfractionlinevals",
+   "vmgetfractionmultvals",
+   "vmgetlistener",
+   "vmgetparam",
+   "vmitemsortgetcontainers",
+   "vmnumberlineadditiongetvals",
+   "vmnumberlinegetvals",
+   "vmnumberlineintervalgetvals",
+   "vmnumbertilesgetcount",
+   "vmparamtoarray",
+   "vmsetup",
+   "vmsetupchipmodel",
+   "vmsetupfractioncompare",
+   "vmsetupfractionline",
+   "vmsetupfractionmult",
+   "vmsetupitemsort",
+   "vmsetupnumberline",
+   "vmsetupnumberlineaddition",
+   "vmsetupnumberlineinterval",
+   "vmsetupnumbertiles"
+  ]
+ },
+ "disallowed_vars": [
+  "DBH",
+  "GLOBALS",
+  "_COOKIE",
+  "_ENV",
+  "_FILES",
+  "_GET",
+  "_POST",
+  "_REQUEST",
+  "_SERVER",
+  "_SESSION",
+  "_forends",
+  "allowedConstants",
+  "allowedmacros",
+  "anstype",
+  "countcnt",
+  "disallowedvar",
+  "doShowAnswer",
+  "doShowAnswerParts",
+  "forloopcnt",
+  "iidx",
+  "kidx",
+  "la",
+  "laarr",
+  "laparts",
+  "link",
+  "myrights",
+  "myspecialrights",
+  "optionsPack",
+  "partla",
+  "partnum",
+  "qdata",
+  "qidx",
+  "qnidx",
+  "quesData",
+  "score",
+  "seed",
+  "shanspt",
+  "stm",
+  "teacherInGb",
+  "this",
+  "tips",
+  "toevalqtxt",
+  "toevalsoln",
+  "wherecount",
+  "whilecount"
+ ],
+ "answer_types": [
+  "matrix",
+  "calcmatrix",
+  "complexmatrix",
+  "calccomplexmatrix",
+  "algmatrix",
+  "calculated",
+  "choices",
+  "complex",
+  "calccomplex",
+  "conditional",
+  "draw",
+  "essay",
+  "file",
+  "interval",
+  "calcinterval",
+  "matching",
+  "multans",
+  "number",
+  "numfunc",
+  "ntuple",
+  "calcntuple",
+  "complexntuple",
+  "calccomplexntuple",
+  "algntuple",
+  "string",
+  "chemeqn",
+  "molecule"
+ ],
+ "answer_type_aliases": {
+  "multiple_choice": "choices",
+  "multiple_answer": "multans",
+  "function": "numfunc",
+  "fileupload": "file",
+  "numericalmatrix": "matrix",
+  "calculatedmatrix": "calcmatrix",
+  "numerical": "number",
+  "multiplechoice": "choices",
+  "select_all": "multans",
+  "free_response": "essay",
+  "text": "string"
+ },
+ "answer_type_docs": {
+  "choices": {
+   "title": "Multiple Choice (MyOpenMath's help page lists it as \"Multiple Choice\"; the code in $anstypes is `choices`)",
+   "summary": "Student selects the correct answer. Order automatically randomized. Multipart name: `choices`.",
+   "doc": "Student selects the correct answer. Order automatically randomized. Multipart name: `choices`.\n\n### Required Variables\n\n- `$questions` — Array of choices (or `$choices` — don't define both).\n- `$answer` — Index into `$questions` for correct answer (zero-indexed). Multiple correct: `$answer = \"0 or 1\"`.\n\n### Options / Settings\n\n- `$displayformat` — `horiz`, `select`, `2column`, `3column`, `inline`.\n- `$noshuffle` — `'all'` (no shuffle), `'last'` (shuffle all but last), `'last2'`, `'last3'`.\n- `$partialcredit` — `array(index,score,...)`.\n- `$readerlabel` — Screenreader label.\n- `$ansprompt` — Override `'Select an answer'` text when `displayformat=select`.\n- `$answerbox` — In Question Text.\n- `$showanswer` — Defaults to correct answer text.\n- `$hidetips` — `true` to hide tips.\n\n### Example\n\n```php\n$anstypes = array(\"multiple_choice\");\n$questions = array(\"Paris\", \"London\", \"Madrid\", \"Rome\");\n$answer = 0;  // Paris is correct\n$noshuffle = \"last\";\n```\n\n---",
+   "page": "choice.md"
+  },
+  "multans": {
+   "title": "Multiple Answer (MyOpenMath's help page lists it as \"Multiple Answer\"; the code in $anstypes is `multans`)",
+   "summary": "Student selects all correct choices. Order automatically randomized. Multipart name: `multans`.",
+   "doc": "Student selects all correct choices. Order automatically randomized. Multipart name: `multans`.\n\n### Required Variables\n\n- `$questions` — Array of choices (or `$choices`).\n- `$answers` — List of correct indices. Multiple valid combos: `$answers = \"0,1 or 0,3\"`.\n\n### Options / Settings\n\n- `$scoremethod` — `'answers'` (divide by answer count), `'allornothing'`, `'takeanything'`.\n- `$displayformat` — `horiz`, `2column`, `3column`, `inline`.\n- `$noshuffle` — `'all'` or `'last'`.\n- `$answerformat` — `'addnone'` adds `'None of these'` option.\n- `$readerlabel` — Screenreader label.\n- `$answerbox` — In Question Text.\n- `$showanswer` — Defaults to correct answers text.\n- `$hidetips` — `true` to hide tips.\n\n### Example\n\n```php\n$anstypes = array(\"multiple_answer\");\n$questions = array(\"Red\", \"Blue\", \"Green\", \"Yellow\");\n$answers = \"0,2\";  // Red and Green are correct\n$scoremethod = \"allornothing\";\n```\n\n---",
+   "page": "choice.md"
+  },
+  "matching": {
+   "title": "Matching",
+   "summary": "Student matches answers with questions. Multipart name: `matching`.",
+   "doc": "Student matches answers with questions. Multipart name: `matching`.\n\n### Required Variables\n\n- `$questions` — Array of questions (left side with entry boxes).\n- `$answers` — Array of answers (right side, lettered).\n\n### Options / Settings\n\n- `$matchlist` — Indices into `$answers` for each question. Default: one-to-one. Example: `'0,0,1'` (first two questions both match answer 0).\n- `$questiontitle` — Title above questions list.\n- `$answertitle` — Title above answers list.\n- `$noshuffle` — `'questions'` or `'answers'` to retain original order of one list.\n- `$displayformat` — `'select'` or `'2columnselect'`. Only for pure text answers.\n- `$scoremethod` — `'allornothing'` for no partial credit.\n- `$ansprompt` — Override default `'-'` in dropdowns.\n- `$readerlabel` — Screenreader label.\n- `$answerbox` — In Question Text.\n- `$showanswer` — Defaults to correct matches.\n- `$hidetips` — `true` to hide tips.\n\n### Example\n\n```php\n$anstypes = array(\"matching\");\n$questions = array(\"Dog\", \"Cat\", \"Fish\");\n$answers = array(\"Bark\", \"Meow\", \"Swim\");\n// Default matchlist: 0,1,2 (one-to-one)\n$noshuffle = \"answers\";  // Keep answers in original order\n```\n\n### Notes\n\n- `$matchlist` enables many-to-one matching (e.g., multiple questions can match the same answer).\n- `$displayformat = 'select'` or `'2columnselect'` is only valid for plain text answers (no math markup).",
+   "page": "choice.md"
+  },
+  "essay": {
+   "title": "Free Response / Essay",
+   "summary": "Free-response answer. **NOT automatically graded.** Multipart name: `essay`.",
+   "doc": "Free-response answer. **NOT automatically graded.** Multipart name: `essay`.\n\n### Required Variables\n\nNone required. The question type itself is the configuration.\n\n### Options / Settings\n\n- `$answerboxsize` — `'rows'` or `'rows,columns'`. Default 5 rows, 50 columns.\n- `$displayformat` — `'editor'` for rich text, **`'editornopaste'` for rich text without paste** (recommended for assessments — prevents copy-paste cheating), `'pre'` for preformatted.\n- `$scoremethod` — `'takeanything'`, `'takeanythingorblank'`, `'nomanual'` (no credit, no manual grading flag).\n- `$readerlabel` — Screenreader label.\n- `$answerbox` — In Question Text.\n- `$showanswer` — Answer to show.\n- `$hidetips` — `true` to hide tips.\n\n### Example\n\n```php\n$anstypes = array(\"essay\");\n$displayformat[0] = 'editornopaste';\n$answerboxsize[0] = \"8,60\";\n```\n\n### Notes\n\n- **Always use `'editornopaste'`** in assessments. `'editor'` allows paste and is a cheating risk.\n- Essay questions require manual grading unless `$scoremethod = 'takeanything'`.\n- See [`../macros/format.md`](../macros/format.md) for `$displayformat` details.\n- For rubric-based grading patterns used in this repo, see the FRQ questions in `questions/frq/`.\n\n---",
+   "page": "essay-file.md"
+  },
+  "draw": {
+   "title": "Drawing / Graphing",
+   "summary": "Student draws lines, curves, or dots on a coordinate plane. Dots graded right/wrong. Lines graded by deviation. Multipart name: `draw`.",
+   "doc": "Student draws lines, curves, or dots on a coordinate plane. Dots graded right/wrong. Lines graded by deviation. Multipart name: `draw`.\n\n### Required Variables\n\n- `$answers` — String or array of strings describing points/curves:\n  - Curves: `'f(x)'` (e.g., `'x^2-3'`)\n  - Segments: `'f(x),xmin,xmax'`\n  - Dots: `'x,y'` or `'x,y,open'`\n  - Prefix `'optional'` for non-required elements.\n\n### Options / Settings\n\n- `$answerformat` — Drawing tool selection:\n  - **`twopoint`** (recommended) — Two control points per shape. Default tools: `line`, `parabola`, `absolute value`, `circle`, `dot`. Available tools: `line`, `dashedline`, `lineseg`, `ray`, `parab`, `horizparab`, `halfparab`, `3pointparab`, `cubic`, `abs`, `circle`, `dot`, `opendot`, `sqrt`, `cuberoot`, `trig`, `tan`, `vector`, `exp`, `genexp`, `log`, `genlog`, `rational`, `ellipse`, `hyperbola`.\n  - `polygon` — Single polygon. `$answer` as array of points joined with edges.\n  - `closedpolygon` — Closed polygon with shaded area. First and last `$answers` entry identical.\n  - `inequality` — Linear inequalities. Answers: `'>=3x+4'`, `'<5x+4'`, `'x<=3'`. Add `'parab'` or `'abs'` for other types.\n  - `numberline` — Inequalities/points on number line. Use `intervalstodraw` from interval library.\n  - `freehand` — Freehand drawing. **NOT auto-graded.**\n- `$snaptogrid` — Snap spacing. `1` for integers, `0.5` for half, `'2:4'` for different x/y.\n- `$grid` — `'xmin,xmax,ymin,ymax,xscl,yscl,width,height'`. Default `'-5,5,-5,5,1,1,300,300'`. For numberline, set ymin/ymax to 0.\n- `$background` — Equation or array for background graph. `'none'` removes axes/grid. Alt-text: add `'alt:description'` element.\n- `$partweights` — Array/list of weights per answer element. Default equal.\n- `$reltolerance` — Scales grading tolerance. Default `1`. `2` = twice tolerant, `0.5` = half.\n- `$abstolerance` — All-or-nothing cutoff. Score < value = 0, otherwise full credit.\n- `$scoremethod` — `'takeanything'`, `'direction'` (vectors), `'relativelength'` (vectors), `'ignoreoverlap'` (lines), `'ignoreextradots'` (polygon).\n- `$readerlabel` — Screenreader label.\n- `$answerbox` — In Question Text.\n- `$showanswer` — Defaults to correct answer text.\n- `$hidetips` — `true` to hide tips.\n\n#### Twopoint Answer Formats\n\n| Shape | Format |\n|-------|--------|\n| Function | `'2x+3'` |\n| Line segment | `'2x+4,-oo,3'` or `'x=4,-2,3'` for vertical |\n| Dashed line | `'dashedline,2/3x+4'` |\n| Dot | `'x,y'` or `'x,y,open'` |\n| Circle | `'circle,x,y,radius'` |\n| Ellipse | `'ellipse,x,y,x_radius,y_radius'` |\n| Horizontal hyperbola | `'horizhyperbola,h,k,a,b'` |\n| Vertical hyperbola | `'verthyperbola,h,k,a,b'` |\n| Horizontal parabola | `'x=equation'` (e.g., `'x=2(y-1)^2-3'`) |\n| Half parabola | `'equation,>xvertex'` (e.g., `'(x-1)^2-3,>1'`) |\n| Vector | `'vector,x_start,y_start,x_end,y_end'` or `'vector,dx,dy'` |\n\n### Example\n\n```php\n$anstypes = array(\"draw\");\n$answers = array(\"2x+1\", \"3,2\", \"3,2,open\");\n$answerformat = \"twopoint\";\n$grid = \"-5,5,-5,5,1,1,300,300\";\n```\n\n### Notes\n\n- See `questions/draw/graph-linear-function.php` for a complete working example.\n- Use `gettwopointlinedata()`, `gettwopointdata()`, `gettwopointformulas()` macros to extract drawn data for scoring in `conditional` type.\n\n---",
+   "page": "essay-file.md"
+  },
+  "file": {
+   "title": "File Upload (MyOpenMath's help page lists it as \"File Upload\"; the code in $anstypes is `file`)",
+   "summary": "Student uploads a file. **NOT automatically graded.** Multipart name: `file`.",
+   "doc": "Student uploads a file. **NOT automatically graded.** Multipart name: `file`.\n\n### Required Variables\n\nNone required.\n\n### Allowed Extensions\n\n`.jpg`, `.jpeg`, `.png`, `.gif`, `.webp`, `.heic`, `.tiff`, `.bmp`, `.svg`, `.doc`, `.xls`, `.ppt`, `.docx`, `.xlsx`, `.pptx`, `.rtf`, `.csv`, `.pdf`, `.txt`, `.odt`, `.ods`, `.odp`, `.key`, `.md`, `.epub`, `.tex`, `.zip`, `.rar`, `.7z`, `.gz`, `.mp4`, `.mov`, `.mkv`, `.mp3`, `.m4a`, `.vtt`, `.srt`, `.nb`, `.nbp`, `.mw`, `.mws`, `.m`, `.mat`, `.mlx`, `.omv`, `.sas`, `.sav`, `.r`, `.rda`, `.rds`, `.dta`, `.rdata`, `.rmd`, `.sps`, `.qmd`, `.mpx`, `.mpj`, `.mwx`, `.mtw`, `.jmp`, `.jrn`, `.jrp`, `.dat`, `.json`, `.imas`, `.imscc`, `.ggb`, `.ipynb`, `.pages`, `.numbers`, `.htm`, `.html`, `.js`, `.xml`, `.xhtml`\n\n### Options / Settings\n\n- `$scoremethod` — `'takeanything'` or `'takeanythingorblank'`.\n- `$answerformat` — `'images'`, `'canpreview'`, or comma-separated extensions with leading periods (e.g., `'images,.pdf'`).\n- `$readerlabel` — Screenreader label.\n- `$answerbox` — In Question Text.\n- `$showanswer` — Answer to show.\n- `$hidetips` — `true` to hide tips.\n\n### Example\n\n```php\n$anstypes = array(\"number\", \"file\");\n$answer[0] = 42;\n$scoremethod[1] = \"takeanything\";\n$answerformat[1] = \"images,.pdf\";\n```\n\n### Notes\n\n- Typically paired with a graded answer type (e.g., `number` or `essay`) in `multipart` — the file part collects student work.\n- `$answerformat[1] = 'images,.pdf'` is the standard pattern used in this repo's matrix questions.",
+   "page": "essay-file.md"
+  },
+  "numfunc": {
+   "title": "Function / Algebraic Expression (MyOpenMath's help page lists it as \"Function / Algebraic Expression\"; the code in $anstypes is `numfunc`)",
+   "summary": "Student enters a function or algebraic expression or equation. System accepts any algebraically equivalent answer. Multipart name: `numfunc`.",
+   "doc": "Student enters a function or algebraic expression or equation. System accepts any algebraically equivalent answer. Multipart name: `numfunc`.\n\n### Answer Format\n\n```php\n$answer = \"2sin(x)\";        // single expression\n$answer = \"x^2 or x^4\";     // multiple valid answers\n```\n\n### Required Variables\n\n- `$answer` — Answer function as string.\n\n### Options / Settings\n\n- `$variables` — List of variables. Default `'x'`. Use `'f()'` for function symbols.\n- `$domain` — `'inputmin,inputmax'`. Default `-10` to `10`. Third element `'integers'` for integer domain. Multi-variable: `'0,5,20,25'`.\n- `$requiretimes` — Format checking. `'#'` matches any number. `'regex:'` for regex. `'ignore_case,false'` for case sensitivity.\n- `$answerformat` — `equation`, `inequality`, `doubleinequality`, `generalcomplex`, `toconst`, `scalarmult`, `allowplusminus`, `nosoln`, `nosolninf`, `sameform`, `list`, `casesensitivevars`. Can combine.\n- `$partialcredit` — `array(string,score,...)` for partial credit expressions.\n- `$formatfeedbackon` — `true` for wrong-format feedback.\n- `$reltolerance` — Default `.001`.\n- `$abstolerance` — Overrides `$reltolerance`.\n- `$ansprompt` — String before input.\n- `$answerboxsize` — Default 20.\n- `$hidepreview` — `true` to hide Preview.\n- `$readerlabel` — Screenreader label.\n- `$answerbox` — In Question Text.\n- `$showanswer` — Defaults to `makeprettydisp($answer)`.\n- `$previewloc` — In Question Text — preview button location.\n- `$hidetips` — `true` to hide tips.\n\n### Example\n\n```php\n$anstypes = array(\"function\");\n$answer = \"x^2 + 3x - 4\";\n$variables = \"x\";\n$domain = \"-10,10\";\n```\n\n---",
+   "page": "formula.md"
+  },
+  "string": {
+   "title": "String / Word Answer",
+   "summary": "Student enters a string (word or list of letters). Multipart name: `string`.",
+   "doc": "Student enters a string (word or list of letters). Multipart name: `string`.\n\n### Required Variables\n\n- `$answer` — String answer. Multiple: `$answer = \"dog or cat\"`.\n\n### Options / Settings\n\n- `$strflags` — Comparison flags (set to `1` for on, `0` for off):\n  - `ignore_case` — Ignores case differences. **Default ON.**\n  - `trim_whitespace` — Trims leading/ending whitespace.\n  - `compress_whitespace` — Compresses multiple spaces to one. **Default ON.**\n  - `remove_whitespace` — Removes all whitespace.\n  - `ignore_order` — Treats `ABC` and `CBA` as equivalent.\n  - `ignore_commas` — Removes commas.\n  - `partial_credit` — Awards partial credit based on Levenshtein distance.\n  - `all_words` — Credit for containing key words. `$answer` is comma-separated word list.\n  - `allow_diff=n` — Full credit for Levenshtein distance <= n.\n  - `in_answer` — Credit if `$answer` contained anywhere in student answer.\n  - `regex` — Interprets `$answer` as regular expression.\n  - `special_or` — Use `*or*` instead of `or` for separating answers.\n  - `ignore_symbol=sym` — Ignore specified symbol. Can use multiple times.\n  - **Note:** Only one of `partial_credit`, `allow_diff`, `in_answer`, `regex` at a time.\n- `$scoremethod` — `'takeanything'`, `'takeanythingorblank'`, `'submitblank'`.\n- `$answerformat` — `'list'` for list of answers. `'logic'` for logic statements (define `$variables`). `'setexp'` for set expressions.\n- `$partialcredit` — `array(string,score,...)`. Not for `list` or `all_words`.\n- `$displayformat` — `'usepreview'` for mathquill, `'usepreviewnomq'` for asciimath preview, `'typeahead'` for auto-suggest (provide list in `$questions`).\n- `$variables` — For `logic`/`setexp` answerformat.\n- `$requiretimes` — Format checking, mainly for `logic`/`setexp`.\n- `$ansprompt` — String before input.\n- `$answerboxsize` — Default 20.\n- `$readerlabel` — Screenreader label.\n- `$answerbox` — In Question Text.\n- `$showanswer` — Defaults to correct answer text.\n- `$hidetips` — `true` to hide tips.\n\n### Example\n\n```php\n$anstypes = array(\"string\");\n$answer = \"photosynthesis\";\n$strflags['ignore_case'] = 1;\n```\n\n---",
+   "page": "formula.md"
+  },
+  "interval": {
+   "title": "Interval Notation",
+   "summary": "Student enters interval notation. Example: `(2,5]U(7,oo)`. `DNE` for empty set. Multipart name: `interval`.",
+   "doc": "Student enters interval notation. Example: `(2,5]U(7,oo)`. `DNE` for empty set. Multipart name: `interval`.\n\n### Required Variables\n\n- `$answer` — Interval notation string. `U` for union. `oo`/`-oo` for infinity. Multiple: `'or'`.\n\n### Options / Settings\n\n- `$reltolerance` — Default `.001`.\n- `$abstolerance` — Overrides `$reltolerance`.\n- `$reqdecimals` — Decimal accuracy required.\n- `$answerformat` — `'normalcurve'` for shade-under-curve widget. `'list'` for comma-separated intervals. `'allowsloppyintervals'` accepts unsimplified unions.\n- `$scoremethod` — `'partialcredit'` for partial credit scoring (new system only).\n- `$ansprompt` — String before input.\n- `$answerboxsize` — Default 20.\n- `$readerlabel` — Screenreader label.\n- `$answerbox` — In Question Text.\n- `$showanswer` — Defaults to correct answer.\n- `$hidetips` — `true` to hide tips.\n\n### Example\n\n```php\n$anstypes = array(\"interval\");\n$answer = \"(-oo,3]U(5,oo)\";\n```\n\n---",
+   "page": "formula.md"
+  },
+  "calcinterval": {
+   "title": "Calculated Interval",
+   "summary": "Interval with calculated values like `[2/5,sqrt(8)]`. Can use inequality format. Multipart name: `calcinterval`.",
+   "doc": "Interval with calculated values like `[2/5,sqrt(8)]`. Can use inequality format. Multipart name: `calcinterval`.\n\n### Required Variables\n\n- `$answer` — Interval notation string. Example: `'(-oo,4]U(9/2,oo)'`.\n\n### Options / Settings\n\n- `$answerformat` — `fraction`, `reducedfraction`, `mixednumber`, `scinot`, `fracordec`, `nodecimal`, `notrig`, `list`, `allowsloppyintervals`, `inequality`. `'inequality'` requires student to enter inequality (answer still in interval form).\n- `$reltolerance` — Default `.001`.\n- `$abstolerance` — Overrides `$reltolerance`.\n- `$reqdecimals` — Decimal accuracy required.\n- `$scoremethod` — `'partialcredit'` (new system only).\n- `$ansprompt` — String before input.\n- `$answerboxsize` — Default 20.\n- `$readerlabel` — Screenreader label.\n- `$answerbox` — In Question Text.\n- `$showanswer` — Defaults to correct answer.\n- `$previewloc` — In Question Text.\n- `$hidetips` — `true` to hide tips.\n\n### Example\n\n```php\n$anstypes = array(\"calcinterval\");\n$answer = \"[1/3, sqrt(5)]\";\n$answerformat = \"fraction\";\n```",
+   "page": "formula.md"
+  },
+  "matrix": {
+   "title": "Numerical Matrix (MyOpenMath's help page lists it as \"Numerical Matrix\"; the code in $anstypes is `matrix`)",
+   "summary": "Student enters a matrix of numbers. Entries compared to tolerance. Multipart name: `matrix`.",
+   "doc": "Student enters a matrix of numbers. Entries compared to tolerance. Multipart name: `matrix`.\n\n### Required Variables\n\n- `$answer` — Matrix string. Example: `'[(1,2,3),(8/2,5,6)]'` is a 2×3 matrix.\n\n### Options / Settings\n\n- `$answersize` — `'rows,cols'`. Provides grid of entry boxes. Without it, student uses ASCIIMath notation.\n- `$answerformat` — `scalarmult`, `ref` (row echelon form), `rowequiv`, `anyroworder`.\n- `$reltolerance` — Default `.001`.\n- `$abstolerance` — Overrides `$reltolerance`.\n- `$scoremethod` — `'byelement'` for partial credit.\n- `$displayformat` — `'det'` for vertical bars (determinant), `'inline'` for inline display, `'augmented'` for augment bar.\n- `$ansprompt` — String before input.\n- `$answerboxsize` — Default 20. Only used without `$answersize`.\n- `$readerlabel` — Screenreader label.\n- `$answerbox` — In Question Text.\n- `$showanswer` — Defaults to `$answer`.\n- `$hidetips` — `true` to hide tips.\n\n### Example\n\n```php\n$anstypes = array(\"numericalmatrix\", \"file\");\n$answer[0] = \"[(1,0,0),(0,1,0),(0,0,1)]\";  // 3x3 identity\n$answersize[0] = \"3,3\";\n$scoremethod[0] = \"byelement\";\n$scoremethod[1] = \"takeanything\";\n$answerformat[1] = \"images,.pdf\";\n```\n\n---",
+   "page": "matrix.md"
+  },
+  "calcmatrix": {
+   "title": "Calculated Matrix (MyOpenMath's help page lists it as \"Calculated Matrix\"; the code in $anstypes is `calcmatrix`)",
+   "summary": "Student enters a matrix of calculations (`2/3`, `5^2`). Entries compared to tolerance. Multipart name: `calcmatrix`.",
+   "doc": "Student enters a matrix of calculations (`2/3`, `5^2`). Entries compared to tolerance. Multipart name: `calcmatrix`.\n\n### Required Variables\n\n- `$answer` — Matrix string. Example: `'[(1,2,3),(8/2,5,6)]'`.\n\n### Options / Settings\n\n- `$answersize` — `'rows,cols'`.\n- `$answerformat` — `scalarmult`, `ref`, `rowequiv`, `anyroworder`, `fraction`, `reducedfraction`, `mixednumber`, `scinot`, `fracordec`, `nodecimal`, `notrig`.\n- `$reltolerance` — Default `.001`.\n- `$abstolerance` — Overrides `$reltolerance`.\n- `$scoremethod` — `'byelement'`.\n- `$displayformat` — `'det'`, `'inline'`, `'augmented'`.\n- `$ansprompt` — String before input.\n- `$answerboxsize` — Default 20.\n- `$hidepreview` — `true` to hide Preview.\n- `$readerlabel` — Screenreader label.\n- `$answerbox` — In Question Text.\n- `$showanswer` — Defaults to `$answer`.\n- `$previewloc` — In Question Text.\n- `$hidetips` — `true` to hide tips.\n\n### Example\n\n```php\n$anstypes = array(\"calculatedmatrix\");\n$answer[0] = \"[(1/2,2/3),(3/4,1/5)]\";\n$answersize[0] = \"2,2\";\n$answerformat[0] = \"fraction\";\n```\n\n---",
+   "page": "matrix.md"
+  },
+  "complexmatrix": {
+   "title": "Complex Matrix",
+   "summary": "Student enters a matrix of complex numbers in `a+bi` form. Multipart name: `complexmatrix`.",
+   "doc": "Student enters a matrix of complex numbers in `a+bi` form. Multipart name: `complexmatrix`.\n\n### Required Variables\n\n- `$answer` — Matrix of complex numbers. Example: `'[(1+i,2,3i),(8,5+i,6)]'`.\n\n### Options / Settings\n\n- `$answersize` — `'rows,cols'`.\n- `$answerformat` — `nosoln`, `nosolninf`.\n- `$reltolerance` — Default `.001`.\n- `$abstolerance` — Overrides `$reltolerance`.\n- `$scoremethod` — `'byelement'`.\n- `$displayformat` — `'det'`, `'inline'`, `'augmented'`.\n- `$ansprompt` — String before input.\n- `$answerboxsize` — Default 20.\n- `$readerlabel` — Screenreader label.\n- `$answerbox` — In Question Text.\n- `$showanswer` — Defaults to `$answer`.\n- `$hidetips` — `true` to hide tips.\n\n### Example\n\n```php\n$anstypes = array(\"complexmatrix\");\n$answer[0] = \"[(1+2i,3-i),(0,4i)]\";\n$answersize[0] = \"2,2\";\n$scoremethod[0] = \"byelement\";\n```\n\n---",
+   "page": "matrix.md"
+  },
+  "calccomplexmatrix": {
+   "title": "Calculated Complex Matrix",
+   "summary": "Student enters a matrix of complex calculations like `2/3+1/3i` or `5^2`. Multipart name: `calccomplexmatrix`.",
+   "doc": "Student enters a matrix of complex calculations like `2/3+1/3i` or `5^2`. Multipart name: `calccomplexmatrix`.\n\n### Required Variables\n\n- `$answer` — Matrix of complex expressions. Example: `'[(1+i,2,3i),(3/2+i,3sqrt(2)i,6)]'`.\n\n### Options / Settings\n\n- `$answersize` — `'rows,cols'`.\n- `$answerformat` — `sloppycomplex`, `generalcomplex`, `allowjcomplex`, `fraction`, `reducedfraction`, `mixednumber`, `scinot`, `fracordec`, `nodecimal`, `notrig`, `nosoln`, `nosolninf`.\n- `$reltolerance` — Default `.001`.\n- `$abstolerance` — Overrides `$reltolerance`.\n- `$scoremethod` — `'byelement'`.\n- `$displayformat` — `'det'`, `'inline'`, `'augmented'`.\n- `$ansprompt` — String before input.\n- `$answerboxsize` — Default 20.\n- `$hidepreview` — `true` to hide Preview.\n- `$readerlabel` — Screenreader label.\n- `$answerbox` — In Question Text.\n- `$showanswer` — Defaults to `$answer`.\n- `$previewloc` — In Question Text.\n- `$hidetips` — `true` to hide tips.\n\n---",
+   "page": "matrix.md"
+  },
+  "algmatrix": {
+   "title": "Algebraic Matrix",
+   "summary": "Student enters a matrix of algebraic expressions like `x^2` or `3t+1`. Multipart name: `algmatrix`.",
+   "doc": "Student enters a matrix of algebraic expressions like `x^2` or `3t+1`. Multipart name: `algmatrix`.\n\n### Required Variables\n\n- `$answer` — Matrix of expressions. Example: `'[(x,x^2,3),(4,5+x,2)]'`.\n\n### Options / Settings\n\n- `$answersize` — `'rows,cols'`.\n- `$variables` — List of variables. Default `'x'`.\n- `$domain` — `'inputmin,inputmax'`. Default `-10` to `10`.\n- `$answerformat` — `generalcomplex`, `nosoln`, `nosolninf`, `sameform`.\n- `$reltolerance` — Default `.001`.\n- `$abstolerance` — Overrides `$reltolerance`.\n- `$scoremethod` — `'byelement'`.\n- `$displayformat` — `'det'`, `'inline'`, `'augmented'`.\n- `$ansprompt` — String before input.\n- `$answerboxsize` — Default 20.\n- `$hidepreview` — `true` to hide Preview.\n- `$readerlabel` — Screenreader label.\n- `$answerbox` — In Question Text.\n- `$showanswer` — Defaults to `$answer`.\n- `$previewloc` — In Question Text.\n- `$hidetips` — `true` to hide tips.\n\n### Notes\n\n- All matrix types use `loadlibrary(\"matrix\")` for full matrix operation support.\n- Build the answer matrix first from a known solution, then construct the question around it (avoids impossible systems).\n- See `questions/matrix/` for complete working examples of `numericalmatrix` + `calculatedmatrix` patterns.",
+   "page": "matrix.md"
+  },
+  "ntuple": {
+   "title": "N-Tuple",
+   "summary": "Student enters an n-tuple or list of n-tuples. For coordinate points, vectors, etc. Multipart name: `ntuple`.",
+   "doc": "Student enters an n-tuple or list of n-tuples. For coordinate points, vectors, etc. Multipart name: `ntuple`.\n\n### Answer Format\n\n```\n'(1,2)'               // point\n'<2,3,4>,<1,5,7>'    // list of vectors\n'(1,2) or (1,3)'     // multiple valid answers\n```\n\n### Required Variables\n\n- `$answer` — String with n-tuple(s). Surrounded by `()`, `[]`, `{}`, or `<>`.\n\n### Options / Settings\n\n- `$displayformat` — `point`, `pointlist`, `vector`, `vectorlist`, `list`, `set`, `setlist`. Changes tips only.\n- `$answerformat` — `scalarmult`, `anyorder`, `nosoln`, `nosolninf`.\n- `$scoremethod` — `'byelement'` for partial credit on individual elements.\n- `$partweights` — Per-element weights with `byelement`.\n- `$reltolerance` — Default `.001`.\n- `$abstolerance` — Overrides `$reltolerance`.\n\n### Example\n\n```php\n$anstypes = array(\"ntuple\");\n$answer = \"(3, -2)\";\n$displayformat[0] = \"point\";\n$scoremethod[0] = \"byelement\";\n```\n\n---",
+   "page": "ntuple-complex.md"
+  },
+  "calcntuple": {
+   "title": "Calculated N-Tuple",
+   "summary": "Like N-Tuple but allows mathematical expressions like `(5/3, 2/3)`. Multipart name: `calcntuple`.",
+   "doc": "Like N-Tuple but allows mathematical expressions like `(5/3, 2/3)`. Multipart name: `calcntuple`.\n\n### Required Variables\n\n- `$answer` — String with n-tuple(s) of expressions.\n\n### Options / Settings\n\n- `$displayformat` — `point`, `pointlist`, `vector`, `vectorlist`, `list`, `set`, `setlist`.\n- `$answerformat` — `scalarmult`, `anyorder`, `fraction`, `reducedfraction`, `mixednumber`, `scinot`, `fracordec`, `nodecimal`, `notrig`, `nosoln`, `nosolninf`, `sameform`.\n- `$scoremethod` — `'byelement'`.\n- `$partweights` — Per-element weights.\n- `$reltolerance` — Default `.001`.\n- `$abstolerance` — Overrides `$reltolerance`.\n\n### Example\n\n```php\n$anstypes = array(\"calcntuple\");\n$answer = \"(1/3, 2/5)\";\n$answerformat[0] = \"fraction\";\n```\n\n---",
+   "page": "ntuple-complex.md"
+  },
+  "complexntuple": {
+   "title": "Complex N-Tuple",
+   "summary": "N-tuple of complex numbers in `a+bi` form. Multipart name: `complexntuple`.",
+   "doc": "N-tuple of complex numbers in `a+bi` form. Multipart name: `complexntuple`.\n\n### Required Variables\n\n- `$answer` — String with n-tuple(s) of complex numbers. Examples: `'(1,2+i)'`, `'<i,3+i,4>,<1+i,5-i,7>'`.\n\n### Options / Settings\n\n- `$displayformat` — `point`, `pointlist`, `vector`, `vectorlist`, `list`, `set`, `setlist`.\n- `$answerformat` — `allowjcomplex`, `nosoln`, `nosolninf`.\n- `$scoremethod` — `'byelement'`.\n- `$partweights` — Per-element weights.\n- `$reltolerance` — Default `.001`.\n- `$abstolerance` — Overrides `$reltolerance`.\n\n---",
+   "page": "ntuple-complex.md"
+  },
+  "calccomplexntuple": {
+   "title": "Calculated Complex N-Tuple",
+   "summary": "Like Complex N-Tuple but allows mathematical expressions like `(5/3+sqrt(2)i, 2/3+1/4i)`. Multipart name: `calccomplexntuple`.",
+   "doc": "Like Complex N-Tuple but allows mathematical expressions like `(5/3+sqrt(2)i, 2/3+1/4i)`. Multipart name: `calccomplexntuple`.\n\n### Required Variables\n\n- `$answer` — String with n-tuple(s). Must be `a+bi` format unless `sloppycomplex`/`generalcomplex` used.\n\n### Options / Settings\n\n- `$displayformat` — `point`, `pointlist`, `vector`, `vectorlist`, `list`, `set`, `setlist`.\n- `$answerformat` — `sloppycomplex`, `generalcomplex`, `allowjcomplex`, `fraction`, `reducedfraction`, `mixednumber`, `scinot`, `fracordec`, `nodecimal`, `notrig`, `nosoln`, `nosolninf`, `sameform`.\n- `$scoremethod` — `'byelement'`.\n- `$partweights` — Per-element weights.\n- `$reltolerance` — Default `.001`.\n- `$abstolerance` — Overrides `$reltolerance`.\n- `$readerlabel` — Screenreader label.\n- `$answerbox` — In Question Text.\n- `$showanswer` — Defaults to correct answer.\n- `$hidetips` — `true` to hide tips.\n\n---",
+   "page": "ntuple-complex.md"
+  },
+  "algntuple": {
+   "title": "Algebraic N-Tuple",
+   "summary": "N-tuple of algebraic expressions. For parameterized points/vectors like `(x, x^2, 4-x)`. Multipart name: `algntuple`.",
+   "doc": "N-tuple of algebraic expressions. For parameterized points/vectors like `(x, x^2, 4-x)`. Multipart name: `algntuple`.\n\n### Required Variables\n\n- `$answer` — String with n-tuple(s) of expressions. Examples: `'(x,x^2)'`, `'<t,4-t,2+3t>'`.\n\n### Options / Settings\n\n- `$displayformat` — `point`, `pointlist`, `vector`, `vectorlist`, `list`, `set`, `setlist`.\n- `$variables` — List of variables. Default `'x'`.\n- `$domain` — `'inputmin,inputmax'`. Default `-10` to `10`.\n- `$answerformat` — `generalcomplex`, `nosoln`, `nosolninf`, `sameform`.\n- `$requiretimes` — Format checking.\n- `$requiretimeslistpart` — Per-ntuple format checking for lists.\n- `$scoremethod` — `'byelement'`.\n- `$partweights` — Per-element weights.\n- `$reltolerance` — Default `.001`.\n- `$abstolerance` — Overrides `$reltolerance`.\n\n---",
+   "page": "ntuple-complex.md"
+  },
+  "complex": {
+   "title": "Complex Number",
+   "summary": "Student enters a complex number in `a+bi` form. Multipart name: `complex`.",
+   "doc": "Student enters a complex number in `a+bi` form. Multipart name: `complex`.\n\n### Required Variables\n\n- `$answer` — Complex number string. Example: `'3+2i'`.\n\n### Options / Settings\n\n- `$answerformat` — `'list'` for list of complex numbers. `'allowjcomplex'` for `j` instead of `i`.\n- `$reltolerance` — Default `.001`.\n- `$abstolerance` — Overrides `$reltolerance`.\n\n### Example\n\n```php\n$anstypes = array(\"complex\");\n$answer = \"3+2i\";\n```\n\n---",
+   "page": "ntuple-complex.md"
+  },
+  "calccomplex": {
+   "title": "Calculated Complex Number",
+   "summary": "Like Complex but allows expressions like `1/3+sqrt(2)i`. Must be `a+bi` format unless `sloppycomplex` used. Multipart name: `calccomplex`.",
+   "doc": "Like Complex but allows expressions like `1/3+sqrt(2)i`. Must be `a+bi` format unless `sloppycomplex` used. Multipart name: `calccomplex`.\n\n### Required Variables\n\n- `$answer` — Complex expression string. Example: `'3+2i'`, `'2/3+1/3i'`.\n\n### Options / Settings\n\n- `$answerformat` — `sloppycomplex`, `generalcomplex`, `allowjcomplex`, `fraction`, `reducedfraction`, `mixednumber`, `scinot`, `fracordec`, `nodecimal`, `notrig`, `sameform`, `list`, `allowplusminus`, `nosoln`, `nosolninf`.\n- `$reltolerance` — Default `.001`.\n- `$abstolerance` — Overrides `$reltolerance`.\n\n### Example\n\n```php\n$anstypes = array(\"calccomplex\");\n$answer = \"1/2 + sqrt(3)/2 * i\";\n$answerformat[0] = \"fraction\";\n```\n\n**Notes:** `getntupleparts(string)` extracts components from n-tuple `$stuanswers`/`$stuanswersval`. `scoremultiorder()` supports reordering for `ntuple`, `calcntuple`, `complex`, `calccomplex`.",
+   "page": "ntuple-complex.md"
+  },
+  "number": {
+   "title": "Numeric Answer",
+   "summary": "Student enters a number (integer, decimal, or scientific notation). Compared to tolerance. Also accepts `DNE`, `oo`, `-oo`.",
+   "doc": "Student enters a number (integer, decimal, or scientific notation). Compared to tolerance. Also accepts `DNE`, `oo`, `-oo`.\n\n### Answer Format\n\n```php\n$answer = 42;             // single number\n$answer = \"3 or 5 or 7\"; // multiple correct values\n$answer = \"(2,5]\";        // range answer\n$answer = \"1,2,3\";        // list answer\n```\n\n### Options / Settings\n\n- `$reltolerance` — Relative error tolerance. Default `.001` (.1%).\n- `$abstolerance` — Absolute error tolerance. Overrides `$reltolerance`.\n- `$reqdecimals` — Minimum decimal accuracy. `'=2'` requires exactly 2. `'r2'` requires rounding to 2. Supports `+-` suffix for tolerance.\n- `$reqsigfigs` — Significant figure accuracy. `'=2'` requires exactly 2. `'[2,4]'` for range. Supports `+-` suffix.\n- `$answerformat` — `list`, `exactlist`, `orderedlist`, `set`, `integer`, `units`, `nosoln`, `nosolninf`. Can combine: `'nosoln,list'`.\n- `$requiretimes` — Format checking. Pairs: `symbol,count`. `'#'` prefix for whole number match. `'||'` for alternatives. `'regex:'` for regex.\n- `$requiretimeslistpart` — Like `$requiretimes` but applied to each list element.\n- `$partialcredit` — `array(number,score,...)` for partial credit on other answers.\n- `$ansprompt` — String displayed before input box.\n- `$displayformat` — `'alignright'` to right-align.\n- `$answerboxsize` — Character width. Default 20.\n- `$readerlabel` — Visually hidden screenreader label.\n- `$answerbox` — In Question Text — places input box.\n- `$showanswer` — Answer shown to students. Defaults to `$answer`.\n- `$hidetips` — `true` to hide entry tips.\n\n### Example\n\n```php\n$anstypes = array(\"number\");\n$answer = 3.14159;\n$reltolerance = .001;\n```\n\n---",
+   "page": "numeric.md"
+  },
+  "calculated": {
+   "title": "Computed Numeric",
+   "summary": "Student enters a number or calculation (`2/3`, `5^2`, `sin(2)`). Also accepts `DNE`, `oo`, `-oo`. String form of answer renders: `$answer = \"2^4\"` shows `2^4`.",
+   "doc": "Student enters a number or calculation (`2/3`, `5^2`, `sin(2)`). Also accepts `DNE`, `oo`, `-oo`. String form of answer renders: `$answer = \"2^4\"` shows `2^4`.\n\n### Answer Format\n\n```php\n$answer = 16;       // number\n$answer = \"2^4\";    // rendered string form\n```\n\n### Options / Settings\n\n- `$answerformat` — Base formats: `fraction`, `reducedfraction`, `mixednumber`, `mixednumberorimproper`, `sloppymixednumber`, `scinot`, `scinotordec`, `fracordec`, `decimal`. Mixins: `allowunreduced`, `allowxtimes`, `allowplusminus`, `nodecimal`, `notrig`, `allowmixed`, `allowdegrees`, `noval (deprecated)`, `showval`, `sameform`. List options: `list`, `exactlist`, `orderedlist`. Special: `nosoln`, `nosolninf`.\n- `$formatfeedbackon` — `true` to enable right-answer-wrong-format feedback.\n- `$reltolerance` — Relative error tolerance. Default `.001`.\n- `$abstolerance` — Absolute error tolerance. Overrides `$reltolerance`.\n- `$reqdecimals` — Decimal accuracy required.\n- `$reqsigfigs` — Significant figure accuracy. Only for `decimal`, `scinot`, `scinotordec` formats.\n- `$requiretimes` — Format checking. Same as Number type, plus `'ignore_spaces,true'` and `'ignore_symbol,$'`.\n- `$requiretimeslistpart` — Per-element format checking. Semicolon-separated for different per element.\n- `$partialcredit` — `array(answer,score,...)`. Can make `$requiretimes`/`$answerformat` arrays for partial credit answers.\n- `$ansprompt` — String before input box.\n- `$answerboxsize` — Default 20.\n- `$hidepreview` — `true` to hide Preview button.\n- `$readerlabel` — Screenreader label.\n- `$answerbox` — In Question Text.\n- `$showanswer` — Defaults to `$answer`.\n- `$previewloc` — In Question Text — preview button location.\n- `$hidetips` — `true` to hide tips.\n\n### Example\n\n```php\n$anstypes = array(\"calculated\");\n$answer = \"2/3\";\n$answerformat = \"fraction\";\n```\n\n### Notes\n\n- Use `calculated` when you want students to enter expressions (fractions, exponents, trig values) rather than plain decimals.\n- `$reqsigfigs` only works with `decimal`, `scinot`, `scinotordec` formats.",
+   "page": "numeric.md"
+  },
+  "multipart": {
+   "title": "Multipart Question",
+   "summary": "Contains multiple parts, each a different question type. Parts are scored independently (or as a whole). Multipart name: N/A — this IS the container type.",
+   "doc": "Contains multiple parts, each a different question type. Parts are scored independently (or as a whole). Multipart name: N/A — this IS the container type.\n\n### Required Variables\n\n- `$anstypes` — Array or list of answer type short names:\n  `number`, `calculated`, `choices`, `multans`, `matching`, `numfunc`, `draw`, `ntuple`, `calcntuple`, `complexntuple`, `calccomplexntuple`, `algntuple`, `matrix`, `calcmatrix`, `complexmatrix`, `calccomplexmatrix`, `algmatrix`, `complex`, `calccomplex`, `interval`, `calcinterval`, `chemeqn`, `molecule`, `essay`, `file`, `string`.\n- Per-part variables — Define `$answer[0]`, `$answer[1]`, etc. with part index suffix. Variables without index apply to all parts.\n- `$answerbox[partnum]` — In Question Text. Or use `[AB0]`, `[AB1]` shorthand.\n\n### Options / Settings\n\n- `$answeights` — Array/list of weights. Best as percents: `array(.2,.3,.5)`.\n- `$scoremethod` — `'singlescore'` (total parts), `'allornothing'`. Use `$scoremethod['whole']` for per-part values too.\n- `$defaults` — `$defaults['variable'] = value` to set default for all parts while allowing per-part overrides.\n- `$showanswer` — Per-part: `$showanswer[1]='...'`. Or single string for whole problem.\n- `$showanswerloc` — In Question Text. `$showanswerloc` or `$showanswerloc[part]`. Or `[SAB]`/`[SABn]` shorthand. `$showanswerstyle = 'inline'` for inline display.\n- `[SAB#]` — In Detailed Solution to include show-answer values directly.\n\n### Scaffolding\n\nBreak question into chunks. Second chunk shows after first is correctly answered or tries exhausted.\n\n- Add isolated line with `///` in Question Text where chunks break.\n- **Note:** Only available in new assessment interface. Old interface shows as regular multipart.\n\n### Example\n\n```php\n$anstypes = array(\"number\", \"calculated\", \"essay\");\n$answer[0] = 42;\n$answer[1] = \"2/3\";\n$answeights = array(.4, .4, .2);\n$displayformat[2] = 'editornopaste';\n```\n\n---",
+   "page": "special.md"
+  },
+  "conditional": {
+   "title": "Conditional Scoring",
+   "summary": "Variation on multipart. Multiple answer boxes, single score based on a conditional test of student answers. Multipart name: N/A — container type.",
+   "doc": "Variation on multipart. Multiple answer boxes, single score based on a conditional test of student answers. Multipart name: N/A — container type.\n\n### Required Variables\n\n- `$anstypes` — Array or list of answer types.\n- `$answer` — Boolean expression, numerical value `[0,1]`, `array('function',$a,$b)`, `array('number',$a,$b)`, or array of mixed comparisons.\n- Per-part variables — Define with index suffix. **Do NOT define per-part `$answer`.**\n- `$answerbox[partnum]` — In Question Text.\n\n### Options / Settings\n\n- Per-part options — Suffix with part index. `$variables`, `$domain`, `$reltolerance`, `$abstolerance` used for comparison — don't set per-part.\n- `$showanswer` — Defaults to `'Answers may vary'`.\n\n### Scaffolding\n\n- Add `///` in Question Text.\n- Set `$seqPartDone[pn] = true` for each part when completed.\n- All parts in previous chunk must have `$seqPartDone = true` to advance.\n\n### Example\n\n```php\n// Student enters x and y — correct if x + y = 10\n$anstypes = array(\"number\", \"number\");\n$answer = ($stuanswers[$thisq][0] + $stuanswers[$thisq][1] == 10);\n```\n\n### Notes\n\n- `conditional` is useful when there are multiple valid input combinations, e.g., entering any two numbers that sum to a target value.\n- Unlike `multipart`, there is a single pass/fail score — you cannot give partial credit per part.\n\n---",
+   "page": "special.md"
+  },
+  "chemeqn": {
+   "title": "Chemical Equation",
+   "summary": "Student enters a chemical formula or reaction equation. Multipart name: `chemeqn`.",
+   "doc": "Student enters a chemical formula or reaction equation. Multipart name: `chemeqn`.\n\n### Required Variables\n\n- `$answer` — Chemical formula string like `'H_2O'`. Spaces ignored. For reactions: `'->'` for right arrow, `'<->'` for equilibrium. Example: `'2H+O->H_2O'`.\n\n### Options / Settings\n\n- `$answerformat` — `'reaction'` for reaction equations.\n- `$variables` — List of atoms to populate the equation editor.\n- `$answerboxsize` — Default 20.\n- `$readerlabel` — Screenreader label.\n- `$answerbox` — In Question Text.\n- `$showanswer` — Defaults to correct answer.\n\n### Example\n\n```php\n$anstypes = array(\"chemeqn\");\n$answer = \"H_2SO_4\";\n```\n\n### Reaction Example\n\n```php\n$anstypes = array(\"chemeqn\");\n$answer = \"CH_4 + 2O_2 -> CO_2 + 2H_2O\";\n$answerformat[0] = \"reaction\";\n$variables[0] = \"C,H,O\";\n```\n\n---",
+   "page": "special.md"
+  },
+  "molecule": {
+   "title": "Molecule Drawing",
+   "summary": "Student sketches a molecule using the Kekule drawing tool. Keyboard alternative provided for accessibility. Multipart name: `molecule`.",
+   "doc": "Student sketches a molecule using the Kekule drawing tool. Keyboard alternative provided for accessibility. Multipart name: `molecule`.\n\n### Required Variables\n\n- `$answer` — `'SMILES~~~CML'` format. **Use the answer generator tool** in the question editor — do not write manually. Multiple answers: separated by `'or'`.\n\n### Options / Settings\n\n- `$displayformat` — `'condensed'` to display atom labels on the drawing.\n- `$answerbox` — In Question Text.\n- `$showanswer` — Defaults to drawing of correct answer.\n\n### Example\n\n```php\n$anstypes = array(\"molecule\");\n// $answer generated using the question editor's molecule tool\n$answer = \"c1ccccc1~~~<cml>...</cml>\";  // benzene — use generator for actual CML\n$displayformat[0] = \"condensed\";\n```\n\n### Notes\n\n- The `SMILES~~~CML` format is complex — always use the built-in answer generator tool when authoring molecule questions.\n- Keyboard-based entry is automatically available as an accessibility alternative.",
+   "page": "special.md"
+  }
+ },
+ "macro_docs": {
+  "ABarray": {
+   "signature": "ABarray(start,num)",
+   "summary": "Produces array of `[AB#]` strings for answerbox placeholders.",
+   "doc": "Produces array of `[AB#]` strings for answerbox placeholders.\n- **Returns**: array\n- **Example**: `ABarray(5,2)` → `array(\"[AB5]\",\"[AB6]\")`",
+   "page": "macros/general.md",
+   "library": null
+  },
+  "Excelquartile": {
+   "signature": "Excelquartile",
+   "summary": "Excel quartile method",
+   "doc": "Excel quartile method",
+   "page": "libs/stats.md",
+   "library": "stats"
+  },
+  "Excelquartileexc": {
+   "signature": "Excelquartileexc",
+   "summary": "Excel QUARTILE.EXC method",
+   "doc": "Excel QUARTILE.EXC method",
+   "page": "libs/stats.md",
+   "library": "stats"
+  },
+  "Nplus1percentile": {
+   "signature": "Nplus1percentile",
+   "summary": "(N+1) percentile method",
+   "doc": "(N+1) percentile method",
+   "page": "libs/stats.md",
+   "library": "stats"
+  },
+  "Nplus1quartile": {
+   "signature": "Nplus1quartile",
+   "summary": "(N+1) quartile method",
+   "doc": "(N+1) quartile method",
+   "page": "libs/stats.md",
+   "library": "stats"
+  },
+  "TIquartile": {
+   "signature": "TIquartile",
+   "summary": "TI calculator quartile method",
+   "doc": "TI calculator quartile method",
+   "page": "libs/stats.md",
+   "library": "stats"
+  },
+  "abs": {
+   "signature": "abs(v)",
+   "summary": "Absolute value.",
+   "doc": "Absolute value.\n- **Returns**: number",
+   "page": "macros/math.md",
+   "library": null
+  },
+  "absmeandev": {
+   "signature": "absmeandev",
+   "summary": "Mean absolute deviation",
+   "doc": "Mean absolute deviation",
+   "page": "libs/stats.md",
+   "library": "stats"
+  },
+  "adddrawcommand": {
+   "signature": "adddrawcommand(plot,commands)",
+   "summary": "Inserts arbitrary asciisvg drawing commands into an existing plot.",
+   "doc": "Inserts arbitrary asciisvg drawing commands into an existing plot.\n- **Returns**: plot",
+   "page": "macros/graph-table.md",
+   "library": null
+  },
+  "addfractionaxislabels": {
+   "signature": "addfractionaxislabels(plot,step,[axis])",
+   "summary": "Adds fraction labels along axis in steps. Step is fraction like `'1/4'` or pi multiple like `'pi/4'`. Set axis to `'y'` for y-axis.",
+   "doc": "Adds fraction labels along axis in steps. Step is fraction like `'1/4'` or pi multiple like `'pi/4'`. Set axis to `'y'` for y-axis.\n- **Returns**: plot",
+   "page": "macros/graph-table.md",
+   "library": null
+  },
+  "addimageborder": {
+   "signature": "addimageborder(image,[border_width,margin])",
+   "summary": "Adds a border to an uploaded image. Border width default 1, margin default 0.",
+   "doc": "Adds a border to an uploaded image. Border width default 1, margin default 0.\n- **Returns**: string",
+   "page": "macros/graph-table.md",
+   "library": null
+  },
+  "addlabel": {
+   "signature": "addlabel(plot,x,y,label,[color,loc,angle,size])",
+   "summary": "Adds a label to a plot. loc: `'left'`, `'right'`, `'below'`, `'above'`. MathML not supported in labels.",
+   "doc": "Adds a label to a plot. loc: `'left'`, `'right'`, `'below'`, `'above'`. MathML not supported in labels.\n- **Returns**: plot",
+   "page": "macros/graph-table.md",
+   "library": null
+  },
+  "addlabelabs": {
+   "signature": "addlabelabs(plot,x,y,label,[color,loc,angle])",
+   "summary": "Like `addlabel` but x,y are pixel values on the picture.",
+   "doc": "Like `addlabel` but x,y are pixel values on the picture.\n- **Returns**: plot",
+   "page": "macros/graph-table.md",
+   "library": null
+  },
+  "addplotborder": {
+   "signature": "addplotborder(plot,left,[bottom,right,top])",
+   "summary": "Changes pixel width of border (default 5) around a plot.",
+   "doc": "Changes pixel width of border (default 5) around a plot.\n- **Returns**: plot",
+   "page": "macros/graph-table.md",
+   "library": null
+  },
+  "allquartile": {
+   "signature": "allquartile",
+   "summary": "All quartile methods",
+   "doc": "All quartile methods",
+   "page": "libs/stats.md",
+   "library": "stats"
+  },
+  "anova1way": {
+   "signature": "anova1way",
+   "summary": "One-way ANOVA",
+   "doc": "One-way ANOVA",
+   "page": "libs/stats.md",
+   "library": "stats"
+  },
+  "anova1way_f": {
+   "signature": "anova1way_f",
+   "summary": "One-way ANOVA F statistic",
+   "doc": "One-way ANOVA F statistic",
+   "page": "libs/stats.md",
+   "library": "stats"
+  },
+  "anova2way": {
+   "signature": "anova2way",
+   "summary": "Two-way ANOVA",
+   "doc": "Two-way ANOVA",
+   "page": "libs/stats.md",
+   "library": "stats"
+  },
+  "anova2way_f": {
+   "signature": "anova2way_f",
+   "summary": "Two-way ANOVA F statistic",
+   "doc": "Two-way ANOVA F statistic",
+   "page": "libs/stats.md",
+   "library": "stats"
+  },
+  "anova_table": {
+   "signature": "anova_table",
+   "summary": "ANOVA table display",
+   "doc": "ANOVA table display",
+   "page": "libs/stats.md",
+   "library": "stats"
+  },
+  "arccos": {
+   "signature": "arccos(v)",
+   "summary": "Inverse cosine.",
+   "doc": "Inverse cosine.\n- **Returns**: number",
+   "page": "macros/math.md",
+   "library": null
+  },
+  "arcsin": {
+   "signature": "arcsin(v)",
+   "summary": "Inverse sine.",
+   "doc": "Inverse sine.\n- **Returns**: number",
+   "page": "macros/math.md",
+   "library": null
+  },
+  "arctan": {
+   "signature": "arctan(v)",
+   "summary": "Inverse tangent.",
+   "doc": "Inverse tangent.\n- **Returns**: number",
+   "page": "macros/math.md",
+   "library": null
+  },
+  "are_numeric": {
+   "signature": "are_numeric(v1,v2,...) or are_numeric(array)",
+   "summary": "Checks if all arguments are numeric.",
+   "doc": "Checks if all arguments are numeric.\n- **Returns**: boolean",
+   "page": "macros/testing-and-feedback.md",
+   "library": null
+  },
+  "array_flip": {
+   "signature": "array_flip(array)",
+   "summary": "Reverses one-to-one array: indexes become values and vice versa.",
+   "doc": "Reverses one-to-one array: indexes become values and vice versa.\n- **Returns**: array",
+   "page": "macros/array.md",
+   "library": null
+  },
+  "array_keys": {
+   "signature": "array_keys(array)",
+   "summary": "Returns keys of associative array.",
+   "doc": "Returns keys of associative array.\n- **Returns**: array",
+   "page": "macros/array.md",
+   "library": null
+  },
+  "array_unique": {
+   "signature": "array_unique(array)",
+   "summary": "Strips duplicate values. Does not re-index; use `array_values` after if needed.",
+   "doc": "Strips duplicate values. Does not re-index; use `array_values` after if needed.\n- **Returns**: array",
+   "page": "macros/array.md",
+   "library": null
+  },
+  "array_values": {
+   "signature": "array_values(array)",
+   "summary": "Returns values with consecutive numeric indices.",
+   "doc": "Returns values with consecutive numeric indices.\n- **Returns**: array",
+   "page": "macros/array.md",
+   "library": null
+  },
+  "arrayfindindex": {
+   "signature": "arrayfindindex(needle,haystack)",
+   "summary": "Returns index of value in array. First match only.",
+   "doc": "Returns index of value in array. First match only.\n- **Returns**: integer",
+   "page": "macros/array.md",
+   "library": null
+  },
+  "arrayfindindices": {
+   "signature": "arrayfindindices(needle,haystack)",
+   "summary": "Returns array of all indices matching value.",
+   "doc": "Returns array of all indices matching value.\n- **Returns**: array",
+   "page": "macros/array.md",
+   "library": null
+  },
+  "arraysetvalues": {
+   "signature": "arraysetvalues(array,keyarray,value/valuearray)",
+   "summary": "Sets values on existing array at specified keys. Returns modified array.",
+   "doc": "Sets values on existing array at specified keys. Returns modified array.\n- **Returns**: array",
+   "page": "macros/array.md",
+   "library": null
+  },
+  "arraystodoteqns": {
+   "signature": "arraystodoteqns(xarray,yarray,[color])",
+   "summary": "Converts x/y arrays into form usable in `showplot`.",
+   "doc": "Converts x/y arrays into form usable in `showplot`.\n- **Returns**: string",
+   "page": "macros/graph-table.md",
+   "library": null
+  },
+  "arraystodots": {
+   "signature": "arraystodots(xarray,yarray)",
+   "summary": "Converts x/y arrays into form for Drawing answer type.",
+   "doc": "Converts x/y arrays into form for Drawing answer type.\n- **Returns**: string",
+   "page": "macros/graph-table.md",
+   "library": null
+  },
+  "arraytolist": {
+   "signature": "arraytolist(array,[space])",
+   "summary": "Converts array to list. Set space=true for spaces after commas.",
+   "doc": "Converts array to list. Set space=true for spaces after commas.\n- **Returns**: string",
+   "page": "macros/array.md",
+   "library": null
+  },
+  "atan2": {
+   "signature": "atan2(y,x)",
+   "summary": "Two-argument inverse tangent.",
+   "doc": "Two-argument inverse tangent.\n- **Returns**: number",
+   "page": "macros/math.md",
+   "library": null
+  },
+  "beta_cdf": {
+   "signature": "beta_cdf",
+   "summary": "Beta CDF",
+   "doc": "Beta CDF",
+   "page": "libs/stats.md",
+   "library": "stats"
+  },
+  "beta_inv": {
+   "signature": "beta_inv",
+   "summary": "Inverse beta CDF",
+   "doc": "Inverse beta CDF",
+   "page": "libs/stats.md",
+   "library": "stats"
+  },
+  "binomialcdf": {
+   "signature": "binomialcdf",
+   "summary": "Binomial CDF",
+   "doc": "Binomial CDF",
+   "page": "libs/stats.md",
+   "library": "stats"
+  },
+  "binomialpdf": {
+   "signature": "binomialpdf",
+   "summary": "Binomial PDF",
+   "doc": "Binomial PDF",
+   "page": "libs/stats.md",
+   "library": "stats"
+  },
+  "boxplot": {
+   "signature": "boxplot",
+   "summary": "Box plot",
+   "doc": "Box plot",
+   "page": "libs/stats.md",
+   "library": "stats"
+  },
+  "calclisttoarray": {
+   "signature": "calclisttoarray(list)",
+   "summary": "Converts list of calculations like `'2^2,3^5,7/2'` to array, evaluating along the way.",
+   "doc": "Converts list of calculations like `'2^2,3^5,7/2'` to array, evaluating along the way.\n- **Returns**: array",
+   "page": "macros/array.md",
+   "library": null
+  },
+  "calconarray": {
+   "signature": "calconarray(array,calculation)",
+   "summary": "Performs calculation on each element using `'x'` as variable.",
+   "doc": "Performs calculation on each element using `'x'` as variable.\n- **Returns**: array\n- **Example**: `$b = calconarray($a,\"x^2\")`",
+   "page": "macros/array.md",
+   "library": null
+  },
+  "calconarrayif": {
+   "signature": "calconarrayif(array,calculation,ifcondition)",
+   "summary": "Like `calconarray` with condition per element.",
+   "doc": "Like `calconarray` with condition per element.\n- **Returns**: array\n- **Example**: `$b = calconarrayif($a,\"x+.1\",\"floor(x)==x\")`",
+   "page": "macros/array.md",
+   "library": null
+  },
+  "cases": {
+   "signature": "cases(testvalue,comparearray,outputarray,[defaultoutput,tolerance])",
+   "summary": "Compares testvalue to comparearray entries; returns corresponding outputarray entry. Tolerance defaults to 0.0015 relative. Prefix `'|'` for absolute.",
+   "doc": "Compares testvalue to comparearray entries; returns corresponding outputarray entry. Tolerance defaults to 0.0015 relative. Prefix `'|'` for absolute.\n- **Returns**: mixed\n- **Example**: `cases(3,[1,2,3,4],[\"a\",\"b\",\"c\",\"d\"])` returns `\"c\"`",
+   "page": "macros/general.md",
+   "library": null
+  },
+  "ceil": {
+   "signature": "ceil(n)",
+   "summary": "Integer above given number.",
+   "doc": "Integer above given number.\n- **Returns**: integer",
+   "page": "macros/math.md",
+   "library": null
+  },
+  "changeimagesize": {
+   "signature": "changeimagesize(image_or_graph,width,[height])",
+   "summary": "Changes display width for an image. Doesn't resize the file itself.",
+   "doc": "Changes display width for an image. Doesn't resize the file itself.\n- **Returns**: void",
+   "page": "macros/graph-table.md",
+   "library": null
+  },
+  "checkanswerformat": {
+   "signature": "checkanswerformat(string,answerformat)",
+   "summary": "Checks if numerical expression string meets the answerformat.",
+   "doc": "Checks if numerical expression string meets the answerformat.\n- **Returns**: boolean",
+   "page": "macros/testing-and-feedback.md",
+   "library": null
+  },
+  "checkdrawnlineagainstdata": {
+   "signature": "checkdrawnlineagainstdata",
+   "summary": "Check drawn line against data",
+   "doc": "Check drawn line against data",
+   "page": "libs/stats.md",
+   "library": "stats"
+  },
+  "checklineagainstdata": {
+   "signature": "checklineagainstdata",
+   "summary": "Check line fit against data",
+   "doc": "Check line fit against data",
+   "page": "libs/stats.md",
+   "library": "stats"
+  },
+  "chi2cdf": {
+   "signature": "chi2cdf",
+   "summary": "Chi-squared CDF",
+   "doc": "Chi-squared CDF",
+   "page": "libs/stats.md",
+   "library": "stats"
+  },
+  "chi2teststat": {
+   "signature": "chi2teststat",
+   "summary": "Chi-squared test statistic",
+   "doc": "Chi-squared test statistic",
+   "page": "libs/stats.md",
+   "library": "stats"
+  },
+  "cluster_bargraph": {
+   "signature": "cluster_bargraph",
+   "summary": "Clustered bar graph",
+   "doc": "Clustered bar graph",
+   "page": "libs/stats.md",
+   "library": "stats"
+  },
+  "comparefunctions": {
+   "signature": "comparefunctions(a,b,[vars,tol,domain])",
+   "summary": "Compares functions for algebraic equivalence. vars defaults to `'x'`. domain: `'xmin,xmax'` or `'xmin,xmax,integers'`.",
+   "doc": "Compares functions for algebraic equivalence. vars defaults to `'x'`. domain: `'xmin,xmax'` or `'xmin,xmax,integers'`.\n- **Returns**: boolean",
+   "page": "macros/testing-and-feedback.md",
+   "library": null
+  },
+  "comparelogic": {
+   "signature": "comparelogic(a,b,vars)",
+   "summary": "Compares logical statements. Uses `^^` for and, `vv` for or, `~` for not, `->` or `=>` for conditional, `<->` or `<=>` for biconditional.",
+   "doc": "Compares logical statements. Uses `^^` for and, `vv` for or, `~` for not, `->` or `=>` for conditional, `<->` or `<=>` for biconditional.\n- **Returns**: boolean",
+   "page": "macros/testing-and-feedback.md",
+   "library": null
+  },
+  "comparentuples": {
+   "signature": "comparentuples(a,b,[tol],[option])",
+   "summary": "Compares ntuples/calcntuples. tol can be array for per-element. option `'ignoreparens'` to ignore bracket type.",
+   "doc": "Compares ntuples/calcntuples. tol can be array for per-element. option `'ignoreparens'` to ignore bracket type.\n- **Returns**: boolean",
+   "page": "macros/testing-and-feedback.md",
+   "library": null
+  },
+  "comparenumbers": {
+   "signature": "comparenumbers(a,b,[tol])",
+   "summary": "Compares numbers/expressions for equivalence. tol defaults to .001 relative. Prefix `'|'` for absolute.",
+   "doc": "Compares numbers/expressions for equivalence. tol defaults to .001 relative. Prefix `'|'` for absolute.\n- **Returns**: boolean",
+   "page": "macros/testing-and-feedback.md",
+   "library": null
+  },
+  "comparenumberswithunits": {
+   "signature": "comparenumberswithunits(a,b,[tol])",
+   "summary": "Compares numbers-with-units. Format: `[number]*[unit]^[power]...` `'per'` for division, `'squared'`/`'cubed'` supported.",
+   "doc": "Compares numbers-with-units. Format: `[number]*[unit]^[power]...` `'per'` for division, `'squared'`/`'cubed'` supported.\n- **Returns**: boolean",
+   "page": "macros/testing-and-feedback.md",
+   "library": null
+  },
+  "comparesameform": {
+   "signature": "comparesameform(a,b,[vars])",
+   "summary": "Compares expressions for same form. Allows commutation, mult by 1, implicit mult, extra parens. vars defaults to `'x'`.",
+   "doc": "Compares expressions for same form. Allows commutation, mult by 1, implicit mult, extra parens. vars defaults to `'x'`.\n- **Returns**: boolean",
+   "page": "macros/testing-and-feedback.md",
+   "library": null
+  },
+  "connectthedots": {
+   "signature": "connectthedots(xarray,yarray,[color,thickness,startmarker,endmarker])",
+   "summary": "Converts x/y arrays into showplot format for line segments connecting (x,y) pairs.",
+   "doc": "Converts x/y arrays into showplot format for line segments connecting (x,y) pairs.\n- **Returns**: string",
+   "page": "macros/graph-table.md",
+   "library": null
+  },
+  "consecutive": {
+   "signature": "consecutive(min,max,[step])",
+   "summary": "Creates array of consecutive numbers. Step defaults to 1.",
+   "doc": "Creates array of consecutive numbers. Step defaults to 1.\n- **Returns**: array",
+   "page": "macros/array.md",
+   "library": null
+  },
+  "cos": {
+   "signature": "cos(t)",
+   "summary": "Cosine function.",
+   "doc": "Cosine function.\n- **Returns**: number",
+   "page": "macros/math.md",
+   "library": null
+  },
+  "cot": {
+   "signature": "cot(t)",
+   "summary": "Cotangent function.",
+   "doc": "Cotangent function.\n- **Returns**: number",
+   "page": "macros/math.md",
+   "library": null
+  },
+  "count": {
+   "signature": "count(array)",
+   "summary": "Counts number of entries in array.",
+   "doc": "Counts number of entries in array.\n- **Returns**: integer",
+   "page": "macros/array.md",
+   "library": null
+  },
+  "countif": {
+   "signature": "countif",
+   "summary": "Conditional count",
+   "doc": "Conditional count",
+   "page": "libs/stats.md",
+   "library": "stats"
+  },
+  "csc": {
+   "signature": "csc(t)",
+   "summary": "Cosecant function.",
+   "doc": "Cosecant function.\n- **Returns**: number",
+   "page": "macros/math.md",
+   "library": null
+  },
+  "csvdownloadlink": {
+   "signature": "csvdownloadlink",
+   "summary": "CSV download link for data",
+   "doc": "CSV download link for data",
+   "page": "libs/stats.md",
+   "library": "stats"
+  },
+  "dechex": {
+   "signature": "dechex(a)",
+   "summary": "Converts decimal number to hexadecimal string.",
+   "doc": "Converts decimal number to hexadecimal string.\n- **Returns**: string",
+   "page": "macros/math.md",
+   "library": null
+  },
+  "decimaltofraction": {
+   "signature": "decimaltofraction(decimal,[format,maxden])",
+   "summary": "Converts decimal to fraction. format=`'mixednumber'` for mixed number. maxden default 5000.",
+   "doc": "Converts decimal to fraction. format=`'mixednumber'` for mixed number. maxden default 5000.\n- **Returns**: string",
+   "page": "macros/format.md",
+   "library": null
+  },
+  "diffarrays": {
+   "signature": "diffarrays(array1,array2)",
+   "summary": "Returns elements in array1 not in array2.",
+   "doc": "Returns elements in array1 not in array2.\n- **Returns**: array",
+   "page": "macros/array.md",
+   "library": null
+  },
+  "diffrands": {
+   "signature": "diffrands(min,max,n,[order])",
+   "summary": "Returns n different integers between min and max.",
+   "doc": "Returns n different integers between min and max.\n- **Returns**: array",
+   "page": "macros/randomizers.md",
+   "library": null
+  },
+  "diffrandsfrom": {
+   "signature": "diffrandsfrom(list/array,n,[order])",
+   "summary": "Return n different elements of the list/array.",
+   "doc": "Return n different elements of the list/array.\n- **Returns**: array",
+   "page": "macros/randomizers.md",
+   "library": null
+  },
+  "diffrrands": {
+   "signature": "diffrrands(min,max,p,n,[order])",
+   "summary": "Returns n different real numbers between min and max in steps of p.",
+   "doc": "Returns n different real numbers between min and max in steps of p.\n- **Returns**: array",
+   "page": "macros/randomizers.md",
+   "library": null
+  },
+  "dispreducedfraction": {
+   "signature": "dispreducedfraction(numerator,denominator,[doubleslash,variable])",
+   "summary": "Returns display form of fraction reduced to lowest terms. Set doubleslash for `'3//4'` form.",
+   "doc": "Returns display form of fraction reduced to lowest terms. Set doubleslash for `'3//4'` form.\n- **Returns**: string",
+   "page": "macros/format.md",
+   "library": null
+  },
+  "dotplot": {
+   "signature": "dotplot",
+   "summary": "Dot plot",
+   "doc": "Dot plot",
+   "page": "libs/stats.md",
+   "library": "stats"
+  },
+  "evalfunc": {
+   "signature": "evalfunc(func,vars,val1,val2,...,[falseonerror])",
+   "summary": "Evaluates function with given variable values.",
+   "doc": "Evaluates function with given variable values.\n- **Returns**: number or false\n- **Example**: `evalfunc(\"x^2*y\",\"x,y\",2,3)`",
+   "page": "macros/math.md",
+   "library": null
+  },
+  "evalnumstr": {
+   "signature": "evalnumstr(expr,[complex])",
+   "summary": "Evaluates string representation of numerical expression to decimal. Set complex=true for complex number expressions.",
+   "doc": "Evaluates string representation of numerical expression to decimal. Set complex=true for complex number expressions.\n- **Returns**: number",
+   "page": "macros/math.md",
+   "library": null
+  },
+  "expdistrand": {
+   "signature": "expdistrand",
+   "summary": "Exponential distribution random variate",
+   "doc": "Exponential distribution random variate",
+   "page": "libs/stats.md",
+   "library": "stats"
+  },
+  "explode": {
+   "signature": "explode(symbol,string)",
+   "summary": "Converts string to array, breaking on given symbol.",
+   "doc": "Converts string to array, breaking on given symbol.\n- **Returns**: array",
+   "page": "macros/array.md",
+   "library": null
+  },
+  "expreg": {
+   "signature": "expreg",
+   "summary": "Exponential regression",
+   "doc": "Exponential regression",
+   "page": "libs/stats.md",
+   "library": "stats"
+  },
+  "fcdf": {
+   "signature": "fcdf",
+   "summary": "F distribution CDF",
+   "doc": "F distribution CDF",
+   "page": "libs/stats.md",
+   "library": "stats"
+  },
+  "fdbargraph": {
+   "signature": "fdbargraph",
+   "summary": "Frequency distribution bar graph",
+   "doc": "Frequency distribution bar graph",
+   "page": "libs/stats.md",
+   "library": "stats"
+  },
+  "fdhistogram": {
+   "signature": "fdhistogram",
+   "summary": "Frequency distribution histogram",
+   "doc": "Frequency distribution histogram",
+   "page": "libs/stats.md",
+   "library": "stats"
+  },
+  "fillarray": {
+   "signature": "fillarray(value,num,[start])",
+   "summary": "Creates array with num entries of same value. Start index default 0. num can be array of indices.",
+   "doc": "Creates array with num entries of same value. Start index default 0. num can be array of indices.\n- **Returns**: array",
+   "page": "macros/array.md",
+   "library": null
+  },
+  "floor": {
+   "signature": "floor(n)",
+   "summary": "Integer below given number.",
+   "doc": "Integer below given number.\n- **Returns**: integer",
+   "page": "macros/math.md",
+   "library": null
+  },
+  "fmod": {
+   "signature": "fmod(p,n)",
+   "summary": "Modulus of decimal values. May give negative results from negative inputs.",
+   "doc": "Modulus of decimal values. May give negative results from negative inputs.\n- **Returns**: number",
+   "page": "macros/math.md",
+   "library": null
+  },
+  "forceonemode": {
+   "signature": "forceonemode",
+   "summary": "Force single mode output",
+   "doc": "Force single mode output",
+   "page": "libs/stats.md",
+   "library": "stats"
+  },
+  "formatcomplex": {
+   "signature": "formatcomplex(real,imag)",
+   "summary": "Creates a string like `'2+i'` from real and imaginary parts.",
+   "doc": "Creates a string like `'2+i'` from real and imaginary parts.\n- **Returns**: string",
+   "page": "macros/format.md",
+   "library": null
+  },
+  "formhoverover": {
+   "signature": "formhoverover(label,tip)",
+   "summary": "Creates a hover-over definition or tip.",
+   "doc": "Creates a hover-over definition or tip.\n- **Returns**: string",
+   "page": "macros/general.md",
+   "library": null
+  },
+  "forminlinebutton": {
+   "signature": "forminlinebutton(label,content,[style,outputstyle])",
+   "summary": "Creates link/button that reveals hidden content. outputstyle: `'inline'` or `'block'`.",
+   "doc": "Creates link/button that reveals hidden content. outputstyle: `'inline'` or `'block'`.\n- **Returns**: string",
+   "page": "macros/general.md",
+   "library": null
+  },
+  "formpopup": {
+   "signature": "formpopup(label,content,[width,height,style,scrollbars])",
+   "summary": "Creates link/button to popup window. Content: URL or HTML. Style: `'link'` or `'button'`.",
+   "doc": "Creates link/button to popup window. Content: URL or HTML. Style: `'link'` or `'button'`.\n- **Returns**: string",
+   "page": "macros/general.md",
+   "library": null
+  },
+  "fractowords": {
+   "signature": "fractowords(numerator,denominator,[options])",
+   "summary": "Creates string of fraction in words. Options: `'mixed'`, `'literal'`, `'over'`, `'by'`, `'hyphen'`. Fractions reduced by default.",
+   "doc": "Creates string of fraction in words. Options: `'mixed'`, `'literal'`, `'over'`, `'by'`, `'hyphen'`. Fractions reduced by default.\n- **Returns**: string\n- **Examples**:\n  - `fractowords(5,-2)` → `\"negative five halves\"`\n  - `fractowords(6,3)` → `\"two\"`\n  - `fractowords(2,3,'hyphen')` → `\"two-thirds\"`\n  - `fractowords(-7,4,'mixed')` → `\"negative one and three fourths\"`",
+   "page": "macros/format.md",
+   "library": null
+  },
+  "freqdist": {
+   "signature": "freqdist",
+   "summary": "Frequency distribution table",
+   "doc": "Frequency distribution table",
+   "page": "libs/stats.md",
+   "library": "stats"
+  },
+  "frequency": {
+   "signature": "frequency",
+   "summary": "Frequency count",
+   "doc": "Frequency count",
+   "page": "libs/stats.md",
+   "library": "stats"
+  },
+  "gamma_cdf": {
+   "signature": "gamma_cdf",
+   "summary": "Gamma CDF",
+   "doc": "Gamma CDF",
+   "page": "libs/stats.md",
+   "library": "stats"
+  },
+  "gamma_inv": {
+   "signature": "gamma_inv",
+   "summary": "Inverse gamma CDF",
+   "doc": "Inverse gamma CDF",
+   "page": "libs/stats.md",
+   "library": "stats"
+  },
+  "gcd": {
+   "signature": "gcd(a,b,[c,d,...])",
+   "summary": "Greatest common divisor.",
+   "doc": "Greatest common divisor.\n- **Returns**: integer",
+   "page": "macros/math.md",
+   "library": null
+  },
+  "getdotsdata": {
+   "signature": "getdotsdata(stuans,[xmin,xmax,ymin,ymax,width,height]) or (stuans,[grid,snaptogrid])",
+   "summary": "Extracts closed dots data from drawing `$stuanswers`.",
+   "doc": "Extracts closed dots data from drawing `$stuanswers`.\n- **Returns**: array of array(x,y)",
+   "page": "macros/graph-table.md",
+   "library": null
+  },
+  "getfeedbackbasic": {
+   "signature": "getfeedbackbasic(correct_msg,incorrect_msg,$thisq,[partnum])",
+   "summary": "Feedback based on correct/incorrect. Give array of part-numbers to require all correct for correct message.",
+   "doc": "Feedback based on correct/incorrect. Give array of part-numbers to require all correct for correct message.\n- **Returns**: string",
+   "page": "macros/testing-and-feedback.md",
+   "library": null
+  },
+  "getfeedbacktxt": {
+   "signature": "getfeedbacktxt(stuans,feedbacktxt,ans)",
+   "summary": "Feedback on multiple choice. feedbacktxt array corresponds to `$questions` order.",
+   "doc": "Feedback on multiple choice. feedbacktxt array corresponds to `$questions` order.\n- **Returns**: string",
+   "page": "macros/testing-and-feedback.md",
+   "library": null
+  },
+  "getfeedbacktxtcalculated": {
+   "signature": "getfeedbacktxtcalculated(stuans,stuansval,partialcredit,feedbacktxt,defaultfeedback,[answerformat,requiretimes,tol])",
+   "summary": "Feedback on calculated questions. answerformat/requiretimes can be arrays for per-expression checking.",
+   "doc": "Feedback on calculated questions. answerformat/requiretimes can be arrays for per-expression checking.\n- **Returns**: string",
+   "page": "macros/testing-and-feedback.md",
+   "library": null
+  },
+  "getfeedbacktxtessay": {
+   "signature": "getfeedbacktxtessay(stuans,feedbacktxt)",
+   "summary": "Feedback on essay. Returns feedbacktxt once student has entered any response.",
+   "doc": "Feedback on essay. Returns feedbacktxt once student has entered any response.\n- **Returns**: string",
+   "page": "macros/testing-and-feedback.md",
+   "library": null
+  },
+  "getfeedbacktxtnumber": {
+   "signature": "getfeedbacktxtnumber(stuans,partialcredit,feedbacktxt,defaultfeedback,[tol])",
+   "summary": "Feedback on number questions. partialcredit: `array(number,score,...)`. feedbacktxt array corresponds.",
+   "doc": "Feedback on number questions. partialcredit: `array(number,score,...)`. feedbacktxt array corresponds.\n- **Returns**: string",
+   "page": "macros/testing-and-feedback.md",
+   "library": null
+  },
+  "getfeedbacktxtnumfunc": {
+   "signature": "getfeedbacktxtnumfunc(stuans,partialcredit,feedbacktxt,defaultfeedback,[vars,requiretimes,tol,domain])",
+   "summary": "Feedback on algebraic expression questions. vars defaults to `'x'`. domain defaults to `'-10,10'`.",
+   "doc": "Feedback on algebraic expression questions. vars defaults to `'x'`. domain defaults to `'-10,10'`.\n- **Returns**: string",
+   "page": "macros/testing-and-feedback.md",
+   "library": null
+  },
+  "getineqdata": {
+   "signature": "getineqdata(stuans,[type,xmin,xmax,ymin,ymax,width,height]) or (stuans,[grid,snaptogrid])",
+   "summary": "Extracts inequalities data. Type: `'linear'` or `'quadratic'`.",
+   "doc": "Extracts inequalities data. Type: `'linear'` or `'quadratic'`.\n- **Returns**: array of array(style,x1,y1,x2,y2,x3,y3)",
+   "page": "macros/graph-table.md",
+   "library": null
+  },
+  "getlinesdata": {
+   "signature": "getlinesdata(stuans,[xmin,xmax,ymin,ymax,width,height]) or (stuans,[grid,snaptogrid])",
+   "summary": "Extracts lines data from older non-twopoint line tool or polygon tool.",
+   "doc": "Extracts lines data from older non-twopoint line tool or polygon tool.\n- **Returns**: array of arrays of (x,y) points",
+   "page": "macros/graph-table.md",
+   "library": null
+  },
+  "getntupleparts": {
+   "signature": "getntupleparts(string,[expected_components,checknumeric])",
+   "summary": "Extracts components of n-tuple from `$stuanswers`/`$stuanswersval`. Returns false if invalid.",
+   "doc": "Extracts components of n-tuple from `$stuanswers`/`$stuanswersval`. Returns false if invalid.\n- **Returns**: array or false",
+   "page": "macros/general.md",
+   "library": null
+  },
+  "getopendotsdata": {
+   "signature": "getopendotsdata(stuans,[xmin,xmax,ymin,ymax,width,height]) or (stuans,[grid,snaptogrid])",
+   "summary": "Extracts open dots data from drawing `$stuanswers`.",
+   "doc": "Extracts open dots data from drawing `$stuanswers`.\n- **Returns**: array of array(x,y)",
+   "page": "macros/graph-table.md",
+   "library": null
+  },
+  "getsigfigs": {
+   "signature": "getsigfigs(value,[expected_sigfigs])",
+   "summary": "Returns number of sigfigs. Include expected to resolve ambiguity on numbers like 1200.",
+   "doc": "Returns number of sigfigs. Include expected to resolve ambiguity on numbers like 1200.\n- **Returns**: integer",
+   "page": "macros/testing-and-feedback.md",
+   "library": null
+  },
+  "getsnapwidthheight": {
+   "signature": "getsnapwidthheight(xmin,xmax,ymin,ymax,width,height,snaptogrid)",
+   "summary": "Returns array(width,height) for pixel-accurate snaptogrid values.",
+   "doc": "Returns array(width,height) for pixel-accurate snaptogrid values.\n- **Returns**: array(width,height)",
+   "page": "macros/graph-table.md",
+   "library": null
+  },
+  "getstuans": {
+   "signature": "getstuans($stuanswers,$thisq,[part_number])",
+   "summary": "Retrieves student answer value. Recommended over direct array access as it handles undefined values.",
+   "doc": "Retrieves student answer value. Recommended over direct array access as it handles undefined values.\n- **Returns**: mixed",
+   "page": "macros/testing-and-feedback.md",
+   "library": null
+  },
+  "gettwopointdata": {
+   "signature": "gettwopointdata(stuans,type,[xmin,xmax,ymin,ymax,width,height]) or (stuans,type,[grid,snaptogrid])",
+   "summary": "Extracts two-point data for given curve type from drawing `$stuanswers`.",
+   "doc": "Extracts two-point data for given curve type from drawing `$stuanswers`.\n- **Returns**: array of array(x1,y1,x2,y2)\n- **type values**: `line`, `lineseg`, `ray`, `parab`, `halfparab`, `horizparab`, `sqrt`, `cubic`, `cuberoot`, `rational`, `exp`, `genexp`, `log`, `genlog`, `sin`, `cos`, `abs`, `vector`, `circle`, `ellipse`. `'circlerad'` returns (x-center,y-center,radius). `'ellipserad'` returns (x-center,y-center,x-radius,y-radius).",
+   "page": "macros/graph-table.md",
+   "library": null
+  },
+  "gettwopointformulas": {
+   "signature": "gettwopointformulas(stuans,type,[xmin,xmax,ymin,ymax,width,height]) or (stuans,type,[grid,snaptogrid])",
+   "summary": "Returns formulas for curves drawn by student. Optional arg `'showequation,[xvar,yvar]'` for implicit equations.",
+   "doc": "Returns formulas for curves drawn by student. Optional arg `'showequation,[xvar,yvar]'` for implicit equations.\n- **Returns**: array of expressions",
+   "page": "macros/graph-table.md",
+   "library": null
+  },
+  "gettwopointlinedata": {
+   "signature": "gettwopointlinedata(stuans,[xmin,xmax,ymin,ymax,width,height]) or (stuans,[grid,snaptogrid])",
+   "summary": "Extracts two-point line data from `$stuanswers` of a drawing question.",
+   "doc": "Extracts two-point line data from `$stuanswers` of a drawing question.\n- **Returns**: array of array(x1,y1,x2,y2)",
+   "page": "macros/graph-table.md",
+   "library": null
+  },
+  "hexdec": {
+   "signature": "hexdec(a)",
+   "summary": "Converts hexadecimal string to decimal number.",
+   "doc": "Converts hexadecimal string to decimal number.\n- **Returns**: number",
+   "page": "macros/math.md",
+   "library": null
+  },
+  "histogram": {
+   "signature": "histogram",
+   "summary": "Histogram",
+   "doc": "Histogram",
+   "page": "libs/stats.md",
+   "library": "stats"
+  },
+  "horizshowarrays": {
+   "signature": "horizshowarrays(string,array,[string,array]...,[options])",
+   "summary": "Creates tabular display of data as rows with strings as row labels. Does not text wrap.",
+   "doc": "Creates tabular display of data as rows with strings as row labels. Does not text wrap.\n- **Returns**: string",
+   "page": "macros/graph-table.md",
+   "library": null
+  },
+  "htmldisp": {
+   "signature": "htmldisp(string,[variables])",
+   "summary": "Uses HTML instead of math typesetter for simple exponents/subscripts and italicized variables.",
+   "doc": "Uses HTML instead of math typesetter for simple exponents/subscripts and italicized variables.\n- **Returns**: string",
+   "page": "macros/format.md",
+   "library": null
+  },
+  "ifthen": {
+   "signature": "ifthen(condition,trueval,falseval)",
+   "summary": "Returns trueval if condition is true, falseval otherwise.",
+   "doc": "Returns trueval if condition is true, falseval otherwise.\n- **Returns**: mixed",
+   "page": "macros/general.md",
+   "library": null
+  },
+  "in_array": {
+   "signature": "in_array(needle,haystack)",
+   "summary": "Checks if value is in array.",
+   "doc": "Checks if value is in array.\n- **Returns**: boolean",
+   "page": "macros/array.md",
+   "library": null
+  },
+  "interppercentile": {
+   "signature": "interppercentile",
+   "summary": "Interpolated percentile",
+   "doc": "Interpolated percentile",
+   "page": "libs/stats.md",
+   "library": "stats"
+  },
+  "intersectarrays": {
+   "signature": "intersectarrays(array,array)",
+   "summary": "Finds intersection of two arrays.",
+   "doc": "Finds intersection of two arrays.\n- **Returns**: array",
+   "page": "macros/array.md",
+   "library": null
+  },
+  "invchi2cdf": {
+   "signature": "invchi2cdf",
+   "summary": "Inverse chi-squared CDF",
+   "doc": "Inverse chi-squared CDF",
+   "page": "libs/stats.md",
+   "library": "stats"
+  },
+  "invertplot": {
+   "signature": "invertplot($plot)",
+   "summary": "Inverts drawing on plot, swapping x and y coordinates. Use `replacealttext` since auto-generated alt text won't be accurate.",
+   "doc": "Inverts drawing on plot, swapping x and y coordinates. Use `replacealttext` since auto-generated alt text won't be accurate.\n- **Returns**: plot",
+   "page": "macros/graph-table.md",
+   "library": null
+  },
+  "invfcdf": {
+   "signature": "invfcdf",
+   "summary": "Inverse F CDF",
+   "doc": "Inverse F CDF",
+   "page": "libs/stats.md",
+   "library": "stats"
+  },
+  "invnormalcdf": {
+   "signature": "invnormalcdf",
+   "summary": "Inverse normal CDF",
+   "doc": "Inverse normal CDF",
+   "page": "libs/stats.md",
+   "library": "stats"
+  },
+  "invtcdf": {
+   "signature": "invtcdf",
+   "summary": "Inverse t CDF",
+   "doc": "Inverse t CDF",
+   "page": "libs/stats.md",
+   "library": "stats"
+  },
+  "is_array": {
+   "signature": "is_array(variable)",
+   "summary": "Determines if variable is an array.",
+   "doc": "Determines if variable is an array.\n- **Returns**: boolean",
+   "page": "macros/array.md",
+   "library": null
+  },
+  "is_nan": {
+   "signature": "is_nan(val)",
+   "summary": "Checks if value is NAN. Only works on calculated values, not string expressions.",
+   "doc": "Checks if value is NAN. Only works on calculated values, not string expressions.\n- **Returns**: boolean",
+   "page": "macros/testing-and-feedback.md",
+   "library": null
+  },
+  "is_numeric": {
+   "signature": "is_numeric(str)",
+   "summary": "Checks if string represents integer or decimal number.",
+   "doc": "Checks if string represents integer or decimal number.\n- **Returns**: boolean",
+   "page": "macros/testing-and-feedback.md",
+   "library": null
+  },
+  "isset": {
+   "signature": "isset($var)",
+   "summary": "Checks if variable is defined.",
+   "doc": "Checks if variable is defined.\n- **Returns**: boolean",
+   "page": "macros/testing-and-feedback.md",
+   "library": null
+  },
+  "joinarray": {
+   "signature": "joinarray(array,[symbol,ksort])",
+   "summary": "Converts array to string joined by symbol (default comma). ksort=true to sort by key.",
+   "doc": "Converts array to string joined by symbol (default comma). ksort=true to sort by key.\n- **Returns**: string",
+   "page": "macros/array.md",
+   "library": null
+  },
+  "jointrandfrom": {
+   "signature": "jointrandfrom(list/array,list/array,[list/array,...])",
+   "summary": "Returns one element from each list, where the location used in each list is the same.",
+   "doc": "Returns one element from each list, where the location used in each list is the same.\n- **Returns**: array",
+   "page": "macros/randomizers.md",
+   "library": null
+  },
+  "jointshuffle": {
+   "signature": "jointshuffle(list/array1,list/array2,[n1,n2])",
+   "summary": "Shuffles two lists/arrays retaining respective order. If n1 provided, returns n1 elements from each. If n2 also provided, n1 from array1 and n2 from array2.",
+   "doc": "Shuffles two lists/arrays retaining respective order. If n1 provided, returns n1 elements from each. If n2 also provided, n1 from array1 and n2 from array2.\n- **Returns**: array",
+   "page": "macros/randomizers.md",
+   "library": null
+  },
+  "jointsort": {
+   "signature": "jointsort(array,array,[array,...])",
+   "summary": "Jointly reorders arrays based on sort of first array.",
+   "doc": "Jointly reorders arrays based on sort of first array.\n- **Returns**: arrays",
+   "page": "macros/array.md",
+   "library": null
+  },
+  "keepif": {
+   "signature": "keepif(array,condition)",
+   "summary": "Filters array keeping only values meeting condition.",
+   "doc": "Filters array keeping only values meeting condition.\n- **Returns**: array\n- **Example**: `keepif($a,\"x%3==0\")`",
+   "page": "macros/array.md",
+   "library": null
+  },
+  "lcfirst": {
+   "signature": "lcfirst(string)",
+   "summary": "Makes first character lower case.",
+   "doc": "Makes first character lower case.\n- **Returns**: string",
+   "page": "macros/string.md",
+   "library": null
+  },
+  "lcm": {
+   "signature": "lcm(a,b,[c,d,...])",
+   "summary": "Least common multiple.",
+   "doc": "Least common multiple.\n- **Returns**: integer",
+   "page": "macros/math.md",
+   "library": null
+  },
+  "linreg": {
+   "signature": "linreg",
+   "summary": "Linear regression",
+   "doc": "Linear regression",
+   "page": "libs/stats.md",
+   "library": "stats"
+  },
+  "listtoarray": {
+   "signature": "listtoarray(list,[tonum])",
+   "summary": "Converts list like `'1,2,3,4'` to array. Set tonum=true for numeric treatment.",
+   "doc": "Converts list like `'1,2,3,4'` to array. Set tonum=true for numeric treatment.\n- **Returns**: array",
+   "page": "macros/array.md",
+   "library": null
+  },
+  "makenumberrequiretimes": {
+   "signature": "makenumberrequiretimes(array/list)",
+   "summary": "Generates `$requiretimes` string from array of numbers. Auto-detects number overlaps.",
+   "doc": "Generates `$requiretimes` string from array of numbers. Auto-detects number overlaps.\n- **Returns**: string",
+   "page": "macros/general.md",
+   "library": null
+  },
+  "makepretty": {
+   "signature": "makepretty(string or array)",
+   "summary": "Changes double add/subtract signs to a single sign.",
+   "doc": "Changes double add/subtract signs to a single sign.\n- **Returns**: string/array",
+   "page": "macros/format.md",
+   "library": null
+  },
+  "makeprettydisp": {
+   "signature": "makeprettydisp(string or array)",
+   "summary": "Does `makepretty` and backquotes the string for math display.",
+   "doc": "Does `makepretty` and backquotes the string for math display.\n- **Returns**: string/array",
+   "page": "macros/format.md",
+   "library": null
+  },
+  "makepretynegative": {
+   "signature": "makepretynegative(string)",
+   "summary": "Puts parens around negatives. `3--4` to `3-(-4)`, `3+-4` to `3+(-4)`, but `3-+4` to `3-4`.",
+   "doc": "Puts parens around negatives. `3--4` to `3-(-4)`, `3+-4` to `3+(-4)`, but `3-+4` to `3-4`.\n- **Returns**: string",
+   "page": "macros/format.md",
+   "library": null
+  },
+  "makereducedfraction": {
+   "signature": "makereducedfraction(numerator,denominator,[doubleslash,variable])",
+   "summary": "Same as `dispreducedfraction` but not in display form. Alt: `makereducedfraction(num,den,'parts')` returns array of reduced num/den.",
+   "doc": "Same as `dispreducedfraction` but not in display form. Alt: `makereducedfraction(num,den,'parts')` returns array of reduced num/den.\n- **Returns**: string or array",
+   "page": "macros/format.md",
+   "library": null
+  },
+  "makescinot": {
+   "signature": "makescinot(number,[decimals,format])",
+   "summary": "Converts number to scientific notation. format: `'*'` or `'E'` as alternative to default cross.",
+   "doc": "Converts number to scientific notation. format: `'*'` or `'E'` as alternative to default cross.\n- **Returns**: string",
+   "page": "macros/format.md",
+   "library": null
+  },
+  "makexpretty": {
+   "signature": "makexpretty(string)",
+   "summary": "(deprecated - use makexxpretty) Like `makepretty`, X-tra version — cleans up `1*`, `0*`, etc.",
+   "doc": "(deprecated - use makexxpretty) Like `makepretty`, X-tra version — cleans up `1*`, `0*`, etc.\n- **Returns**: string",
+   "page": "macros/format.md",
+   "library": null
+  },
+  "makexprettydisp": {
+   "signature": "makexprettydisp(string)",
+   "summary": "(deprecated) `makexpretty` + backquotes.",
+   "doc": "(deprecated) `makexpretty` + backquotes.\n- **Returns**: string",
+   "page": "macros/format.md",
+   "library": null
+  },
+  "makexxpretty": {
+   "signature": "makexxpretty(string)",
+   "summary": "X-tra `makepretty` — cleans up `1*`, `0*`, `x^1`, `x^0`, etc. Cannot handle `|x|` notation; use `abs(x)`.",
+   "doc": "X-tra `makepretty` — cleans up `1*`, `0*`, `x^1`, `x^0`, etc. Cannot handle `|x|` notation; use `abs(x)`.\n- **Returns**: string",
+   "page": "macros/format.md",
+   "library": null
+  },
+  "makexxprettydisp": {
+   "signature": "makexxprettydisp(string)",
+   "summary": "",
+   "doc": "`makexxpretty` + backquotes for math display.\n- **Returns**: string",
+   "page": "macros/format.md",
+   "library": null
+  },
+  "max": {
+   "signature": "max(a,b,c,...) or max(array)",
+   "summary": "Maximum of passed values or array.",
+   "doc": "Maximum of passed values or array.\n- **Returns**: number",
+   "page": "macros/math.md",
+   "library": null
+  },
+  "mean": {
+   "signature": "mean",
+   "summary": "Arithmetic mean",
+   "doc": "Arithmetic mean",
+   "page": "libs/stats.md",
+   "library": "stats"
+  },
+  "median": {
+   "signature": "median",
+   "summary": "Median",
+   "doc": "Median",
+   "page": "libs/stats.md",
+   "library": "stats"
+  },
+  "mergearrays": {
+   "signature": "mergearrays(array,array,[array,...])",
+   "summary": "Combines two or more arrays into one.",
+   "doc": "Combines two or more arrays into one.\n- **Returns**: array",
+   "page": "macros/array.md",
+   "library": null
+  },
+  "mergeplots": {
+   "signature": "mergeplots($plot1,$plot2,[$plot3,...])",
+   "summary": "Merges multiple plots into one. Grid/border from first graph used.",
+   "doc": "Merges multiple plots into one. Grid/border from first graph used.\n- **Returns**: plot",
+   "page": "macros/graph-table.md",
+   "library": null
+  },
+  "min": {
+   "signature": "min(a,b,c,...) or min(array)",
+   "summary": "Minimum of passed values or array.",
+   "doc": "Minimum of passed values or array.\n- **Returns**: number",
+   "page": "macros/math.md",
+   "library": null
+  },
+  "mod": {
+   "signature": "mod(p,n)",
+   "summary": "Modulus of integers. Gives positive results for negative numbers.",
+   "doc": "Modulus of integers. Gives positive results for negative numbers.\n- **Returns**: integer",
+   "page": "macros/math.md",
+   "library": null
+  },
+  "modes": {
+   "signature": "modes",
+   "summary": "Mode(s)",
+   "doc": "Mode(s)",
+   "page": "libs/stats.md",
+   "library": "stats"
+  },
+  "mosaicplot": {
+   "signature": "mosaicplot",
+   "summary": "Mosaic plot",
+   "doc": "Mosaic plot",
+   "page": "libs/stats.md",
+   "library": "stats"
+  },
+  "multicalconarray": {
+   "signature": "multicalconarray(calculation,varslist,var1array,var2array,...)",
+   "summary": "Multivariable `calconarray`.",
+   "doc": "Multivariable `calconarray`.\n- **Returns**: array\n- **Example**: `$z = multicalconarray(\"x*y^2\",\"x,y\",$xs,$ys)`",
+   "page": "macros/array.md",
+   "library": null
+  },
+  "nCr": {
+   "signature": "nCr",
+   "summary": "Combinations — C(n,r)",
+   "doc": "Combinations — C(n,r)",
+   "page": "libs/stats.md",
+   "library": "stats"
+  },
+  "nPr": {
+   "signature": "nPr",
+   "summary": "Permutations — P(n,r)",
+   "doc": "Permutations — P(n,r)",
+   "page": "libs/stats.md",
+   "library": "stats"
+  },
+  "nonzerodiffrands": {
+   "signature": "nonzerodiffrands(min,max,n,[order])",
+   "summary": "Returns n different nonzero integers between min and max.",
+   "doc": "Returns n different nonzero integers between min and max.\n- **Returns**: array",
+   "page": "macros/randomizers.md",
+   "library": null
+  },
+  "nonzerodiffrrands": {
+   "signature": "nonzerodiffrrands(min,max,p,n,[order])",
+   "summary": "Returns n different nonzero real numbers between min and max in steps of p.",
+   "doc": "Returns n different nonzero real numbers between min and max in steps of p.\n- **Returns**: array",
+   "page": "macros/randomizers.md",
+   "library": null
+  },
+  "nonzerorand": {
+   "signature": "nonzerorand(min,max)",
+   "summary": "Returns a nonzero integer between min and max.",
+   "doc": "Returns a nonzero integer between min and max.\n- **Returns**: integer",
+   "page": "macros/randomizers.md",
+   "library": null
+  },
+  "nonzerorands": {
+   "signature": "nonzerorands(min,max,n,[order])",
+   "summary": "Returns n nonzero integers between min and max.",
+   "doc": "Returns n nonzero integers between min and max.\n- **Returns**: array",
+   "page": "macros/randomizers.md",
+   "library": null
+  },
+  "nonzerorrand": {
+   "signature": "nonzerorrand(min,max,p)",
+   "summary": "Returns a nonzero real number between min and max in steps of p.",
+   "doc": "Returns a nonzero real number between min and max in steps of p.\n- **Returns**: number",
+   "page": "macros/randomizers.md",
+   "library": null
+  },
+  "nonzerorrands": {
+   "signature": "nonzerorrands(min,max,p,n,[order])",
+   "summary": "Returns n nonzero real numbers between min and max in steps of p.",
+   "doc": "Returns n nonzero real numbers between min and max in steps of p.\n- **Returns**: array",
+   "page": "macros/randomizers.md",
+   "library": null
+  },
+  "normalcdf": {
+   "signature": "normalcdf",
+   "summary": "Normal CDF",
+   "doc": "Normal CDF",
+   "page": "libs/stats.md",
+   "library": "stats"
+  },
+  "normrand": {
+   "signature": "normrand",
+   "summary": "Normal random variate",
+   "doc": "Normal random variate",
+   "page": "libs/stats.md",
+   "library": "stats"
+  },
+  "numtoroman": {
+   "signature": "numtoroman(number,[uppercase])",
+   "summary": "Converts number 0.5-3999.5 to roman numeral. Defaults uppercase; set false for lowercase.",
+   "doc": "Converts number 0.5-3999.5 to roman numeral. Defaults uppercase; set false for lowercase.\n- **Returns**: string",
+   "page": "macros/format.md",
+   "library": null
+  },
+  "numtowords": {
+   "signature": "numtowords(number,[addth,numwithTh,addcommas])",
+   "summary": "Creates string of number in words.",
+   "doc": "Creates string of number in words.\n- **Returns**: string\n- **Examples**:\n  - `numtowords(1203)` → `\"one thousand two hundred three\"`\n  - `numtowords(1203,true)` → `\"one thousand two hundred third\"`\n  - `numtowords(1203,false,true)` → `\"1023rd\"`\n  - `numtowords(1203,false,false,true)` → `\"one thousand, two hundred three\"`",
+   "page": "macros/format.md",
+   "library": null
+  },
+  "percentile": {
+   "signature": "percentile",
+   "summary": "Percentile",
+   "doc": "Percentile",
+   "page": "libs/stats.md",
+   "library": "stats"
+  },
+  "piechart": {
+   "signature": "piechart",
+   "summary": "Pie chart",
+   "doc": "Pie chart",
+   "page": "libs/stats.md",
+   "library": "stats"
+  },
+  "poissoncdf": {
+   "signature": "poissoncdf",
+   "summary": "Poisson CDF",
+   "doc": "Poisson CDF",
+   "page": "libs/stats.md",
+   "library": "stats"
+  },
+  "poissonpdf": {
+   "signature": "poissonpdf",
+   "summary": "Poisson PDF",
+   "doc": "Poisson PDF",
+   "page": "libs/stats.md",
+   "library": "stats"
+  },
+  "polymakepretty": {
+   "signature": "polymakepretty(string or array)",
+   "summary": "Like `makepretty` but for polynomials. Cleans up `0*`, `1*`, `^1`, `^0`. Can do weird things for non-polynomials.",
+   "doc": "Like `makepretty` but for polynomials. Cleans up `0*`, `1*`, `^1`, `^0`. Can do weird things for non-polynomials.\n- **Returns**: string/array",
+   "page": "macros/format.md",
+   "library": null
+  },
+  "polymakeprettydisp": {
+   "signature": "polymakeprettydisp(string or array)",
+   "summary": "",
+   "doc": "`polymakepretty` + backquotes for math display.\n- **Returns**: string/array",
+   "page": "macros/format.md",
+   "library": null
+  },
+  "preg_match": {
+   "signature": "preg_match(pattern,subject,[matches])",
+   "summary": "Regex search. Returns true/false, stores match in matches.",
+   "doc": "Regex search. Returns true/false, stores match in matches.\n- **Returns**: boolean",
+   "page": "macros/string.md",
+   "library": null
+  },
+  "preg_match_all": {
+   "signature": "preg_match_all(pattern,subject,[matches,flags,offset])",
+   "summary": "Regex search for multiple matches. Returns number of matches.",
+   "doc": "Regex search for multiple matches. Returns number of matches.\n- **Returns**: integer",
+   "page": "macros/string.md",
+   "library": null
+  },
+  "preg_replace": {
+   "signature": "preg_replace(pattern,replacement,subject,[limit])",
+   "summary": "Regex search and replace.",
+   "doc": "Regex search and replace.\n- **Returns**: string",
+   "page": "macros/string.md",
+   "library": null
+  },
+  "prettyint": {
+   "signature": "prettyint(number)",
+   "summary": "Adds commas in thousands places. `prettyint(1234)` → `\"1,234\"`. Result is string, not for calculations.",
+   "doc": "Adds commas in thousands places. `prettyint(1234)` → `\"1,234\"`. Result is string, not for calculations.\n- **Returns**: string",
+   "page": "macros/format.md",
+   "library": null
+  },
+  "prettyreal": {
+   "signature": "prettyreal(number,decimals,[comma])",
+   "summary": "Adds commas and fixed decimals. `prettyreal(1234.567,2)` → `\"1,234.57\"`. Set comma to `\"\"` to omit.",
+   "doc": "Adds commas and fixed decimals. `prettyreal(1234.567,2)` → `\"1,234.57\"`. Set comma to `\"\"` to omit.\n- **Returns**: string",
+   "page": "macros/format.md",
+   "library": null
+  },
+  "prettyreal_instring": {
+   "signature": "prettyreal_instring(string,decimals,[comma])",
+   "summary": "Formats any number in the string using `prettyreal`.",
+   "doc": "Formats any number in the string using `prettyreal`.\n- **Returns**: string",
+   "page": "macros/format.md",
+   "library": null
+  },
+  "prettysigfig": {
+   "signature": "prettysigfig(number,sigfigs,[comma,choptrailingzeros,scinot,sigfigbar])",
+   "summary": "Rounds to sigfigs significant figures. For display only; use `roundsigfig` for calculations.",
+   "doc": "Rounds to sigfigs significant figures. For display only; use `roundsigfig` for calculations.\n- **Returns**: string",
+   "page": "macros/format.md",
+   "library": null
+  },
+  "prettysigfig_instring": {
+   "signature": "prettysigfig_instring(string,sigfigs,[comma,choptrailingzeros,scinot,sigfigbar])",
+   "summary": "Rounds any number in string to sigfigs significant figures.",
+   "doc": "Rounds any number in string to sigfigs significant figures.\n- **Returns**: string",
+   "page": "macros/format.md",
+   "library": null
+  },
+  "prettysmallnumber": {
+   "signature": "prettysmallnumber(number,[space])",
+   "summary": "Prevents very small numbers from showing as scientific notation. space=true for grouped display.",
+   "doc": "Prevents very small numbers from showing as scientific notation. space=true for grouped display.\n- **Returns**: string",
+   "page": "macros/format.md",
+   "library": null
+  },
+  "prettytime": {
+   "signature": "prettytime(value,informat,outformat)",
+   "summary": "Creates nice time representation. informat: `'h'`, `'m'`, `'s'`. outformat: combo of those, `'clock'` (3:42pm), or `'sclock'` (3:42:15pm).",
+   "doc": "Creates nice time representation. informat: `'h'`, `'m'`, `'s'`. outformat: combo of those, `'clock'` (3:42pm), or `'sclock'` (3:42:15pm).\n- **Returns**: string",
+   "page": "macros/format.md",
+   "library": null
+  },
+  "print_r": {
+   "signature": "print_r(array,[return])",
+   "summary": "Outputs array for debugging. Set return=true to return as string.",
+   "doc": "Outputs array for debugging. Set return=true to return as string.\n- **Returns**: string/void",
+   "page": "macros/array.md",
+   "library": null
+  },
+  "quartile": {
+   "signature": "quartile",
+   "summary": "Quartile",
+   "doc": "Quartile",
+   "page": "libs/stats.md",
+   "library": "stats"
+  },
+  "rand": {
+   "signature": "rand(min,max)",
+   "summary": "Returns an integer between min and max.",
+   "doc": "Returns an integer between min and max.\n- **Returns**: integer",
+   "page": "macros/randomizers.md",
+   "library": null
+  },
+  "randcities": {
+   "signature": "randcities(n,[country])",
+   "summary": "Returns n random city names.",
+   "doc": "Returns n random city names.\n- **Returns**: array",
+   "page": "macros/randomizers.md",
+   "library": null
+  },
+  "randcity": {
+   "signature": "randcity([country])",
+   "summary": "Returns a random US or Canadian city name. country: 'USA' (default) or 'Canada'.",
+   "doc": "Returns a random US or Canadian city name. country: 'USA' (default) or 'Canada'.\n- **Returns**: string",
+   "page": "macros/randomizers.md",
+   "library": null
+  },
+  "randcountries": {
+   "signature": "randcountries(n)",
+   "summary": "Returns n random country names.",
+   "doc": "Returns n random country names.\n- **Returns**: array",
+   "page": "macros/randomizers.md",
+   "library": null
+  },
+  "randcountry": {
+   "signature": "randcountry()",
+   "summary": "Returns a random country name.",
+   "doc": "Returns a random country name.\n- **Returns**: string",
+   "page": "macros/randomizers.md",
+   "library": null
+  },
+  "randfemalename": {
+   "signature": "randfemalename()",
+   "summary": "Returns a random female first name.",
+   "doc": "Returns a random female first name.\n- **Returns**: string",
+   "page": "macros/randomizers.md",
+   "library": null
+  },
+  "randfemalenames": {
+   "signature": "randfemalenames(n)",
+   "summary": "Returns n random female first names.",
+   "doc": "Returns n random female first names.\n- **Returns**: array",
+   "page": "macros/randomizers.md",
+   "library": null
+  },
+  "randfrom": {
+   "signature": "randfrom(list or array)",
+   "summary": "Return an element of the list/array.",
+   "doc": "Return an element of the list/array.\n- **Returns**: element\n- **Examples**:\n  - `randfrom(\"2,4,6,8\")`\n  - `randfrom(\"red,green,blue\")`",
+   "page": "macros/randomizers.md",
+   "library": null
+  },
+  "randmalename": {
+   "signature": "randmalename()",
+   "summary": "Returns a random male first name.",
+   "doc": "Returns a random male first name.\n- **Returns**: string",
+   "page": "macros/randomizers.md",
+   "library": null
+  },
+  "randmalenames": {
+   "signature": "randmalenames(n)",
+   "summary": "Returns n random male first names.",
+   "doc": "Returns n random male first names.\n- **Returns**: array",
+   "page": "macros/randomizers.md",
+   "library": null
+  },
+  "randname": {
+   "signature": "randname()",
+   "summary": "Returns a random first name.",
+   "doc": "Returns a random first name.\n- **Returns**: string",
+   "page": "macros/randomizers.md",
+   "library": null
+  },
+  "randnames": {
+   "signature": "randnames(n)",
+   "summary": "Returns n random first names.",
+   "doc": "Returns n random first names.\n- **Returns**: array",
+   "page": "macros/randomizers.md",
+   "library": null
+  },
+  "randnamewpronouns": {
+   "signature": "randnamewpronouns([option])",
+   "summary": "Returns a random first name with pronouns in order: subjective, objective, possessive (singular), possessive (plural), reflexive. Set option to 'neutral' for they/them pronouns.",
+   "doc": "Returns a random first name with pronouns in order: subjective, objective, possessive (singular), possessive (plural), reflexive. Set option to 'neutral' for they/them pronouns.\n- **Returns**: array\n- **Example**: `$name,$heshe,$himher,$hisher,$hishers,$himherself = randnamewpronouns()`",
+   "page": "macros/randomizers.md",
+   "library": null
+  },
+  "randpythag": {
+   "signature": "randpythag([min,max])",
+   "summary": "Return a Pythagorean triple. min/max default to 1 to 100.",
+   "doc": "Return a Pythagorean triple. min/max default to 1 to 100.\n- **Returns**: array",
+   "page": "macros/randomizers.md",
+   "library": null
+  },
+  "rands": {
+   "signature": "rands(min,max,n,[order])",
+   "summary": "Returns n integers between min and max. order: 'inc' or 'dec' to sort. May have duplicates.",
+   "doc": "Returns n integers between min and max. order: 'inc' or 'dec' to sort. May have duplicates.\n- **Returns**: array",
+   "page": "macros/randomizers.md",
+   "library": null
+  },
+  "randsfrom": {
+   "signature": "randsfrom(list/array,n,[order])",
+   "summary": "Return n elements of the list/array.",
+   "doc": "Return n elements of the list/array.\n- **Returns**: array",
+   "page": "macros/randomizers.md",
+   "library": null
+  },
+  "randstate": {
+   "signature": "randstate([country])",
+   "summary": "Returns a random US state or Canadian province name. country: 'USA' (default) or 'Canada'.",
+   "doc": "Returns a random US state or Canadian province name. country: 'USA' (default) or 'Canada'.\n- **Returns**: string",
+   "page": "macros/randomizers.md",
+   "library": null
+  },
+  "randstates": {
+   "signature": "randstates(n,[country])",
+   "summary": "Returns n random state/province names.",
+   "doc": "Returns n random state/province names.\n- **Returns**: array",
+   "page": "macros/randomizers.md",
+   "library": null
+  },
+  "rawurlencode": {
+   "signature": "rawurlencode(string)",
+   "summary": "Encodes a string for use in a URL query string parameter.",
+   "doc": "Encodes a string for use in a URL query string parameter.\n- **Returns**: string",
+   "page": "macros/format.md",
+   "library": null
+  },
+  "replacealttext": {
+   "signature": "replacealttext(image_or_graph,alttext)",
+   "summary": "Replaces the alt text in the image or graph with specified text.",
+   "doc": "Replaces the alt text in the image or graph with specified text.\n- **Returns**: void",
+   "page": "macros/graph-table.md",
+   "library": null
+  },
+  "root": {
+   "signature": "root(n)(t)",
+   "summary": "Nth root.",
+   "doc": "Nth root.\n- **Returns**: number",
+   "page": "macros/math.md",
+   "library": null
+  },
+  "round": {
+   "signature": "round(n,d)",
+   "summary": "Round number n to d decimal places.",
+   "doc": "Round number n to d decimal places.\n- **Returns**: number",
+   "page": "macros/math.md",
+   "library": null
+  },
+  "round_instring": {
+   "signature": "round_instring(string,[decimals])",
+   "summary": "Rounds any number in the string to specified decimal places.",
+   "doc": "Rounds any number in the string to specified decimal places.\n- **Returns**: string",
+   "page": "macros/format.md",
+   "library": null
+  },
+  "roundsigfig": {
+   "signature": "roundsigfig(n,s)",
+   "summary": "Round number n to s significant digits. For calculations; use `prettysigfig` for display.",
+   "doc": "Round number n to s significant digits. For calculations; use `prettysigfig` for display.\n- **Returns**: number",
+   "page": "macros/math.md",
+   "library": null
+  },
+  "rrand": {
+   "signature": "rrand(min,max,p)",
+   "summary": "Returns a number between min and max in steps of p.",
+   "doc": "Returns a number between min and max in steps of p.\n- **Returns**: number\n- **Examples**:\n  - `rrand(2,5,.1)` might return 3.4\n  - `rrand(2,5,.01)` might return 3.27\n  - `rrand(2,8,2)` might return 6",
+   "page": "macros/randomizers.md",
+   "library": null
+  },
+  "rrands": {
+   "signature": "rrands(min,max,p,n,[order])",
+   "summary": "Returns n real numbers between min and max in steps of p. order: 'inc' or 'dec'.",
+   "doc": "Returns n real numbers between min and max in steps of p. order: 'inc' or 'dec'.\n- **Returns**: array",
+   "page": "macros/randomizers.md",
+   "library": null
+  },
+  "scoremultiorder": {
+   "signature": "scoremultiorder(stua,answer,swap,type,[weights,options])",
+   "summary": "Allows multipart questions to be scored in any order. Works for `number`, `string`, `calculated`, `numfunc`, `complex`, `calccomplex`, `ntuple`, `calcntuple`.",
+   "doc": "Allows multipart questions to be scored in any order. Works for `number`, `string`, `calculated`, `numfunc`, `complex`, `calccomplex`, `ntuple`, `calcntuple`.\n- **Returns**: modified `$answer` (and optionally `$answeights`)\n- **Params**:\n  - `stua`: `$stuanswers[$thisq]` for numeric, `$stuanswersval[$thisq]` for calculated\n  - `swap`: String or array showing swappable indices, e.g. `'0;1'` or `['0;1','2;3']` or `'0,1,2;3,4,5'`\n  - `type`: Question part short name like `'number'` or `'calccomplex'`",
+   "page": "macros/general.md",
+   "library": null
+  },
+  "scoreperiodic": {
+   "signature": "scoreperiodic(answer,stuanswer,variable,[tolerance])",
+   "summary": "Helps score periodic answers like `'pi/6+2pik'`. Redefines `$answer` if student's equivalent answer has different base value.",
+   "doc": "Helps score periodic answers like `'pi/6+2pik'`. Redefines `$answer` if student's equivalent answer has different base value.\n- **Returns**: modified `$answer`",
+   "page": "macros/general.md",
+   "library": null
+  },
+  "scorestring": {
+   "signature": "scorestring($answer,$showanswer,words,$stuanswers,$thisq,[partn,highlight])",
+   "summary": "Checks if words appear in student answer. Redefines `$answer` if correct. Set highlight=false to disable.",
+   "doc": "Checks if words appear in student answer. Redefines `$answer` if correct. Set highlight=false to disable.\n- **Returns**: array($answer,$showanswer)\n- **Example**: `$answer,$showanswer = scorestring($answer,\"\",$words,$stuanswers,$thisq)`",
+   "page": "macros/testing-and-feedback.md",
+   "library": null
+  },
+  "sec": {
+   "signature": "sec(t)",
+   "summary": "Secant function.",
+   "doc": "Secant function.\n- **Returns**: number",
+   "page": "macros/math.md",
+   "library": null
+  },
+  "sgn": {
+   "signature": "sgn(a)",
+   "summary": "Returns sign as -1, 0, or 1.",
+   "doc": "Returns sign as -1, 0, or 1.\n- **Returns**: integer",
+   "page": "macros/math.md",
+   "library": null
+  },
+  "showarrays": {
+   "signature": "showarrays(string,array,[string,array]...,[options])",
+   "summary": "Creates tabular display of data in arrays as columns with strings as headers. Alt form: `showarrays(array of headers, array of data arrays, [options])`.",
+   "doc": "Creates tabular display of data in arrays as columns with strings as headers. Alt form: `showarrays(array of headers, array of data arrays, [options])`.\n- **Returns**: string\n- **Options**: string `'c'`, `'l'`, `'r'` for alignment, or array with `$opts['align']`, `$opts['tablealign']='center'`, `$opts['caption']`. Per-column alignment: `'rcc'`.",
+   "page": "macros/graph-table.md",
+   "library": null
+  },
+  "showasciisvg": {
+   "signature": "showasciisvg(string,[width,height,alttext])",
+   "summary": "Sets up an svg with string as the script. Include alttext for accessibility.",
+   "doc": "Sets up an svg with string as the script. Include alttext for accessibility.\n- **Returns**: string",
+   "page": "macros/graph-table.md",
+   "library": null
+  },
+  "showdataarray": {
+   "signature": "showdataarray(array,[columns,options])",
+   "summary": "Creates tabular display of data with no headers. One column unless columns specified.",
+   "doc": "Creates tabular display of data with no headers. One column unless columns specified.\n- **Returns**: string",
+   "page": "macros/graph-table.md",
+   "library": null
+  },
+  "showplot": {
+   "signature": "showplot(funcstrings,[xmin,xmax,ymin,ymax,labels,grid,width,height])",
+   "summary": "Creates a graph plot.",
+   "doc": "Creates a graph plot.\n- **Returns**: plot\n\n**Parameters:**\n\n| Parameter | Description |\n|-----------|-------------|\n| `funcstrings` | Single string or array of strings: `'function,color,min,max,startmarker,endmarker,width,dash'` |\n| `function` | Function of x like `cos(x)`, parametric like `[sin(t),cos(t)]`, or vertical line `x=1` |\n| `color` | `black`, `red`, `orange`, `yellow`, `green`, `blue`, `purple` |\n| `min_max` | Input variable range. Exclude points: `-5,5!0!2` |\n| `startmarker` / `endmarker` | `'open'`, `'closed'` (dots), `'arrow'`, anything else for none |\n| `width` | Pixel width for the line |\n| `dash` | `'dash'` for dashed line |\n| `dots_format` | `'dot,x,y,style,color,label,labelloc'` — style: `open`/`closed` |\n| `text_format` | `'text,x,y,label,color,location,angle,graphassoc'` |\n| `xmin_xmax_ymin_ymax` | Graphing window. Defaults -5 to 5. Use `'0:-n'` for first quadrant. |\n| `labels` | Axes label spacing. Default 1. `'off'`/0 for none. `'xlbl:ylbl'` or `'xlbl:ylbl:xname:yname'`. |\n| `grid` | Grid line spacing. Default 1. `'off'`/0 for none. `'xgrid:ygrid'`. |\n| `width_height` | Pixel dimensions. Default 200x200. |",
+   "page": "macros/graph-table.md",
+   "library": null
+  },
+  "showrecttable": {
+   "signature": "showrecttable(data_array_of_arrays,columnlabels,rowlabels,[options])",
+   "summary": "Creates tabular display of a 2x2 data table. `$data[0]` is the first row.",
+   "doc": "Creates tabular display of a 2x2 data table. `$data[0]` is the first row.\n- **Returns**: string",
+   "page": "macros/graph-table.md",
+   "library": null
+  },
+  "sign": {
+   "signature": "sign(a,[option])",
+   "summary": "Returns sign as 1 or -1. option=true for `'+'`/`'-'` string. option=`'onlyneg'` for `'-'` or `''`.",
+   "doc": "Returns sign as 1 or -1. option=true for `'+'`/`'-'` string. option=`'onlyneg'` for `'-'` or `''`.\n- **Returns**: number or string",
+   "page": "macros/math.md",
+   "library": null
+  },
+  "sin": {
+   "signature": "sin(t)",
+   "summary": "Sine function.",
+   "doc": "Sine function.\n- **Returns**: number",
+   "page": "macros/math.md",
+   "library": null
+  },
+  "singleshuffle": {
+   "signature": "singleshuffle(list/array,[n])",
+   "summary": "Returns a shuffled version of a list/array. If n provided, behaves like diffrandsfrom.",
+   "doc": "Returns a shuffled version of a list/array. If n provided, behaves like diffrandsfrom.\n- **Returns**: array",
+   "page": "macros/randomizers.md",
+   "library": null
+  },
+  "sortarray": {
+   "signature": "sortarray(list/array,[type,maxkey])",
+   "summary": "Sorts lowest to highest. type: `'rev'` for reverse, `'key'` by key, `'keyfill'` by key filling gaps.",
+   "doc": "Sorts lowest to highest. type: `'rev'` for reverse, `'key'` by key, `'keyfill'` by key filling gaps.\n- **Returns**: array",
+   "page": "macros/array.md",
+   "library": null
+  },
+  "splicearray": {
+   "signature": "splicearray(array,offset,length,[replacement])",
+   "summary": "Removes elements at offset/length and replaces with replacement array.",
+   "doc": "Removes elements at offset/length and replaces with replacement array.\n- **Returns**: array",
+   "page": "macros/array.md",
+   "library": null
+  },
+  "sqrt": {
+   "signature": "sqrt(t)",
+   "summary": "Square root.",
+   "doc": "Square root.\n- **Returns**: number",
+   "page": "macros/math.md",
+   "library": null
+  },
+  "stats_randF": {
+   "signature": "stats_randF",
+   "summary": "F distribution random variate",
+   "doc": "F distribution random variate",
+   "page": "libs/stats.md",
+   "library": "stats"
+  },
+  "stats_randchi2": {
+   "signature": "stats_randchi2",
+   "summary": "Chi-squared distribution random variate",
+   "doc": "Chi-squared distribution random variate",
+   "page": "libs/stats.md",
+   "library": "stats"
+  },
+  "stats_randg": {
+   "signature": "stats_randg",
+   "summary": "Gamma distribution random variate",
+   "doc": "Gamma distribution random variate",
+   "page": "libs/stats.md",
+   "library": "stats"
+  },
+  "stats_randpoisson": {
+   "signature": "stats_randpoisson",
+   "summary": "Poisson distribution random variate",
+   "doc": "Poisson distribution random variate",
+   "page": "libs/stats.md",
+   "library": "stats"
+  },
+  "stats_randt": {
+   "signature": "stats_randt",
+   "summary": "t distribution random variate",
+   "doc": "t distribution random variate",
+   "page": "libs/stats.md",
+   "library": "stats"
+  },
+  "stdev": {
+   "signature": "stdev",
+   "summary": "Standard deviation",
+   "doc": "Standard deviation",
+   "page": "libs/stats.md",
+   "library": "stats"
+  },
+  "stem_plot": {
+   "signature": "stem_plot",
+   "summary": "Stem-and-leaf plot",
+   "doc": "Stem-and-leaf plot",
+   "page": "libs/stats.md",
+   "library": "stats"
+  },
+  "str_replace": {
+   "signature": "str_replace(search,replace,string)",
+   "summary": "Replace all occurrences of search with replace. Search and replace can be arrays.",
+   "doc": "Replace all occurrences of search with replace. Search and replace can be arrays.\n- **Returns**: string",
+   "page": "macros/string.md",
+   "library": null
+  },
+  "stringappend": {
+   "signature": "stringappend(value,string)",
+   "summary": "Appends string to value. If value is array, appends to each element.",
+   "doc": "Appends string to value. If value is array, appends to each element.\n- **Returns**: string/array",
+   "page": "macros/string.md",
+   "library": null
+  },
+  "stringclean": {
+   "signature": "stringclean(string,[mode])",
+   "summary": "mode 0 (default): trims whitespace. mode 1: removes all whitespace. mode 2: removes all non-alphanumeric.",
+   "doc": "mode 0 (default): trims whitespace. mode 1: removes all whitespace. mode 2: removes all non-alphanumeric.\n- **Returns**: string",
+   "page": "macros/string.md",
+   "library": null
+  },
+  "stringlen": {
+   "signature": "stringlen(string)",
+   "summary": "Returns character count in the string.",
+   "doc": "Returns character count in the string.\n- **Returns**: integer",
+   "page": "macros/string.md",
+   "library": null
+  },
+  "stringpos": {
+   "signature": "stringpos(needle,haystack)",
+   "summary": "Finds position of needle in haystack. Returns -1 if not found.",
+   "doc": "Finds position of needle in haystack. Returns -1 if not found.\n- **Returns**: integer",
+   "page": "macros/string.md",
+   "library": null
+  },
+  "stringprepend": {
+   "signature": "stringprepend(value,string)",
+   "summary": "Prepends string to value. If value is array, prepends to each element.",
+   "doc": "Prepends string to value. If value is array, prepends to each element.\n- **Returns**: string/array",
+   "page": "macros/string.md",
+   "library": null
+  },
+  "stringtoarray": {
+   "signature": "stringtoarray(string,[tonum])",
+   "summary": "Converts text string to array of characters. tonum=true for numeric treatment.",
+   "doc": "Converts text string to array of characters. tonum=true for numeric treatment.\n- **Returns**: array",
+   "page": "macros/array.md",
+   "library": null
+  },
+  "strtolower": {
+   "signature": "strtolower(string)",
+   "summary": "Makes all characters lower case.",
+   "doc": "Makes all characters lower case.\n- **Returns**: string",
+   "page": "macros/string.md",
+   "library": null
+  },
+  "strtoupper": {
+   "signature": "strtoupper(string)",
+   "summary": "Makes all characters upper case.",
+   "doc": "Makes all characters upper case.\n- **Returns**: string",
+   "page": "macros/string.md",
+   "library": null
+  },
+  "stuansready": {
+   "signature": "stuansready($stuanswers,$thisq,array_of_parts,[anstypes,answerformat])",
+   "summary": "Checks if student has answered specified parts. Use null for single-part. Prefix part with tilde to allow blank. `'checknumeric'` for answerformat checks numeric types.",
+   "doc": "Checks if student has answered specified parts. Use null for single-part. Prefix part with tilde to allow blank. `'checknumeric'` for answerformat checks numeric types.\n- **Returns**: boolean",
+   "page": "macros/testing-and-feedback.md",
+   "library": null
+  },
+  "student_t": {
+   "signature": "student_t",
+   "summary": "Student t distribution utility",
+   "doc": "Student t distribution utility",
+   "page": "libs/stats.md",
+   "library": "stats"
+  },
+  "subarray": {
+   "signature": "subarray(array,params)",
+   "summary": "Creates subset of array. Forms: `subarray($a,2,4,6)`, `subarray($a,\"1:3\",\"6:8\")`, `subarray($a,$b)`.",
+   "doc": "Creates subset of array. Forms: `subarray($a,2,4,6)`, `subarray($a,\"1:3\",\"6:8\")`, `subarray($a,$b)`.\n- **Returns**: array",
+   "page": "macros/array.md",
+   "library": null
+  },
+  "substr": {
+   "signature": "substr(string,start,[length])",
+   "summary": "Grabs part of string from start index. Negative start counts from end. Negative length omits from end.",
+   "doc": "Grabs part of string from start index. Negative start counts from end. Negative length omits from end.\n- **Returns**: string",
+   "page": "macros/string.md",
+   "library": null
+  },
+  "substr_count": {
+   "signature": "substr_count(haystack,needle)",
+   "summary": "Find number of occurrences of needle in haystack.",
+   "doc": "Find number of occurrences of needle in haystack.\n- **Returns**: integer",
+   "page": "macros/string.md",
+   "library": null
+  },
+  "sumarray": {
+   "signature": "sumarray(array)",
+   "summary": "Adds entries in an array.",
+   "doc": "Adds entries in an array.\n- **Returns**: number",
+   "page": "macros/array.md",
+   "library": null
+  },
+  "tan": {
+   "signature": "tan(t)",
+   "summary": "Tangent function.",
+   "doc": "Tangent function.\n- **Returns**: number",
+   "page": "macros/math.md",
+   "library": null
+  },
+  "tcdf": {
+   "signature": "tcdf",
+   "summary": "Student's t CDF",
+   "doc": "Student's t CDF",
+   "page": "libs/stats.md",
+   "library": "stats"
+  },
+  "textonimage": {
+   "signature": "textonimage(img,text,left,top,[text,left,top,...])",
+   "summary": "Overlays text over an image. Image can be URL or uploaded image variable. Not screenreader-friendly.",
+   "doc": "Overlays text over an image. Image can be URL or uploaded image variable. Not screenreader-friendly.\n- **Returns**: string",
+   "page": "macros/graph-table.md",
+   "library": null
+  },
+  "today": {
+   "signature": "today([string])",
+   "summary": "Returns today's date like `'July 3, 2008'`. Change format using PHP date format string.",
+   "doc": "Returns today's date like `'July 3, 2008'`. Change format using PHP date format string.\n- **Returns**: string",
+   "page": "macros/string.md",
+   "library": null
+  },
+  "ucfirst": {
+   "signature": "ucfirst(string)",
+   "summary": "Makes first character upper case.",
+   "doc": "Makes first character upper case.\n- **Returns**: string",
+   "page": "macros/string.md",
+   "library": null
+  },
+  "unionarrays": {
+   "signature": "unionarrays(array,array)",
+   "summary": "Unions two arrays preventing duplicates.",
+   "doc": "Unions two arrays preventing duplicates.\n- **Returns**: array",
+   "page": "macros/array.md",
+   "library": null
+  },
+  "uniqid": {
+   "signature": "uniqid()",
+   "summary": "Generates a random unique string, useful for giving a unique id to elements.",
+   "doc": "Generates a random unique string, useful for giving a unique id to elements.\n- **Returns**: string",
+   "page": "macros/randomizers.md",
+   "library": null
+  },
+  "variance": {
+   "signature": "variance",
+   "summary": "Variance",
+   "doc": "Variance",
+   "page": "libs/stats.md",
+   "library": "stats"
+  }
+ },
+ "topics": {
+  "dialect-rules": "# MOM dialect rules\n\nThe rules a MyOpenMath question must follow. Breaking one makes MOM refuse the question, usually\nwithout saying clearly why — several of these cost a real broken question in the bank to find.\n\nThis is the readable copy. The machine copy is `MOM_DIALECT_RULES` in\n`src/integrations/mom/revise.ts`, and a test fails if the two ever disagree — so change both or\nneither.\n\nRules the writer teaches itself land in [learned-rules.md](learned-rules.md) instead; those are\nappended by the reflection step and are safe to prune by hand.\n- Statements in the control block take NO trailing semicolon (`$ci = rand(0, 4)`).\n- Keep all five markers, in order: NAME - DESCRIPTION, SET QUESTION TYPE TO, COMMON CONTROL, QUESTION TEXT, ANSWER.\n- Math is AsciiMath in BACKTICKS (`I = Prt`). Never TeX dollar delimiters — `$` means currency here.\n- Question text substitutes SCALARS only; it has no nested array indexing, so `$questions[0][$answer[0]]` renders as the literal string \"Array[1]\". Precompute a scalar in the control block instead.\n- A `choices` answer is an INDEX into `$questions[i]`, not the option text.\n- `$anstypes`, every `$answer[i]`, every `$ansprompt[i]` and every `$answerbox[i]` must stay in agreement.\n- Precompute every derived value so the prompt and the answer key cannot disagree.\n- Round money with `round($v, 2)`; never `number_format`.\n- The ANSWER section is CODE, not markup. Put HTML in `$solutionguide` in the control block and reference `$solutionguide` there — raw `<div>` in ANSWER is a syntax error.\n- Braces EVALUATE. `{$x}` in question text is parsed as an expression, so set-builder notation like `{students who own a dog}` breaks the question. Use `&#123;` / `&#125;`.\n- Use `&&` and `||`. The word operators `and` / `or` are rejected by the parser.\n- One statement per line. Two statements joined by `;` on one line fails.\n",
+  "syntax": "# IMathAS Syntax Reference\n\n## Variables\n\n- prefix: `$`\n- assignment_forms:\n  - `$var = number (e.g. $a = 3)`\n  - `$var = calculation (e.g. $a = 3*$b*$c)`\n  - `$var = function (e.g. $a = showplot(\"sin(x)\"))`\n  - `$var = randomizer (e.g. $a = rand(-5,5))`\n\n## Types\n\n- number: `$a = 15 or $a = 3^2`\n- array: `$a = array(6,8,10) — zero-indexed, $a[0] = 6. Shorthand: $a = [2,3,4,5]`\n- string: `$a = \"hi there\" — double quotes interpolate variables, single quotes do not`\n- boolean: `$a = true`\n\n## String Interpolation\n\n- desc: `Double-quoted strings interpolate variables. Single-quoted strings do not.`\n- example: `$a = 3; $b = 5; $str = \"What is $a/$b\" results in \"What is 3/5\"`\n- warning: `Strings are interpolated literally: $a = -4; $b = \"$a^2\" gives \"-4^2\". Use explicit parentheses.`\n\n## String Concatenation\n\n- operator: `.`\n- example: `$both = $a . $b`\n\n## Line Continuation\n\n- ampersand: `Put & at end of line to continue on next line`\n- double_ampersand: `Put && at end of line to continue and insert <br/>`\n\n## Comments\n\n- `Start with // — best on own line, can also be placed after code`\n\n## Array Assignment\n\n- multi_var: `$a,$b = diffrands(-5,5,2) — each takes a single value`\n- single_array: `$ar = diffrands(-5,5,2) — elements via $ar[0], $ar[1]`\n- literal: `$ar = array(2,3,4,5) or $ar = array(\"red\",\"green\",\"blue\")`\n- shorthand: `$ar = [2,3,4,5]`\n- notes: `Use parentheses in calculations: $new = ($ar[0])^2. Use curly brackets in strings: \"there were {$ar[0]} people\"`\n\n## Conditionals\n\n### where\n\n- desc: `Repeats assignment if condition not met. Almost exclusively used with array randomizers.`\n- example: `$a,$b = diffrands(-5,5,2) where ($a+$b!=0)`\n- limit: `System gives up after 200 tries. Condition should have at least 10% probability.`\n- else: `$a = rand(1,100) where (gcd($a,$b)==1) else ($a = 7)`\n\n### if\n\n- desc: `Makes an assignment conditional`\n- example: `$b = \"sin(x)\" if ($a==0)`\n- block_form: `if ($a==0) { $b = 1; $c = 2 }`\n- postfix_block: `{ $b = 1; $c = 2 } if ($a==0)`\n- elseif_else: `if ($a==0) { ... } elseif ($a==2) { ... } else { ... }`\n\n### comparison_operators\n\n- `== Equal to`\n- `!= Not equal to`\n- `> Greater than`\n- `< Less than`\n- `>= Greater than or equal to`\n- `<= Less than or equal to`\n- `isset($v) Whether $v is defined`\n\n### compound\n\n- `|| for \"or\", && for \"and\"`\n\n### in_question_text\n\n- desc: `Wrap text in [if variable==value][/if]. Variable name without $ prefix. Value without quotes.`\n- example: `[if graphdispmode==0]text here[/if]`\n\n## Loops\n\n### for\n\n- sig: `for ($i=a..b) { action }`\n- desc: `a and b are whole numbers, variables, or simple expressions`\n- example: `for ($i=1..5) { $f = $f + $i }`\n\n### foreach\n\n- sig: `foreach ($arr as $k=>$v) { action }`\n- desc: `For associative arrays with non-numeric or non-consecutive keys`\n- example: `$arr = ['red' => 3, 'green' => 5]; for ($arr as $color=>$num) { ... }`\n\n### control_flow\n\n- break: `Breaks out of the loop`\n- continue: `Moves to next iteration without executing further code in the block`\n\n### notes\n\n- `Conditions after statement work INSIDE for loop but not outside without explicit blocking`\n- `for ($i=1..5) {$a = $a+$i if ($i>2)} — WORKS`\n- `for ($i=1..5) {$a = $a+$i} if ($a>2) — DOES NOT WORK`\n- `{for ($i=1..5) {$a = $a+$i}} if ($a>2) — WORKS`\n",
+  "display": "# Display\n\n## Math Entry\n\n- desc: `MyOpenMath uses ASCIIMath for math entry.`\n- rendering: `Wrap expressions in backtick/grave symbol: `x^2``\n- calculation_symbols:\n  - `* / + -`: `Multiply, divide, add, subtract`\n  - `^`: `Powers. 2^3 = 8`\n  - `e, pi`: `Standard constants`\n  - `%`: `Modulus of integers. 5%2 = 1`\n  - `mod(p,n)`: `Modulus with positive results for negative numbers`\n  - `fmod(p,n)`: `Modulus of decimal values`\n  - `!`: `Factorial`\n  - `sqrt`: `Square root`\n  - `sin,cos,tan,cot,sinh,cosh`: `Trig functions. Use sin(2) not sin 2`\n  - `arcsin,arccos,arctan,arcsinh,arccosh`: `Inverse trig`\n  - `sin^-1,cos^-1,tan^-1`: `Alternative inverse trig. sin^-1(0.5)`\n  - `ln`: `Natural logarithm base e`\n  - `log`: `Common logarithm base 10`\n  - `abs`: `Absolute value. abs() for calculations, | for display`\n  - `round(n,d)`: `Round n to d decimal places`\n  - `roundsigfig(n,s)`: `Round n to s significant digits`\n  - `floor,ceil`: `Floor/ceiling: integer below/above`\n  - `min,max`: `min/max of passed values or array`\n- full_display: `Full ASCIIMath language available for display (includes limited LaTeX subset). See asciimath.org/#syntax.`\n\n## Solver\n\n- desc: `Tool for solving formulas for variables while writing questions.`\n- operations: `Solve`, `Differentiate`, `Integrate`, `Plot`\n- input_methods:\n  - `Select code from Common Control, drag-drop or copy-paste`\n  - `Highlight expression and press Ctrl-M`\n  - `Highlight expression before clicking Solver`\n- sage_syntax:\n  - examples:\n    - `x,y,a,b,c,d = var('x,y,a,b,c,d'); solve(y==(a*x+b)/(c*x-d), x)`\n    - `x = var('x'); diff(3*x^4, x)`\n    - `x = var('x'); plot(-x^2+4, (x,-10,10))`\n    - `x = var('x'); simplify(5*x+7*(-3*x-4))`\n  - tips:\n    - `Declare variables using var(). x is default.`\n    - `Use == for math equations.`\n    - `solve() diff() integral() need independent variable after comma.`\n    - `plot() requires range like (x,-10,10).`\n- output: `Drag result or click 'Insert in Common Control' / 'Insert as $answer'.`\n\n## Accessible Alternative\n\n- desc: `Specify alternative question ID for students with accessibility settings.`\n- warning: `Most likely should NOT be used. Only for rare cases where question cannot be made accessible (jsxgraph, Geogebra). NOT needed for static images, showplot graphs, or standard Drawing type.`\n- auto_features:\n  - `System auto-generates textual alternatives for showplot, histogram, etc.`\n  - `Use replacealttext for custom alt text.`\n  - `System provides keyboard alternative for drawing questions.`\n- options:\n  - visual_alt: `When student has Graph Display set to text alternatives.`\n  - mouse_alt: `When student has Drawing Entry set to keyboard/text-based.`\n  - visual_or_mouse_alt: `When question has both visual elements and mouse-required elements.`\n- accessibility_tips:\n  - hide_from_screenreader: `<div aria-hidden=true>...</div>`\n  - screenreader_only: `<div class=\"sr-only\">textual description</div>`\n",
+  "common-options": "# Common Options\n\n## Hints\n\n- desc: `Per-attempt hints displayed in question.`\n- single_part:\n  - define: `$hints[attempt_number] = \"hint text\"`\n  - display: `Place $hintloc in Question Text`\n- multipart:\n  - single_strand: `Same as single part for one hint strand.`\n  - per_part: `$hints[part_number][attempt_number] = \"hint text\". Display: $hintloc[part_number].`\n  - conditional: `$hints[part][attempt] = array(\"hint text\", [part_num1, part_num2]) — shows after listed parts attempted/correct.`\n- $hintlabel: `Override default 'Hint:' text.`\n\n## Help References\n\n- $helptext: `Links to videos, book references, etc. Displays at bottom of question. Controlled by 'show hints?' setting.`\n\n## Student Answers\n\n- $stuanswers:\n  - desc: `Reference students' previous answers for consistency grading or lab-type problems.`\n  - access:\n    - `$stuanswers[N] — answer on question N (1-indexed)`\n    - `$stuanswers[N][P] — answer on question N, part P`\n    - `$stuanswers[$thisq][P] — current question, part P`\n    - `$stuanswers[$thisq-1] — previous question`\n  - $stuanswersval: `$stuanswersval[$thisq] or $stuanswersval[$thisq][P] for numerical value of Calculated types.`\n  - $stulastentry: `Student's entered answer including autosaved (not just submitted).`\n- notes:\n  - `Unanswered: $stuanswers[N] === null (except drop-down where == 'NA'). In equations takes value 0.`\n  - `Guard null: $a = $stuanswers[$thisq][0]; $a = rand(1,100) if ($a===null)`\n  - `Custom $showanswer recommended when using $stuanswers in $answer.`\n  - `In strings/Question Text, use curly brackets: {$stuanswers[0][0]}. In calculations, use parentheses.`\n  - `$stuanswers[$thisq] defined for scoring but may not be for display.`\n  - `Use getstuans($stuanswers,N,P) for safer retrieval.`\n  - `Use stuansready($stuanswers,$thisq,[p1,p2,...]) to check answers exist.`\n\n## Reference Variables\n\n- $scorenonzero: `Display only. -1 unanswered, 0 zero score, 1 nonzero score. Use [$thisq] or [$thisq][partindex].`\n- $scoreiscorrect: `Display only. -1 unanswered, 1 perfect (pre-penalty), 0 otherwise.`\n- $attemptn: `Current attempt number (0-indexed).`\n- $partattemptn: `Per-part attempt numbers. $partattemptn[part_number].`\n- $requestclearla: `Set true to clear student's last answer on display.`\n- $graphdispmode: `0 for text-based alternatives, 1/2 for image-based.`\n- $drawentrymode: `0 for keyboard-based, 1 for mouse-based.`\n\n## Reusing Code\n\n### includecodefrom\n\n- sig: `includecodefrom(questionid)`\n- desc: `Imports Common Control code from another question. Sets $included = true in source question.`\n\n### includeqtextfrom\n\n- sig: `includeqtextfrom(questionid)`\n- desc: `Imports Question Text from another question.`\n\n## Teacher Notes\n\n- desc: `Notes only viewable by teacher while grading.`\n- syntax: `[teachernote]This is the note[/teachernote]`\n\n## Hiding Content\n\n- hidden: `<div class=\"hidden\">...</div> — content still in page (students can inspect).`\n- toggler: `<div data-toggler=\"Button Title\">...</div> — adds toggle button. Optional data-toggler-hide attribute for different hide label.`\n",
+  "question-structure": "# Question Structure\n\n- description: `A question is formed in several parts`\n\n## Parts\n\n- description_field: `A description of the question. Not shown to students.`\n- use_rights:\n  - desc: `Rights granted to other people (you always have full rights)`\n  - options: `Private`, `Use, no modification`, `Use, allow modification`\n- libraries: `The question libraries you wish to include this question in`\n- question_type: `The type of question`\n- common_control: `General definitions needed for both display and scoring`\n- question_control: `Definitions only needed for question display`\n- question_text: `The actual question display. HTML-based but can include variables. A blank line is automatically interpreted as a paragraph break. Use of < and > signs are usually handled ok, but HTML < and > are recommended.`\n- answer: `Code defining the answer`\n"
+ },
+ "php_traps": {
+  "shuffle": {
+   "use": [
+    "jointshuffle",
+    "randfrom",
+    "diffrandsfrom"
+   ],
+   "needs_library": null
+  },
+  "sort": {
+   "use": [
+    "sortarray"
+   ],
+   "needs_library": null
+  },
+  "rsort": {
+   "use": [
+    "sortarray"
+   ],
+   "needs_library": null
+  },
+  "usort": {
+   "use": [
+    "sortarray"
+   ],
+   "needs_library": null
+  },
+  "asort": {
+   "use": [
+    "sortarray"
+   ],
+   "needs_library": null
+  },
+  "implode": {
+   "use": [
+    "arraytolist"
+   ],
+   "needs_library": null
+  },
+  "array_slice": {
+   "use": [],
+   "needs_library": null
+  },
+  "array_rand": {
+   "use": [
+    "randfrom",
+    "diffrandsfrom",
+    "jointrandfrom"
+   ],
+   "needs_library": null
+  },
+  "range": {
+   "use": [
+    "listtoarray",
+    "fillarray"
+   ],
+   "needs_library": null
+  },
+  "number_format": {
+   "use": [
+    "makeprettydisp",
+    "prettyreal",
+    "round"
+   ],
+   "needs_library": null
+  },
+  "pow": {
+   "use": [
+    "**",
+    "safepow"
+   ],
+   "needs_library": null
+  },
+  "array_sum": {
+   "use": [
+    "calconarray"
+   ],
+   "needs_library": null
+  },
+  "array_map": {
+   "use": [
+    "calconarray"
+   ],
+   "needs_library": null
+  },
+  "str_repeat": {
+   "use": [],
+   "needs_library": null
+  },
+  "printf": {
+   "use": [],
+   "needs_library": null
+  },
+  "intdiv": {
+   "use": [
+    "floor"
+   ],
+   "needs_library": null
+  },
+  "array_fill": {
+   "use": [
+    "fillarray"
+   ],
+   "needs_library": null
+  },
+  "array_search": {
+   "use": [
+    "arrayfindindex"
+   ],
+   "needs_library": null
+  },
+  "strlen": {
+   "use": [],
+   "needs_library": null
+  },
+  "invNorm": {
+   "use": [
+    "invnormalcdf (needs loadlibrary(\"stats\"))"
+   ],
+   "needs_library": null
+  },
+  "invnorm": {
+   "use": [
+    "invnormalcdf (needs loadlibrary(\"stats\"))"
+   ],
+   "needs_library": null
+  },
+  "normalcdf": {
+   "use": [],
+   "needs_library": "stats"
+  },
+  "array_push": {
+   "use": [],
+   "needs_library": null
+  },
+  "array_merge": {
+   "use": [
+    "mergearrays"
+   ],
+   "needs_library": null
+  }
+ }
+}

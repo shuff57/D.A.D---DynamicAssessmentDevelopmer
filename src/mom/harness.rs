@@ -14,7 +14,7 @@
 
 #![cfg(not(target_arch = "wasm32"))]
 
-use super::author::{author, AuthorChat, HttpEngine, ModelChat};
+use super::author::{author_with, AuthorChat, AuthorCritic, Budget, HttpEngine, ModelChat, NoCritic};
 use super::format::MomQuestion;
 use crate::ai::{AiCfg, Turn};
 use serde::{Deserialize, Serialize};
@@ -90,6 +90,38 @@ pub struct CaseResult {
     pub judge_error: Option<String>,
     pub question: Option<String>,
     pub log: Vec<String>,
+    #[serde(default)]
+    pub restarts: usize,
+    #[serde(default)]
+    pub critic_rounds: usize,
+    #[serde(default)]
+    pub lookups: usize,
+    #[serde(default)]
+    pub preflight_catches: usize,
+}
+
+/// The judge as an in-loop critic: a passing question scoring below `threshold` goes back to the
+/// writer with the judge's notes. Its last reading is kept, so the result needs no second call.
+pub struct JudgeCritic<'a> {
+    pub cfg: &'a AiCfg,
+    pub threshold: u8,
+    pub last: Option<Judgement>,
+}
+
+impl AuthorCritic for JudgeCritic<'_> {
+    async fn critique(&mut self, request: &str, q: &MomQuestion) -> Result<Option<Vec<String>>, String> {
+        let j = judge(self.cfg, request, q)?;
+        let ok = j.score >= self.threshold;
+        let mut notes = Vec::new();
+        if !ok {
+            if !j.matches_request { notes.push("It does not ask what the teacher asked for.".to_string()); }
+            if !j.clear { notes.push("A student would not know exactly what to enter.".to_string()); }
+            if !j.math_correct { notes.push("The answer the code computes is not right for the question as worded, at every seed.".to_string()); }
+            notes.push(j.notes.clone());
+        }
+        self.last = Some(j);
+        Ok(Some(notes))
+    }
 }
 
 const JUDGE_PROMPT: &str = "You review MyOpenMath (IMathAS) questions written for a teacher. You get the teacher's \
@@ -122,11 +154,25 @@ pub fn judge(cfg: &AiCfg, request: &str, q: &MomQuestion) -> Result<Judgement, S
     })
 }
 
+/// How the harness runs the loop (see [`Budget`]); `critic` is the judge threshold for the in-loop
+/// critic, None to judge only at the end.
+#[derive(Clone, Copy, Debug)]
+pub struct LoopConfig { pub budget: Budget, pub critic: Option<u8> }
+
 /// Run one case on one model.
-pub fn run_case<C: AuthorChat>(case: &EvalCase, label: &str, chat: &mut C, engine_base: &str, tries: usize, judge_cfg: Option<&AiCfg>) -> CaseResult {
+pub fn run_case<C: AuthorChat>(case: &EvalCase, label: &str, chat: &mut C, engine_base: &str, cfg: LoopConfig, judge_cfg: Option<&AiCfg>) -> CaseResult {
     let t0 = Instant::now();
     let mut engine = HttpEngine { base: engine_base.to_string() };
-    let run = author(&case.request, chat, &mut engine, tries);
+    let mut in_loop_judgement = None;
+    let run = match (cfg.critic, judge_cfg) {
+        (Some(threshold), Some(jc)) => {
+            let mut critic = JudgeCritic { cfg: jc, threshold, last: None };
+            let run = author_with(&case.request, chat, &mut engine, &mut critic, cfg.budget);
+            in_loop_judgement = critic.last;
+            run
+        }
+        _ => author_with(&case.request, chat, &mut engine, &mut NoCritic, cfg.budget),
+    };
     let secs = t0.elapsed().as_secs_f64();
     let mut res = CaseResult {
         case: case.id.clone(),
@@ -139,10 +185,17 @@ pub fn run_case<C: AuthorChat>(case: &EvalCase, label: &str, chat: &mut C, engin
         error: run.error.clone(),
         question: run.question.as_ref().map(MomQuestion::emit),
         log: run.log.clone(),
+        restarts: run.restarts,
+        critic_rounds: run.critic_rounds,
+        lookups: run.lookups,
+        preflight_catches: run.preflight_catches,
         ..Default::default()
     };
-    if let (true, Some(cfg), Some(q)) = (run.passed, judge_cfg, run.question.as_ref()) {
-        match judge(cfg, &case.request, q) {
+    if run.passed && in_loop_judgement.is_some() {
+        // The in-loop critic already judged the final question.
+        res.judge = in_loop_judgement;
+    } else if let (true, Some(jc), Some(q)) = (run.passed, judge_cfg, run.question.as_ref()) {
+        match judge(jc, &case.request, q) {
             Ok(j) => res.judge = Some(j),
             Err(e) => res.judge_error = Some(e),
         }
@@ -164,7 +217,7 @@ pub fn report(results: &[CaseResult], cases: &[EvalCase], models: &[String]) -> 
     let mut out = String::from("# Question-writing harness\n\n");
     out.push_str(&format!("{} cases ({} from the bank, {} hand-written edge cases), engine self-test at seeds 4242, 7, 99.\n\n",
         cases.len(), cases.iter().filter(|c| c.source == "bank").count(), cases.iter().filter(|c| c.source == "edge").count()));
-    out.push_str("| Model | Passed | First try | Mean tries (passing) | Median time | Judge mean (1-5) | Matches request | Clear | Math right |\n|---|---|---|---|---|---|---|---|---|\n");
+    out.push_str("| Model | Passed | First try | Mean tries (passing) | Median time | Judge mean (1-5) | Judged 4+ | Matches request | Clear | Math right | Restarts | Critic rounds | Lookups | Pre-flight catches |\n|---|---|---|---|---|---|---|---|---|---|---|---|---|---|\n");
     for m in models {
         let rs: Vec<&CaseResult> = results.iter().filter(|r| &r.model == m).collect();
         if rs.is_empty() { continue; }
@@ -177,11 +230,14 @@ pub fn report(results: &[CaseResult], cases: &[EvalCase], models: &[String]) -> 
         let js: Vec<&Judgement> = rs.iter().filter_map(|r| r.judge.as_ref()).collect();
         let pct = |n: usize, d: usize| if d == 0 { "–".to_string() } else { format!("{}/{}", n, d) };
         let jmean = if js.is_empty() { "–".into() } else { format!("{:.2}", js.iter().map(|j| j.score as f64).sum::<f64>() / js.len() as f64) };
-        out.push_str(&format!("| {m} | {} | {} | {:.2} | {:.0} s | {jmean} | {} | {} | {} |\n",
+        let sum = |f: fn(&CaseResult) -> usize| rs.iter().map(|r| f(r)).sum::<usize>();
+        out.push_str(&format!("| {m} | {} | {} | {:.2} | {:.0} s | {jmean} | {} | {} | {} | {} | {} | {} | {} | {} |\n",
             pct(passed.len(), rs.len()), pct(first, rs.len()), mean_tries, median,
+            pct(js.iter().filter(|j| j.score >= 4).count(), rs.len()),
             pct(js.iter().filter(|j| j.matches_request).count(), js.len()),
             pct(js.iter().filter(|j| j.clear).count(), js.len()),
-            pct(js.iter().filter(|j| j.math_correct).count(), js.len())));
+            pct(js.iter().filter(|j| j.math_correct).count(), js.len()),
+            sum(|r| r.restarts), sum(|r| r.critic_rounds), sum(|r| r.lookups), sum(|r| r.preflight_catches)));
     }
     out.push_str("\nThe judge only sees questions that passed the engine. \"Passed\" is the engine's verdict; the judge columns are one model's opinion.\n\n## Cases\n\n| Case | ");
     out.push_str(&models.join(" | "));
@@ -235,6 +291,17 @@ pub fn run_from_env() -> Result<(), String> {
     let results_path = out_dir.join("results.jsonl");
     let engine = env("DAD_ENGINE").unwrap_or_else(|| "http://127.0.0.1:8791".into());
     let tries: usize = env("DAD_TRIES").and_then(|t| t.parse().ok()).unwrap_or(4);
+    // DAD_RESTARTS: fresh conversations after a failure; DAD_CRITIC=<1-5>: send passing questions the
+    // judge scores below that back for one more round; DAD_DOCS=0: no reference (cheat sheet, lookups,
+    // pre-flight), for comparison.
+    let loop_cfg = LoopConfig {
+        budget: Budget {
+            max_tries: tries,
+            restarts: env("DAD_RESTARTS").and_then(|t| t.parse().ok()).unwrap_or(0),
+            use_docs: env("DAD_DOCS").as_deref() != Some("0"),
+        },
+        critic: env("DAD_CRITIC").and_then(|t| t.parse().ok()),
+    };
     let jobs: usize = env("DAD_EVAL_JOBS").and_then(|t| t.parse().ok()).unwrap_or(3).max(1);
 
     let done: Vec<(String, String)> = load_results(&results_path).into_iter().map(|r| (r.case, r.model)).collect();
@@ -242,8 +309,8 @@ pub fn run_from_env() -> Result<(), String> {
     let todo: usize = models.iter()
         .map(|m| cases.iter().filter(|c| !done.contains(&(c.id.clone(), m.label.clone()))).count())
         .sum();
-    eprintln!("{} cases x {} models, {} already done, {} jobs per model, judge: {}", cases.len(), models.len(), done.len(), jobs,
-        models_file.judge.as_deref().unwrap_or("none"));
+    eprintln!("{} cases x {} models, {} already done, {} jobs per model, judge: {}, loop: {:?}", cases.len(), models.len(), done.len(), jobs,
+        models_file.judge.as_deref().unwrap_or("none"), loop_cfg);
     let finished = Mutex::new(0usize);
     std::thread::scope(|s| {
         for m in &models {
@@ -256,7 +323,7 @@ pub fn run_from_env() -> Result<(), String> {
                     loop {
                         let Some(case) = queue.lock().unwrap().pop_front() else { break };
                         let mut chat = ModelChat { cfg: &cfg };
-                        let r = run_case(&case, &m.label, &mut chat, engine, tries, judge_cfg);
+                        let r = run_case(&case, &m.label, &mut chat, engine, loop_cfg, judge_cfg);
                         let mut n = finished.lock().unwrap();
                         *n += 1;
                         eprintln!("[{}/{}] {} {}: {} in {} {} ({:.0} s){}", *n, todo, m.label, case.id,
