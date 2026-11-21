@@ -90,7 +90,7 @@ fn main() -> Result<(), eframe::Error> {
         if let Ok(p) = vershion::env_var("DAD_AI_PROVIDER") { settings.ai_provider = p; }
         if let Ok(m) = vershion::env_var("DAD_AI_MODEL") { settings.ai_model = m; }
         let cfg = ai::AiCfg::from(&settings);
-        let mut chat = vershion::figure_agent::ModelChat { cfg: &cfg };
+        let mut chat = vershion::mom::author::ModelChat { cfg: &cfg };
         let mut engine = vershion::mom::author::HttpEngine {
             base: vershion::env_var("DAD_ENGINE").unwrap_or_else(|_| "http://127.0.0.1:8791".into()),
         };

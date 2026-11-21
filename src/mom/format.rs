@@ -52,7 +52,9 @@ impl MomQuestion {
         let mut q = MomQuestion { qtype: "multipart".into(), ..Default::default() };
         let mut sections: Vec<(String, String)> = Vec::new();
         for line in src.lines() {
-            if let Some(m) = marker(line) {
+            // Only the five real markers start a section; a comment banner in the same shape
+            // ("// === Scenario picker ===") is content, or the code after it would be dropped.
+            if let Some(m) = marker(line).filter(|m| is_section_marker(m) || sections.is_empty()) {
                 sections.push((m.to_string(), String::new()));
             } else if let Some((_, body)) = sections.last_mut() {
                 body.push_str(line);
@@ -120,6 +122,13 @@ impl MomQuestion {
             format!("{}\n\n{}", self.control.trim(), self.answer_code.trim())
         }
     }
+}
+
+/// The mom format's section markers; any other `// === X ===` line is a comment.
+fn is_section_marker(head: &str) -> bool {
+    let u = head.trim().to_ascii_uppercase();
+    u.starts_with("NAME - DESCRIPTION:") || u.contains("SET QUESTION TYPE TO:")
+        || u.starts_with("COMMON CONTROL") || u == "QUESTION TEXT" || u == "ANSWER"
 }
 
 /// Split at the first line matching `is_sep`, dropping that line.
@@ -196,6 +205,13 @@ mod tests {
     }
 
     #[test]
+    fn a_comment_banner_inside_the_code_is_not_a_section() {
+        let src = STANDARD.replace("$a = rand(2,9)\n", "$a = rand(2,9)\n// === Scenario picker ===\n$label = \"x\"\n");
+        let q = MomQuestion::parse(&src);
+        assert_eq!(q.control, "$a = rand(2,9)\n// === Scenario picker ===\n$label = \"x\"\n$answer = $a + 1");
+    }
+
+    #[test]
     fn emit_round_trips() {
         let q = MomQuestion::parse(STANDARD);
         assert_eq!(MomQuestion::parse(&q.emit()), q);
@@ -236,8 +252,11 @@ mod bank {
             let q = MomQuestion::parse(&src);
             if q.qtext.is_empty() { no_qtext += 1 }
             if !q.solution.is_empty() { prose += 1 }
-            if !super::super::health::undefined_vars(&q).is_empty() { undef += 1 }
-            if q.control.contains("// === ") || q.qtext.contains("// === ") { continue } // nested markers cannot round-trip
+            let u = super::super::health::undefined_vars(&q);
+            if !u.is_empty() {
+                undef += 1;
+                println!("never set: {} {:?}", f.strip_prefix(&root).unwrap_or(f).display(), u);
+            }
             if MomQuestion::parse(&q.emit()) != q { bad.push(f.display().to_string()) }
         }
         println!("{} files, {} without question text, {} with a prose solution, {} printing a never-set variable", files.len(), no_qtext, prose, undef);

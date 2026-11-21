@@ -9,7 +9,7 @@ use super::format::MomQuestion;
 use std::collections::BTreeSet;
 
 /// Names IMathAS supplies, so their absence from the control is not a defect.
-const BUILTINS: &[&str] = &["answerbox", "answer", "anstypes", "questions", "solutionguide", "ansprompt"];
+const BUILTINS: &[&str] = &["answerbox", "answer", "anstypes", "questions", "solutionguide", "ansprompt", "previewloc", "showanswerloc", "hintloc"];
 
 /// Variables the question text prints that the control never assigns. They render as nothing,
 /// with no diagnostic: the sentence just quietly loses a number.
@@ -17,9 +17,12 @@ pub fn undefined_vars(q: &MomQuestion) -> Vec<String> {
     let control = q.common_control_field();
     let mut assigned = BTreeSet::new();
     for line in control.lines() {
-        // Left-hand sides, including the multi-assignment `$a,$b = diffrands(1,5,2)`.
-        if let Some(eq) = find_assignment(line) {
-            for name in var_names(&line[..eq]) { assigned.insert(name); }
+        // Every statement on the line: `$a = 1; $b = 2`, and the body of `if (...) { $x = ... }`.
+        for stmt in line.split([';', '{', '}']) {
+            // Left-hand sides, including the multi-assignment `$a,$b = diffrands(1,5,2)`.
+            if let Some(eq) = find_assignment(stmt) {
+                for name in var_names(&stmt[..eq]) { assigned.insert(name); }
+            }
         }
         // foreach ($list as $item) / as $k => $v
         let mut rest = line;
@@ -132,6 +135,17 @@ mod tests {
     fn multi_assignment_and_loops_count_as_set() {
         assert!(undefined_vars(&q("$a,$b = diffrands(1,5,2)\nforeach ($xs as $x) {", "$a $b $x $answerbox")).is_empty());
         assert!(undefined_vars(&q("for ($i=0..2) {\n$t[$i] = $i\n}", "$t $answerbox[0]")).is_empty());
+    }
+
+    #[test]
+    fn assignments_inside_a_branch_or_after_a_semicolon_count() {
+        assert!(undefined_vars(&q("if ($k > 0) { $shown = \"x\" }\n$xa = 1; $ya = 2;", "$shown $xa $ya")).is_empty());
+        assert!(undefined_vars(&q("}  $im[$i] = 3", "$im[0]")).is_empty());
+    }
+
+    #[test]
+    fn imathas_placement_markers_are_builtins() {
+        assert!(undefined_vars(&q("$answer = 1", "$answerbox $previewloc $hintloc $showanswerloc")).is_empty());
     }
 
     #[test]

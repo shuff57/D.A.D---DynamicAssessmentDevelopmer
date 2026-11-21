@@ -9,11 +9,23 @@
  * The question type comes from a section header "SET QUESTION TYPE TO: <type>", default multipart.
  */
 function dad_parse_mom(string $src): array {
+    // Only the five real markers start a section. Authors also write comment banners in the same
+    // shape inside the code ("// === Scenario picker ==="); those stay part of the section they are
+    // in, or the code after them is silently dropped.
     $parts = preg_split("/^\/\/ === (.+?) ===\s*$/m", $src, -1, PREG_SPLIT_DELIM_CAPTURE);
     $sec = [];
+    $current = null;
     for ($i = 1; $i < count($parts); $i += 2) {
-        $sec[trim($parts[$i])] = trim($parts[$i + 1] ?? '');
+        $head = trim($parts[$i]);
+        $body = $parts[$i + 1] ?? '';
+        if (dad_is_section_marker($head) || $current === null) {
+            $current = $head;
+            $sec[$current] = $body;
+        } else {
+            $sec[$current] .= "// === $head ===" . $body;
+        }
     }
+    foreach ($sec as $k => $v) $sec[$k] = trim($v);
 
     $qtype = 'multipart';
     foreach ($sec as $k => $v) {
@@ -78,4 +90,11 @@ function dad_looks_like_code(string $section): bool {
         return (bool)preg_match('/^(\$|if\s*\(|for\s*\(|foreach\s*\(|while\s*\(|loadlibrary\s*\(|includecodefrom\s*\(|[A-Za-z_]\w*\s*\(.*\)\s*;?$)/', $t);
     }
     return false;
+}
+
+/** The section markers of the mom format; any other "// === X ===" line is a comment. */
+function dad_is_section_marker(string $head): bool {
+    $u = strtoupper(trim($head));
+    return str_starts_with($u, 'NAME - DESCRIPTION:') || str_contains($u, 'SET QUESTION TYPE TO:')
+        || str_starts_with($u, 'COMMON CONTROL') || $u === 'QUESTION TEXT' || $u === 'ANSWER';
 }

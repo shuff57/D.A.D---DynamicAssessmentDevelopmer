@@ -72,13 +72,30 @@ pub struct ScoreResponse {
 impl SelftestResponse {
     /// Every distinct problem across seeds, each tagged with the seeds it happened at, in the order
     /// first seen: the feedback an author (or the AI) acts on.
+    ///
+    /// When the code itself fails ("Caught error while evaluating ..."), only the root error is
+    /// kept: the parts it left without answers, the unreadable variables and the "$anstypes not
+    /// defined" that follow are consequences, and listing them buries the one line to fix. The same
+    /// error reported by render and by scoring (with and without "of Common Control") counts once.
     pub fn problems(&self) -> Vec<String> {
+        let all: Vec<&String> = self.runs.iter().flat_map(|r| r.problems.iter().chain(&r.render_errors).chain(&r.correct.errors)).collect();
+        let code_failed = all.iter().any(|p| p.starts_with("Caught error while evaluating") || p.contains("Eeek"));
+        let consequence = |p: &str| code_failed && (
+            p.contains("no correct answer to try") || p.starts_with("could not read the question variables")
+            || p.contains("anstypes not defined") || p.contains("missing $anstypes")
+            || p.contains("correct answer scored") || p == "no correct answers exposed");
+        let key = |p: &str| p.replace(" of Common Control", "").replace(" of Question Text", "");
         let mut seen: Vec<(String, Vec<i64>)> = Vec::new();
         for run in &self.runs {
             let errs = run.render_errors.iter().chain(run.correct.errors.iter());
             for p in run.problems.iter().filter(|p| *p != "render errors" && *p != "score errors").chain(errs) {
+                if consequence(p) { continue; }
+                if let Some((_, seeds)) = seen.iter_mut().find(|(t, _)| key(t) == key(p) && t != p) {
+                    if !seeds.contains(&run.seed) { seeds.push(run.seed); }
+                    continue;
+                }
                 match seen.iter_mut().find(|(t, _)| t == p) {
-                    Some((_, seeds)) => seeds.push(run.seed),
+                    Some((_, seeds)) => if !seeds.contains(&run.seed) { seeds.push(run.seed) },
                     None => seen.push((p.clone(), vec![run.seed])),
                 }
             }
@@ -108,6 +125,19 @@ mod tests {
         assert_eq!(r.problems(), vec![
             "part 0: correct answer scored 0 (seeds 4242, 7)".to_string(),
             "Caught error: x (seed 4242)".to_string(),
+        ]);
+    }
+
+    #[test]
+    fn a_code_error_is_reported_once_without_its_consequences() {
+        let run = |seed: i64| serde_json::json!({"seed": seed, "ok": false,
+            "problems": ["part 0 (number): no correct answer to try", "could not read the question variables: syntax error @ line 3", "render errors"],
+            "render_errors": ["Caught error while evaluating the code in this question: syntax error on line 3 of Common Control",
+                              "Error in question: missing $anstypes for multipart or conditional question"],
+            "correct": {"total": 0, "errors": ["Caught error while evaluating the code in this question: syntax error on line 3"]}});
+        let r: SelftestResponse = serde_json::from_value(serde_json::json!({"pass": false, "runs": [run(4242), run(7)]})).unwrap();
+        assert_eq!(r.problems(), vec![
+            "Caught error while evaluating the code in this question: syntax error on line 3 of Common Control (seeds 4242, 7)".to_string(),
         ]);
     }
 

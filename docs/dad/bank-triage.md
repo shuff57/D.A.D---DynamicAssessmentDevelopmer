@@ -1,12 +1,14 @@
 # Question bank triage (2026-11-20)
 
-Engine self-test of steve-desktop `mom-content` (1,239 questions) at seeds 4242, 7 and 99.
+Engine self-test of `mom-content` (1,239 questions) at seeds 4242, 7 and 99.
 
-- **1171 pass**: every machine-gradable part scores full marks with its correct answer and 0 when blank, at every seed.
-- 181 of those also have essay, upload, drawing or picture-option parts, which a teacher has to check by eye.
-- **68 fail**, grouped below by first cause. "In use" means the question is in at least one assignment.
+- **1,167 pass**: every machine-gradable part scores full marks with its correct answer and 0 when blank, at every seed.
+- 180 of those also have essay, upload, drawing or picture-option parts, which a teacher has to check by eye.
+- **72 fail**: 57 question defects and 15 to look at. "In use" means the question is in at least one assignment.
 
-Re-run: `engine/run.sh && python3 engine/regress.py <mom-content> --check engine/baseline.json`.
+These are the repo copies of the questions; a live MyOpenMath copy edited by hand may differ.
+
+Re-run: `engine/run.sh && python3 engine/regress.py <mom-content> --check engine/baseline.json && python3 engine/triage.py <mom-content>`.
 
 ## Invented answer type (`multiple_choice`, `numerical`; IMathAS has `choices`, `number`) (17)
 
@@ -28,18 +30,23 @@ Re-run: `engine/run.sh && python3 engine/regress.py <mom-content> --check engine
 - `regression/residuals-correlation/q8-estimate-r-from-scatter.php` (seeds 4242, 7, 99)
 - `trig/sine-sign-by-quadrant.php` (seeds 4242, 7, 99)
 
-## Multipart question with no `$anstypes` (4)
+## Question text prints a variable the code never sets (a number, picture or table silently missing) (9)
 
-- `im1/review-solve-and-graph-inequalities-in-one-variable.php` (seeds 4242, 7, 99)
-- `im1/solve-and-graph-inequalities-in-one-variable.php` (seeds 4242, 7, 99)
-- `linear-programming/q10-graphical-lp-corner-comprehensive.php` (seeds 4242, 7, 99) — in use
-- `linear-programming/q5-lp-application-identify-formulation.php` (seeds 4242, 7, 99) — in use
+- `im1/arithmetic-decreasing-sequence-find-explicit-equation-and-terms-copy-b.php` (seeds 4242, 7, 99) — in use (qsetid 1530185)
+- `im1/determine-the-rigid-transformation-reflection.php` (seeds 4242, 7, 99) — in use (qsetid 1475095)
+- `im1/determine-the-rigid-transformation-transformation.php` (seeds 4242, 7, 99) — in use (qsetid 1475098)
+- `im1/graph-mx-b-2-slope-m-2.php` (seeds 4242, 7, 99)
+- `im1/graph-mx-b-3-slope-m-3.php` (seeds 4242, 7, 99)
+- `im1/graph-mx-b-slope-m-5.php` (seeds 4242, 7, 99)
+- `im1/graph-y-2x-b-give-table-of-values-graph-at-least-3-points-and-graph-li.php` (seeds 4242, 7, 99) — in use (qsetid 1468909)
+- `im3/law-of-sines.php` (seeds 4242, 7, 99) — in use (qsetid 1778160)
+- `im3/parent-functions-and-transformations-1-f-x-x-2.php` (seeds 4242, 7, 99) — in use (qsetid 1671770)
 
 ## Duplicate choice options (picking the other copy is marked wrong) (14)
 
 - `exp-log/q2-log-evaluation-and-conversion.php` (seeds 7, 99) — in use
-- `im3/parent-functions-and-transformations-1-f-x-x-2.php` (seeds 4242, 7, 99) — in use
 - `inequalities/q3-check-solution-system.php` (seeds 4242, 7, 99) — in use
+- `linear-programming/q5-lp-application-identify-formulation.php` (seeds 99) — in use
 - `stats-tests/hypothesis-testing/q20-hypothesis-symbol-pairs.php` (seeds 4242, 7) — in use
 - `stats-tests/hypothesis-testing/q36-proportion-condition-failure.php` (seeds 99) — in use
 - `stats-tests/hypothesis-testing/q47-tail-from-alternative.php` (seeds 4242, 7) — in use
@@ -84,24 +91,23 @@ Re-run: `engine/run.sh && python3 engine/regress.py <mom-content> --check engine
 ## Warning in the question code (undefined variable or array offset) (3)
 
 - `descriptive-stats/q1-descriptive-vs-inferential.php` (seeds 4242, 7, 99)
-- `probability/binomial/pre-frq-grade-a-binomial-setup.php` (seeds 4242, 7, 99) — in use
-- `probability/expected-value/pre-frq-grade-a-long-run-interpretation.php` (seeds 4242, 7, 99) — in use
+- `probability/binomial/pre-frq-grade-a-binomial-setup.php` (seeds 4242, 7, 99) — in use (qsetid 1877085)
+- `probability/expected-value/pre-frq-grade-a-long-run-interpretation.php` (seeds 4242, 7, 99) — in use (qsetid 1877068)
 
-## Needs a look: the question or the self-test (no error, an answer did not score) (16)
+## Needs a look: the question or the self-test (no error, an answer did not score) (15)
 
-- `counting/permutations-combinations.php` (seeds )
-- `frq/descriptive-statistics/q6-frequency-distribution-analysis.php` (seeds ) — in use
-- `im1/adding-pattern-figure-to-table.php` (seeds 4242, 7, 99) — in use — part 4 (choices): no option matches the correct answer
-- `im1/find-the-mistake-in-a-growing-pattern-rule.php` (seeds 4242, 7, 99) — in use — part 2 (choices): no option matches the correct answer
-- `im1/find-the-mistake-in-simplifying-a-fraction.php` (seeds 4242, 7, 99) — in use — part 2 (choices): no option matches the correct answer
-- `im1/multiplying-pattern-figure-to-table.php` (seeds 4242, 7, 99) — in use — part 4 (choices): no option matches the correct answer
-- `im1/multiplying-pattern-recursive-and-explicit-rules.php` (seeds 4242, 7, 99) — in use — part 1 (choices): no option matches the correct answer
-- `im1/multiplying-versus-adding-graph-and-crossover.php` (seeds 4242, 7, 99) — in use — part 3 (choices): no option matches the correct answer
-- `im1/review-solve-and-graph-inequalities-in-one-variable-2.php` (seeds 4242, 7, 99) — part 0 (calcinterval): no correct answer to try
+- `counting/permutations-combinations.php` (seeds ) — Expecting value: line 1 column 1 (char 0)
+- `frq/descriptive-statistics/q6-frequency-distribution-analysis.php` (seeds ) — in use (qsetid 1893149) — Expecting value: line 1 column 1 (char 0)
+- `im1/adding-pattern-figure-to-table.php` (seeds 4242, 7, 99) — in use (qsetid 1893443) — part 4 (choices): no option matches the correct answer
+- `im1/find-the-mistake-in-a-growing-pattern-rule.php` (seeds 4242, 7, 99) — in use (qsetid 1893405) — part 2 (choices): no option matches the correct answer
+- `im1/find-the-mistake-in-simplifying-a-fraction.php` (seeds 4242, 7, 99) — in use (qsetid 1894930) — part 2 (choices): no option matches the correct answer
+- `im1/multiplying-pattern-figure-to-table.php` (seeds 4242, 7, 99) — in use (qsetid 1893402) — part 4 (choices): no option matches the correct answer
+- `im1/multiplying-pattern-recursive-and-explicit-rules.php` (seeds 4242, 7, 99) — in use (qsetid 1893403) — part 1 (choices): no option matches the correct answer
+- `im1/multiplying-versus-adding-graph-and-crossover.php` (seeds 4242, 7, 99) — in use (qsetid 1893404) — part 3 (choices): no option matches the correct answer
 - `inequalities/q1-inequality-properties.php` (seeds 4242, 7, 99) — part 2 (choices): no option matches the correct answer
-- `stats-tests/confidence-intervals/q19-raw-data-to-interval.php` (seeds ) — in use
-- `stats-tests/confidence-intervals/q22-proportion-conditions.php` (seeds ) — in use
+- `stats-tests/confidence-intervals/q19-raw-data-to-interval.php` (seeds ) — in use — Expecting value: line 1 column 1 (char 0)
+- `stats-tests/confidence-intervals/q22-proportion-conditions.php` (seeds ) — in use — Expecting value: line 1 column 1 (char 0)
 - `stats-tests/hypothesis-testing/q10-conclusion-in-context.php` (seeds 4242, 7, 99) — in use — part 0 (choices): no option matches the correct answer
 - `stats-tests/two-sample-inference/q11-two-prop-test-cholesterol.php` (seeds 4242, 7, 99) — part 0 (choices): no option matches the correct answer
 - `trig/sine-graph-from-equation.php` (seeds 7) — part 2: correct answer scored 0
-- `trig/sine-graph-match-equation.php` (seeds )
+- `trig/sine-graph-match-equation.php` (seeds ) — Expecting value: line 1 column 1 (char 0)

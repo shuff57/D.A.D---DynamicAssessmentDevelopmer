@@ -135,12 +135,29 @@ function dad_raw_vars(array $qdata, int $seed): array {
     if (isset($out['anstypes']) && !is_array($out['anstypes'])) {
         $out['anstypes'] = array_map('trim', explode(',', $out['anstypes']));
     }
+    $out['_names'] = array_keys($vars);
     return $out;
+}
+
+/** Names IMathAS fills into question text itself; a question never sets these. */
+const DAD_QTEXT_BUILTINS = ['answerbox', 'previewloc', 'showanswerloc', 'hintloc', 'ansprompt'];
+
+/**
+ * Variables the question text prints that are not set after the code runs at this seed. IMathAS
+ * prints nothing for them and says nothing, so a number, picture or table silently goes missing.
+ * Checked at run time, so a variable set only in some branches is caught at the seeds that skip it.
+ */
+function dad_unset_printed(array $qdata, array $raw): array {
+    if (!isset($raw['_names'])) return [];
+    preg_match_all('/\$([A-Za-z_]\w*)/', $qdata['qtext'], $m);
+    $missing = array_diff(array_unique($m[1]), $raw['_names'], DAD_QTEXT_BUILTINS);
+    return array_values($missing);
 }
 
 /**
  * Runs question code in a scope holding only what ScoreEngine's scope offers question code, so a
- * question's own variable names cannot collide with ours. Every local here is double-underscored.
+ * question's own variable names cannot collide with ours. Our three locals are double-underscored
+ * and removed by exact name (questions use `$__qt1` too).
  */
 function dad_eval_question(string $__control, string $__answer, int $__seed): array {
     $RND = $GLOBALS['RND'];
@@ -151,7 +168,9 @@ function dad_eval_question(string $__control, string $__answer, int $__seed): ar
     if ($__control !== 'error;') eval($__control);
     $RND->srand($__seed + 1);
     if ($__answer !== '') eval($__answer);
-    return array_filter(get_defined_vars(), fn($k) => !str_starts_with($k, '__'), ARRAY_FILTER_USE_KEY);
+    $vars = get_defined_vars();
+    unset($vars['__control'], $vars['__answer'], $vars['__seed']);
+    return $vars;
 }
 
 /**
@@ -381,7 +400,8 @@ if ($path === '/api/vars') {
     // The question's variables after its code runs: what the self-test types, and a debugging aid.
     $seed = (int)($body['seed'] ?? 4242);
     $render = dad_render($dbh, $qdata, $seed);
-    dad_json(['vars' => dad_raw_vars($qdata, $seed), 'displayed' => $render['answers'],
+    $vars = dad_raw_vars($qdata, $seed);
+    dad_json(['vars' => $vars, 'unset_printed' => dad_unset_printed($qdata, $vars), 'displayed' => $render['answers'],
               'parts' => array_filter($render['jsparams'], fn($k) => is_numeric($k), ARRAY_FILTER_USE_KEY)]);
 }
 
@@ -396,6 +416,9 @@ if ($path === '/api/selftest') {
         $raw = dad_raw_vars($qdata, $seed);
         [$cands, $problems, $untested] = dad_student_candidates($render, $multi, $qdata['qtype'], $raw);
         if (isset($raw['_error'])) $problems[] = 'could not read the question variables: ' . $raw['_error'];
+        $unset = dad_unset_printed($qdata, $raw);
+        if ($unset) $problems[] = 'the question text prints ' . implode(', ', array_map(fn($v) => '$' . $v, $unset))
+            . ' but the code never sets ' . (count($unset) === 1 ? 'it' : 'them') . ' at this seed, so nothing shows there';
         // Like a student: submit the best guess for every part, then retry only the parts that
         // missed with their next candidate form, up to four rounds.
         $pick = array_fill_keys(array_keys($cands), 0);

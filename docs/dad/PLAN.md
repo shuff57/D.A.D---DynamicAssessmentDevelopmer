@@ -109,13 +109,15 @@ is kept.
 
 ## Status (2026-11-20)
 
-- Step 1 done: `engine/`. 1,171 of 1,239 bank questions pass; `docs/dad/bank-triage.md` lists the rest.
+- Step 1 done: `engine/`. 1,167 of 1,239 bank questions pass; `docs/dad/bank-triage.md` lists the
+  72 others (57 question defects, 15 to look at).
 - Step 2 done: `src/mom/` (format, health, engine types). Every bank file round-trips.
-- Step 3 working headless: `src/mom/author.rs` and `DAD_AUTHOR="<request>"` on the desktop binary.
-  First live runs with local Ollama (deepseek-v4.1-flash:cloud): `example-slope.php` passed on
-  try 1 (20 s); `example-mean-median.php` passed on try 4 (84 s) after the engine sent back 6
-  problems. Tries 2 and 3 were lost to invalid JSON: escaping a long PHP block inside JSON is
-  error-prone for the model. Next: have the model reply in the mom file format itself (no JSON
-  escaping), and do not count an unreadable reply as a full try.
-- The loop is blocking for now (D.A.D's `main` has only `chat_turns`); the web build needs the
-  async chat from verSHion's newer branch.
+- Step 3 working: `src/mom/author.rs`. The model replies in the mom file format (no JSON escaping);
+  an unreadable reply is asked for again without spending a try. One async loop serves both builds:
+  desktop drives it with `block_on_ready` and `ai::chat_turns_text`, the web build awaits
+  `ai::chat_turns_async` and fetch (compiles for wasm32; not yet exercised in a browser). Headless:
+  `DAD_AUTHOR="<request>"`. Live with local Ollama (deepseek-v4.1-flash:cloud) on the mean / median
+  / select-all request: passed on try 1 (42 s) and on try 2 (90 s), no unreadable replies.
+- Engine feedback to the model keeps a code error's root cause and drops its consequences.
+- In the browser, the engine allows any origin (dev only); a provider must allow the page's origin
+  (Ollama: `OLLAMA_ORIGINS`).

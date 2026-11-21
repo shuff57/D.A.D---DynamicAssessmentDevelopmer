@@ -913,8 +913,18 @@ impl Turn {
     }
 }
 
-/// A whole conversation in, the model's JSON reply out. Same providers and keys as [`transcribe`].
-pub fn chat_turns(cfg: &AiCfg, turns: &[Turn], temp: f64) -> Result<String, String> {
+/// One chat request, built once for the blocking and the browser transports.
+struct ChatReq {
+    url: String,
+    body: Value,
+    key: Option<String>,
+    /// Where the reply text sits in the response JSON.
+    pointer: &'static str,
+}
+
+/// `json` asks the provider for a JSON object (Ollama `format`, OpenAI `response_format`); without it
+/// the reply is free text, which suits answers that are mostly code.
+fn chat_request(cfg: &AiCfg, turns: &[Turn], temp: f64, json: bool) -> Result<ChatReq, String> {
     match cfg.provider.as_str() {
         "ollama" => {
             let url = format!("{}/api/chat", cfg.base.trim_end_matches('/'));
@@ -922,13 +932,9 @@ pub fn chat_turns(cfg: &AiCfg, turns: &[Turn], temp: f64) -> Result<String, Stri
                 .iter()
                 .map(|t| json!({"role": t.role, "content": t.text, "images": t.images.iter().map(|b| base64_encode(b)).collect::<Vec<_>>()}))
                 .collect();
-            let body = json!({"model": cfg.model, "messages": messages, "stream": false, "format": "json", "options": {"temperature": temp}});
-            let reply = post_json(&url, body, None)?;
-            reply
-                .pointer("/message/content")
-                .and_then(Value::as_str)
-                .map(str::to_string)
-                .ok_or_else(|| "The Ollama reply had no message content.".to_string())
+            let mut body = json!({"model": cfg.model, "messages": messages, "stream": false, "options": {"temperature": temp}});
+            if json { body["format"] = json!("json"); }
+            Ok(ChatReq { url, body, key: None, pointer: "/message/content" })
         }
         _ => {
             let base = cfg.base.trim_end_matches('/');
@@ -946,16 +952,47 @@ pub fn chat_turns(cfg: &AiCfg, turns: &[Turn], temp: f64) -> Result<String, Stri
                     json!({"role": t.role, "content": content})
                 })
                 .collect();
-            let body = json!({"model": cfg.model, "stream": false, "temperature": temp, "response_format": {"type": "json_object"}, "messages": messages});
-            let key = request_key(cfg);
-            let reply = post_json(&url, body, key.as_deref())?;
-            reply
-                .pointer("/choices/0/message/content")
-                .and_then(Value::as_str)
-                .map(str::to_string)
-                .ok_or_else(|| "The reply had no message content.".to_string())
+            let mut body = json!({"model": cfg.model, "stream": false, "temperature": temp, "messages": messages});
+            if json { body["response_format"] = json!({"type": "json_object"}); }
+            Ok(ChatReq { url, body, key: request_key(cfg), pointer: "/choices/0/message/content" })
         }
     }
+}
+
+fn chat_reply_text(req: &ChatReq, reply: &Value) -> Result<String, String> {
+    reply
+        .pointer(req.pointer)
+        .and_then(Value::as_str)
+        .map(str::to_string)
+        .ok_or_else(|| "The reply had no message content.".to_string())
+}
+
+/// A whole conversation in, the model's JSON reply out. Same providers and keys as [`transcribe`].
+pub fn chat_turns(cfg: &AiCfg, turns: &[Turn], temp: f64) -> Result<String, String> {
+    let req = chat_request(cfg, turns, temp, true)?;
+    let reply = post_json(&req.url, req.body.clone(), req.key.as_deref())?;
+    chat_reply_text(&req, &reply)
+}
+
+/// [`chat_turns`] with a free-text reply (no JSON mode).
+pub fn chat_turns_text(cfg: &AiCfg, turns: &[Turn], temp: f64) -> Result<String, String> {
+    let req = chat_request(cfg, turns, temp, false)?;
+    let reply = post_json(&req.url, req.body.clone(), req.key.as_deref())?;
+    chat_reply_text(&req, &reply)
+}
+
+/// The browser's [`chat_turns`] / [`chat_turns_text`] (`json` picks which).
+#[cfg(target_arch = "wasm32")]
+pub async fn chat_turns_async(cfg: &AiCfg, turns: &[Turn], temp: f64, json: bool) -> Result<String, String> {
+    let req = chat_request(cfg, turns, temp, json)?;
+    let reply = post_json_async(&req.url, &req.body, req.key.as_deref()).await?;
+    chat_reply_text(&req, &reply)
+}
+
+/// A JSON POST through the browser's fetch, for other modules (the D.A.D engine).
+#[cfg(target_arch = "wasm32")]
+pub async fn post_json_browser(url: &str, body: &Value) -> Result<Value, String> {
+    post_json_async(url, body, None).await
 }
 
 /// What one converted page yields.
