@@ -22,14 +22,15 @@ use serde::{Deserialize, Serialize};
 use std::cell::RefCell;
 use std::sync::{Arc, Mutex};
 
-/// The browser build runs the engine in the page itself; the desktop talks to engine/run.sh.
+/// The browser build runs the engine in the page itself; the desktop runs its own (no Docker).
 #[cfg(target_arch = "wasm32")]
 pub const DEFAULT_ENGINE: &str = crate::mom::author::BUNDLED_ENGINE;
 #[cfg(not(target_arch = "wasm32"))]
-pub const DEFAULT_ENGINE: &str = "http://127.0.0.1:8791";
+pub const DEFAULT_ENGINE: &str = crate::mom::localengine::LOCAL;
 const LIBRARY: &str = "mom/library.json";
 const FORM: &str = "mom/form.json";
 const ADVANCED: &str = "mom/advanced.json";
+const AI_PICKED: &str = "mom/ai_picked.json";
 const MAX_TRIES: usize = 4;
 
 /// One saved question.
@@ -124,7 +125,18 @@ struct State {
     confirm_delete: Option<String>,
     #[cfg(not(target_arch = "wasm32"))]
     poster: autoadd::Poster,
+    /// The "Your AI" card is open for choosing.
+    ai_open: bool,
+    ai_key: String,
+    ai_model_pick: usize,
+    /// A choice made in the card, applied to the app's settings after the frame.
+    ai_pick: Option<AiPick>,
+    /// "Keep my current AI" was pressed.
+    ai_keep: bool,
 }
+
+/// An AI picked in the "Your AI" card.
+struct AiPick { provider: &'static str, model: String, key: Option<String> }
 
 thread_local! {
     static ST: RefCell<State> = RefCell::new(State::default());
@@ -165,7 +177,24 @@ impl crate::App {
         }
         collect(&mut st);
         let cfg = crate::ai::AiCfg::from(&self.settings);
-        crate::screens::shell_frame(self, ctx, true, |_app, ui| page(ui, ctx, &mut st, &cfg));
+        // Asked once: until the teacher picks an AI (or keeps the one set up), the card stays open.
+        let chosen = crate::store::load_json::<bool>(AI_PICKED).unwrap_or(false);
+        crate::screens::shell_frame(self, ctx, true, |_app, ui| page(ui, ctx, &mut st, &cfg, chosen));
+        if let Some(p) = st.ai_pick.take() {
+            self.settings.ai_provider = p.provider.to_string();
+            self.settings.ai_model = p.model;
+            let _ = crate::store::save_json("settings.json", &self.settings);
+            if let Some(k) = p.key {
+                st.note = Some(match crate::ai::set_key(p.provider, Some(k.trim())) { Ok(()) => "AI saved.".into(), Err(e) => format!("Could not save the key: {e}") });
+            }
+            st.ai_open = false;
+            st.error = None;
+            let _ = crate::store::save_json(AI_PICKED, &true);
+        }
+        if std::mem::take(&mut st.ai_keep) {
+            let _ = crate::store::save_json(AI_PICKED, &true);
+            st.ai_open = false;
+        }
         ST.with(|s| *s.borrow_mut() = st);
     }
 }
@@ -313,6 +342,9 @@ fn start_preview(st: &mut State, ctx: &egui::Context) {
         // page ask the app's window.dadEngine instead of fetching a server.
         // MyOpenMath's own student player (assess2), answered by the engine: the same page, score
         // box, "Get a similar question" and "Show Detailed Solution" students see.
+        // The page talks to the engine by its real address ("local" is started here if needed).
+        #[cfg(not(target_arch = "wasm32"))]
+        let engine = match crate::mom::author::resolve_engine(&engine) { Ok(e) => e, Err(e) => { finish(&job, &ctx, Outcome::Preview(Err(e))); return; } };
         let body = serde_json::json!({"src": src, "name": name, "seed": DEFAULT_SEEDS[0], "engine": engine, "static": sandbox_static(&engine)});
         let r = post_engine(&engine, "/api/assess", &body).await
             .and_then(|v| v.get("html").and_then(|h| h.as_str()).map(str::to_string).ok_or_else(|| "The engine sent no preview.".to_string()));
@@ -386,7 +418,7 @@ fn dropdown(ui: &mut Ui, id: &str, labels: &[&str], cur: &mut usize, width: f32)
     *cur != before
 }
 
-fn page(ui: &mut Ui, ctx: &egui::Context, st: &mut State, cfg: &crate::ai::AiCfg) {
+fn page(ui: &mut Ui, ctx: &egui::Context, st: &mut State, cfg: &crate::ai::AiCfg, chosen: bool) {
     pageshell::title(ui, "", "Write a Question",
         "Pick what you need. The AI writes it and checks it, you try it as a student, then it goes into MyOpenMath.");
     ui.add_space(8.0);
@@ -398,7 +430,7 @@ fn page(ui: &mut Ui, ctx: &egui::Context, st: &mut State, cfg: &crate::ai::AiCfg
         ui.horizontal_top(|ui| {
             let main_w = ui.available_width() - side_w - 16.0;
             ui.allocate_ui_with_layout(egui::vec2(main_w, ui.available_height()), egui::Layout::top_down(egui::Align::Min), |ui| {
-                egui::ScrollArea::vertical().id_salt("mom_main").show(ui, |ui| main(ui, ctx, st, cfg));
+                egui::ScrollArea::vertical().id_salt("mom_main").show(ui, |ui| main(ui, ctx, st, cfg, chosen));
             });
             ui.add_space(16.0);
             ui.allocate_ui_with_layout(egui::vec2(side_w, ui.available_height()), egui::Layout::top_down(egui::Align::Min), |ui| {
@@ -407,7 +439,7 @@ fn page(ui: &mut Ui, ctx: &egui::Context, st: &mut State, cfg: &crate::ai::AiCfg
         });
     } else {
         egui::ScrollArea::vertical().id_salt("mom_stack").show(ui, |ui| {
-            main(ui, ctx, st, cfg);
+            main(ui, ctx, st, cfg, chosen);
             ui.add_space(12.0);
             side(ui, ctx, st);
         });
@@ -446,19 +478,97 @@ fn step_pill(ui: &mut Ui, label: &str, on: bool) -> egui::Response {
         .fill(fill).stroke(stroke).corner_radius(egui::CornerRadius::same(255)).min_size(egui::vec2(0.0, 36.0)))
 }
 
-fn main(ui: &mut Ui, ctx: &egui::Context, st: &mut State, cfg: &crate::ai::AiCfg) {
+fn main(ui: &mut Ui, ctx: &egui::Context, st: &mut State, cfg: &crate::ai::AiCfg, chosen: bool) {
     if busy(st) && st.job.lock().map(|j| j.what == "Writing").unwrap_or(false) {
         leave();
         writing(ui, st);
     } else {
         match st.step {
-            Step::Describe => { leave(); describe(ui, ctx, st, cfg) }
+            Step::Describe => { leave(); ai_card(ui, st, cfg, chosen); ui.add_space(12.0); describe(ui, ctx, st, cfg) }
             Step::Try => try_it(ui, ctx, st, cfg),
             Step::Copy => { leave(); copy_step(ui, ctx, st) }
         }
     }
     ui.add_space(12.0);
     advanced(ui, ctx, st, cfg);
+}
+
+/// The AI as a teacher would name it.
+fn ai_label(cfg: &crate::ai::AiCfg) -> String {
+    let model = cfg.model.trim();
+    match cfg.provider.as_str() {
+        "claude-cli" => format!("Claude on this computer{}", if model.is_empty() { String::new() } else { format!(" ({})", model) }),
+        "codex-cli" => "Codex on this computer".into(),
+        "openrouter" => format!("OpenRouter: {model}"),
+        "ollama" => format!("Ollama on this computer: {model}"),
+        "cloud" => format!("Ollama Cloud: {model}"),
+        "account" => "D.A.D's own AI".into(),
+        _ => format!("{}: {model}", cfg.provider),
+    }
+}
+
+/// OpenRouter models offered in the card: (label, model id).
+const OPENROUTER_PICKS: [(&str, &str); 3] = [
+    ("DeepSeek v4.1 Flash (best tested, well under a cent per question)", "deepseek/deepseek-v4.1-flash"),
+    ("Claude Sonnet 5.5 (best writing, costs more)", "anthropic/claude-sonnet-5.5"),
+    ("Free models (slower and uneven)", "openrouter/free"),
+];
+const CLAUDE_PICKS: [(&str, &str); 3] = [("Sonnet (recommended)", "sonnet"), ("Opus (slower, strongest)", "opus"), ("Haiku (fastest)", "haiku")];
+
+/// "Your AI": which AI writes the questions, picked in plain words. AI tools found on this computer
+/// come first (no key needed); an OpenRouter key works anywhere.
+fn ai_card(ui: &mut Ui, st: &mut State, cfg: &crate::ai::AiCfg, chosen: bool) {
+    #[cfg(not(target_arch = "wasm32"))]
+    let local = crate::ai::cli::installed();
+    #[cfg(target_arch = "wasm32")]
+    let local: Vec<&'static str> = Vec::new();
+    let open = st.ai_open || !chosen;
+    pageshell::card(ui, |ui| {
+        ui.horizontal(|ui| {
+            ui.label(theme::strong("Your AI").size(15.0));
+            ui.label(theme::text(if chosen { ai_label(cfg) } else { "not picked yet".to_string() }).size(14.0));
+            if chosen && !open && ui.link("Change").clicked() { st.ai_open = true; }
+        });
+        if !open { return; }
+        ui.add_space(6.0);
+        ui.add(egui::Label::new(theme::muted("Pick which AI writes your questions. An AI already on this computer needs no key.").size(13.0)).wrap());
+        ui.add_space(6.0);
+        if local.contains(&"claude-cli") {
+            ui.horizontal_wrapped(|ui| {
+                let labels: Vec<&str> = CLAUDE_PICKS.iter().map(|p| p.0).collect();
+                let mut k = st.ai_model_pick.min(CLAUDE_PICKS.len() - 1);
+                if pageshell::primary(ui, "Use Claude on This Computer").clicked() {
+                    st.ai_pick = Some(AiPick { provider: "claude-cli", model: CLAUDE_PICKS[k].1.into(), key: None });
+                }
+                if dropdown(ui, "mom_ai_claude", &labels, &mut k, 230.0) { st.ai_model_pick = k; }
+            });
+            ui.label(theme::muted("Uses your Claude subscription through Claude Code.").size(12.0));
+            ui.add_space(6.0);
+        }
+        if local.contains(&"codex-cli") {
+            if pageshell::outline(ui, "Use Codex on This Computer").clicked() {
+                st.ai_pick = Some(AiPick { provider: "codex-cli", model: String::new(), key: None });
+            }
+            ui.label(theme::muted("Uses your ChatGPT subscription through Codex.").size(12.0));
+            ui.add_space(6.0);
+        }
+        egui::CollapsingHeader::new(theme::strong("Use an OpenRouter key").size(14.0)).id_salt("mom_ai_or").default_open(local.is_empty()).show(ui, |ui| {
+            ui.add(egui::Label::new(theme::muted("Make a free account at openrouter.ai, add a few dollars, create a key, and paste it here. It's saved on this computer only.").size(12.0)).wrap());
+            let labels: Vec<&str> = OPENROUTER_PICKS.iter().map(|p| p.0).collect();
+            let mut k = st.ai_model_pick.min(OPENROUTER_PICKS.len() - 1);
+            ui.horizontal_wrapped(|ui| {
+                let r = ui.add(egui::TextEdit::singleline(&mut st.ai_key).password(true).desired_width(260.0).hint_text("sk-or-..."));
+                r.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::TextEdit, true, "OpenRouter key"));
+                if dropdown(ui, "mom_ai_ormodel", &labels, &mut k, 300.0) { st.ai_model_pick = k; }
+            });
+            let ok = st.ai_key.trim().len() > 10;
+            if pageshell::primary_on(ui, "Use OpenRouter", ok).clicked() && ok {
+                st.ai_pick = Some(AiPick { provider: "openrouter", model: OPENROUTER_PICKS[k].1.into(), key: Some(std::mem::take(&mut st.ai_key)) });
+            }
+        });
+        ui.label(theme::muted("Other AIs (Ollama, your own server) are under Account, then AI conversion.").size(12.0));
+        if ui.link(format!("Keep my current AI ({})", ai_label(cfg))).clicked() { st.ai_keep = true; st.ai_open = false; }
+    });
 }
 
 /// A dropdown whose first entry is "Let the AI choose" (None), then `labels` (Some(index)).
@@ -951,6 +1061,8 @@ fn advanced(ui: &mut Ui, ctx: &egui::Context, st: &mut State, cfg: &crate::ai::A
         egui::CollapsingHeader::new(theme::muted("Question checker").size(13.0)).id_salt("mom_engine").show(ui, |ui| {
             ui.label(theme::muted(if st.engine == crate::mom::author::BUNDLED_ENGINE {
                 "Built in: IMathAS runs inside this page. Type a server address to use one instead."
+            } else if st.engine == "local" {
+                "Built in: D.A.D runs IMathAS on this computer (no Docker needed). Type a server address to use one instead."
             } else {
                 "The IMathAS engine that checks questions. Start it with engine/run.sh."
             }).size(12.0));

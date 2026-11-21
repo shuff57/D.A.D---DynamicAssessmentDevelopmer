@@ -4742,6 +4742,7 @@ dependencies = [
  "image",
  "js-sys",
  "keyring",
+ "libc",
  "log",
  "num-bigint",
  "num-rational",

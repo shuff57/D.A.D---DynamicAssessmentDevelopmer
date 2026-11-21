@@ -82,6 +82,13 @@ impl AuthorEngine for HttpEngine {
     }
 }
 
+/// The engine's real address: "local" is the checker this desktop app runs itself
+/// (src/mom/localengine.rs), started on first use.
+#[cfg(not(target_arch = "wasm32"))]
+pub fn resolve_engine(base: &str) -> Result<String, String> {
+    if base == super::localengine::LOCAL { super::localengine::ensure(&mut |_| {}) } else { Ok(base.to_string()) }
+}
+
 /// The engine address that means "the engine built into this page" (browser build only).
 pub const BUNDLED_ENGINE: &str = "bundled";
 
@@ -120,6 +127,10 @@ pub fn warm_bundled_engine() {
 
 /// One JSON POST to the engine: blocking HTTP on the desktop, fetch in the browser.
 pub async fn post_engine(base: &str, path: &str, body: &serde_json::Value) -> Result<serde_json::Value, String> {
+    #[cfg(not(target_arch = "wasm32"))]
+    let resolved = resolve_engine(base)?;
+    #[cfg(not(target_arch = "wasm32"))]
+    let base = resolved.as_str();
     let url = format!("{}{path}", base.trim_end_matches('/'));
     #[cfg(not(target_arch = "wasm32"))]
     {

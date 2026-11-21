@@ -8,6 +8,8 @@ pub mod browserd;
 pub mod chrome;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod livecdp;
+#[cfg(not(target_arch = "wasm32"))]
+pub mod localengine;
 pub mod engine;
 pub mod form;
 pub mod format;

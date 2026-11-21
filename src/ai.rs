@@ -113,6 +113,9 @@ impl AiCfg {
             "workers" | "workers-ai" | "relay" => "workers",
             "account" => "account",
             "ollama-cloud" | "cloud" | "ollama cloud" => "cloud",
+            // An AI command-line tool on this computer (desktop): the teacher's own Claude or Codex.
+            "claude-cli" | "claude" => "claude-cli",
+            "codex-cli" | "codex" => "codex-cli",
             // Empty or unknown settings fall back to local Ollama.
             _ => "ollama",
         };
@@ -122,6 +125,10 @@ impl AiCfg {
                 "custom" => CUSTOM_DEFAULT_MODEL.to_string(),
                 "workers" | "account" => WORKERS_DEFAULT_MODEL.to_string(),
                 "cloud" => OLLAMA_CLOUD_DEFAULT_MODEL.to_string(),
+                // Sonnet: strong at question writing, and gentle on a subscription's limits.
+                "claude-cli" => "sonnet".to_string(),
+                // The CLI's own default model.
+                "codex-cli" => String::new(),
                 _ => OLLAMA_DEFAULT_MODEL.to_string(),
             }
         } else {
@@ -1057,6 +1064,8 @@ fn chat_reply_full(req: &ChatReq, reply: &Value) -> Result<ChatReply, String> {
 /// and OpenAI-style APIs): free text and any calls back.
 #[cfg(not(target_arch = "wasm32"))]
 pub fn chat_turns_tools(cfg: &AiCfg, turns: &[Turn], temp: f64, tools: &Value) -> Result<ChatReply, String> {
+    // A CLI has no function tools here; it gets the text LOOKUP protocol instead.
+    if cli::is_cli(cfg) { return cli::chat(cfg, turns).map(|text| ChatReply { text, calls: Vec::new() }); }
     let req = chat_request(cfg, turns, temp, false, Some(tools))?;
     let reply = post_json(&req.url, req.body.clone(), req.key.as_deref())?;
     log_served(cfg, &reply);
@@ -1084,6 +1093,8 @@ fn log_served(cfg: &AiCfg, reply: &Value) {
 
 /// A whole conversation in, the model's JSON reply out. Same providers and keys as [`transcribe`].
 pub fn chat_turns(cfg: &AiCfg, turns: &[Turn], temp: f64) -> Result<String, String> {
+    #[cfg(not(target_arch = "wasm32"))]
+    if cli::is_cli(cfg) { return cli::chat(cfg, turns); }
     let req = chat_request(cfg, turns, temp, true, None)?;
     let reply = post_json(&req.url, req.body.clone(), req.key.as_deref())?;
     chat_reply_text(&req, &reply)
@@ -1091,6 +1102,8 @@ pub fn chat_turns(cfg: &AiCfg, turns: &[Turn], temp: f64) -> Result<String, Stri
 
 /// [`chat_turns`] with a free-text reply (no JSON mode).
 pub fn chat_turns_text(cfg: &AiCfg, turns: &[Turn], temp: f64) -> Result<String, String> {
+    #[cfg(not(target_arch = "wasm32"))]
+    if cli::is_cli(cfg) { return cli::chat(cfg, turns); }
     let req = chat_request(cfg, turns, temp, false, None)?;
     let reply = post_json(&req.url, req.body.clone(), req.key.as_deref())?;
     log_served(cfg, &reply);
@@ -2269,5 +2282,150 @@ mod tests {
         assert_eq!(body["options"]["num_predict"], 8);
         assert_eq!(body.pointer("/messages/0/images").and_then(Value::as_array).map(Vec::len), Some(1));
         assert!(probe_png().starts_with(b"\x89PNG"));
+    }
+}
+
+/// AI command-line tools on the teacher's own computer, used as the AI: Claude Code (`claude -p`)
+/// and Codex (`codex exec`). A teacher with a Claude or ChatGPT subscription needs no API key, and
+/// nothing runs on our servers. Each call is one non-interactive run with no tools (it only writes
+/// text), no saved session, in an empty folder so it cannot read anyone's files.
+#[cfg(not(target_arch = "wasm32"))]
+pub mod cli {
+    use super::{AiCfg, Turn};
+    use std::io::Write as _;
+    use std::path::PathBuf;
+    use std::process::{Command, Stdio};
+    use std::time::{Duration, Instant};
+
+    /// The longest one answer may take (a long question file from a big model).
+    const TIMEOUT: Duration = Duration::from_secs(300);
+
+    pub fn is_cli(cfg: &AiCfg) -> bool {
+        matches!(cfg.provider.as_str(), "claude-cli" | "codex-cli")
+    }
+
+    /// `name` on PATH (with Windows' .cmd/.exe), if installed.
+    pub fn find(name: &str) -> Option<PathBuf> {
+        let path = std::env::var_os("PATH")?;
+        let exts: &[&str] = if cfg!(windows) { &[".exe", ".cmd", ".bat", ""] } else { &[""] };
+        std::env::split_paths(&path)
+            .flat_map(|d| exts.iter().map(move |e| d.join(format!("{name}{e}"))))
+            .find(|p| p.is_file())
+            .or_else(|| {
+                // Claude Code's own installer puts it in ~/.local/bin, which a desktop app's PATH may lack.
+                let home = std::env::var_os("HOME").or_else(|| std::env::var_os("USERPROFILE"))?;
+                let p = PathBuf::from(home).join(".local").join("bin").join(if cfg!(windows) { format!("{name}.exe") } else { name.to_string() });
+                p.is_file().then_some(p)
+            })
+    }
+
+    /// Which AI tools this computer has, as provider names ("claude-cli", "codex-cli").
+    pub fn installed() -> Vec<&'static str> {
+        [("claude", "claude-cli"), ("codex", "codex-cli")].into_iter().filter(|(bin, _)| find(bin).is_some()).map(|(_, p)| p).collect()
+    }
+
+    /// The conversation as one prompt: a CLI run takes a single message.
+    pub fn transcript(turns: &[Turn]) -> (String, String) {
+        let system = turns.iter().filter(|t| t.role == "system").map(|t| t.text.as_str()).collect::<Vec<_>>().join("\n\n");
+        let rest: Vec<&Turn> = turns.iter().filter(|t| t.role != "system").collect();
+        if rest.len() == 1 {
+            return (system, rest[0].text.clone());
+        }
+        let mut p = String::from("This is a conversation so far. Reply to the last message, as the assistant.\n");
+        for t in rest {
+            let who = match t.role { "assistant" => "YOUR EARLIER REPLY", "tool" => "LOOKUP RESULT", _ => "MESSAGE" };
+            p.push_str(&format!("\n===== {who} =====\n{}\n", t.text));
+        }
+        (system, p)
+    }
+
+    pub fn chat(cfg: &AiCfg, turns: &[Turn]) -> Result<String, String> {
+        if turns.iter().any(|t| !t.images.is_empty()) {
+            return Err("The AI on this computer can't read pictures here. Pick another AI in Settings for this.".into());
+        }
+        let (system, prompt) = transcript(turns);
+        let dir = std::env::temp_dir().join("dad-ai");
+        let _ = std::fs::create_dir_all(&dir);
+        match cfg.provider.as_str() {
+            "claude-cli" => {
+                let bin = find("claude").ok_or("Claude Code isn't installed on this computer.")?;
+                let mut cmd = Command::new(bin);
+                cmd.args(["-p", "--output-format", "json", "--tools", "", "--no-session-persistence", "--strict-mcp-config", "--disable-slash-commands"]);
+                if !system.is_empty() { cmd.args(["--system-prompt", &system]); }
+                if !cfg.model.trim().is_empty() { cmd.args(["--model", cfg.model.trim()]); }
+                let out = run(cmd, &dir, &prompt)?;
+                let v: serde_json::Value = serde_json::from_str(out.trim())
+                    .map_err(|_| format!("Claude Code gave an unexpected answer: {}", out.chars().take(200).collect::<String>()))?;
+                if v["is_error"] == true {
+                    return Err(format!("Claude Code: {}", v["result"].as_str().unwrap_or("it failed")));
+                }
+                v["result"].as_str().map(str::to_string).ok_or_else(|| "Claude Code gave no answer.".into())
+            }
+            _ => {
+                let bin = find("codex").ok_or("Codex isn't installed on this computer.")?;
+                let last = dir.join(format!("codex-{}-{}.txt", std::process::id(), Instant::now().elapsed().as_nanos()));
+                let mut cmd = Command::new(bin);
+                cmd.args(["exec", "--skip-git-repo-check", "--ephemeral", "-s", "read-only", "--color", "never", "-o"]).arg(&last);
+                if !cfg.model.trim().is_empty() { cmd.args(["-m", cfg.model.trim()]); }
+                cmd.arg("-");
+                let full = if system.is_empty() { prompt } else { format!("{system}\n\n{prompt}") };
+                run(cmd, &dir, &full)?;
+                let text = std::fs::read_to_string(&last).map_err(|_| "Codex gave no answer.".to_string())?;
+                let _ = std::fs::remove_file(&last);
+                Ok(text)
+            }
+        }
+    }
+
+    /// Runs the tool with `input` on stdin; its stdout, or a plain error.
+    fn run(mut cmd: Command, dir: &std::path::Path, input: &str) -> Result<String, String> {
+        cmd.current_dir(dir).stdin(Stdio::piped()).stdout(Stdio::piped()).stderr(Stdio::piped());
+        let mut child = cmd.spawn().map_err(|e| format!("Could not start the AI tool: {e}"))?;
+        if let Some(mut stdin) = child.stdin.take() {
+            let input = input.to_string();
+            std::thread::spawn(move || { let _ = stdin.write_all(input.as_bytes()); });
+        }
+        let start = Instant::now();
+        loop {
+            if let Some(_status) = child.try_wait().map_err(|e| e.to_string())? { break; }
+            if start.elapsed() > TIMEOUT {
+                let _ = child.kill();
+                return Err("The AI on this computer took too long to answer.".into());
+            }
+            std::thread::sleep(Duration::from_millis(100));
+        }
+        let out = child.wait_with_output().map_err(|e| e.to_string())?;
+        let stdout = String::from_utf8_lossy(&out.stdout).to_string();
+        if !out.status.success() && stdout.trim().is_empty() {
+            let err = String::from_utf8_lossy(&out.stderr);
+            let line = err.lines().rev().find(|l| !l.trim().is_empty()).unwrap_or("it stopped with an error");
+            if err.contains("login") || err.contains("auth") || err.contains("API key") {
+                return Err(format!("The AI tool isn't signed in. Open a terminal and run it once to sign in. ({line})"));
+            }
+            return Err(format!("The AI tool failed: {line}"));
+        }
+        Ok(stdout)
+    }
+
+    #[cfg(test)]
+    mod tests {
+        use super::*;
+
+        #[test]
+        fn one_message_goes_as_is_and_a_conversation_is_laid_out() {
+            let (s, p) = transcript(&[Turn::new("system", "S"), Turn::new("user", "Q")]);
+            assert_eq!((s.as_str(), p.as_str()), ("S", "Q"));
+            let (_, p) = transcript(&[Turn::new("system", "S"), Turn::new("user", "Q"), Turn::new("assistant", "A"), Turn::new("user", "fix it")]);
+            assert!(p.contains("===== MESSAGE =====\nQ") && p.contains("===== YOUR EARLIER REPLY =====\nA") && p.trim_end().ends_with("fix it"), "{p}");
+        }
+
+        /// Needs Claude Code signed in: `cargo test --lib ai::cli -- --ignored`.
+        #[test]
+        #[ignore]
+        fn claude_code_answers() {
+            let cfg = AiCfg { provider: "claude-cli".into(), base: String::new(), model: "haiku".into(), think: None };
+            let r = chat(&cfg, &[Turn::new("system", "Reply with only a number."), Turn::new("user", "17*23?")]).unwrap();
+            assert!(r.contains("391"), "{r}");
+        }
     }
 }

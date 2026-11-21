@@ -16,6 +16,11 @@ impl Desktop {
 }
 
 impl eframe::App for Desktop {
+    fn on_exit(&mut self) {
+        // The question checker this app started (macOS and Windows have no parent-death signal).
+        vershion::mom::localengine::stop();
+    }
+
     fn raw_input_hook(&mut self, ctx: &egui::Context, raw: &mut egui::RawInput) {
         self.app.raw_input_hook(ctx, raw);
     }
@@ -182,6 +187,7 @@ fn main() -> Result<(), eframe::Error> {
         if let Some(e) = &run.error { eprintln!("error: {e}"); }
         for p in &run.problems { eprintln!("  problem: {p}"); }
         if let Some(q) = &run.question { println!("{}", q.emit()); }
+        vershion::mom::localengine::stop();
         std::process::exit(if run.passed { 0 } else { 1 });
     }
     // Headless one-shot: VERSHION_FIND_MODELS=1 runs the Settings "Find models" check against the configured
