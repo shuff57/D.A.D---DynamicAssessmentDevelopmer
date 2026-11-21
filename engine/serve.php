@@ -17,6 +17,8 @@ error_reporting(E_ERROR | E_PARSE);
 ini_set('display_errors', '0');
 
 $path = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH);
+// In the browser build (PHP compiled to WebAssembly) requests arrive as /serve.php/api/...
+if (str_starts_with($path, '/serve.php')) $path = substr($path, strlen('/serve.php')) ?: '/';
 $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
 
 // The engine is meant to sit behind the D.A.D API. The open CORS policy is only for local
@@ -33,6 +35,22 @@ if ($method !== 'POST') {
     echo '<!doctype html><h1>D.A.D engine</h1><p>POST a question to /, /api/render, /api/score or /api/selftest.</p>';
     exit;
 }
+
+// A fatal error (time limit, memory, a fatal inside eval) cannot be caught, and would end the request
+// with an empty body. Answer with JSON instead, so the caller can report it like any other problem.
+register_shutdown_function(function () {
+    $e = error_get_last();
+    if (!$e || !in_array($e['type'], [E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR], true)) return;
+    while (ob_get_level() > 0) ob_end_clean();
+    $msg = $e['message'];
+    if (str_contains($msg, 'Maximum execution time')) $msg = 'the question code ran longer than the 10-second limit (an endless or very long loop?)';
+    elseif (str_contains($msg, 'Allowed memory size')) $msg = 'the question code used more than the 128 MB memory limit (a huge array or endless loop?)';
+    else $msg = 'the engine crashed on this question: ' . $msg;
+    if (!headers_sent()) { http_response_code(200); header('Content-Type: application/json; charset=utf-8'); }
+    echo json_encode(['pass' => false, 'fatal' => $msg, 'runs' => [], 'errors' => [$msg], 'html' => '']);
+});
+
+ob_start();
 
 // --- IMathAS bootstrap, without init.php (which wants a database and a session). ---
 if (!function_exists('_')) { function _($s) { return $s; } }
@@ -59,6 +77,12 @@ $dbh = new PDO('sqlite::memory:');
 const DAD_QSID = 1;
 
 function dad_json($data, int $status = 200): void {
+    // Anything IMathAS printed on its own (its code checker echoes "Eeek.. unallowed macro range")
+    // must not corrupt the JSON: drop it from the body and report it.
+    $stray = '';
+    while (ob_get_level() > 0) $stray .= ob_get_clean();
+    $stray = trim(strip_tags($stray));
+    if ($stray !== '' && is_array($data)) $data['engine_output'] = mb_substr($stray, 0, 1000);
     http_response_code($status);
     header('Content-Type: application/json; charset=utf-8');
     echo json_encode($data, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PARTIAL_OUTPUT_ON_ERROR);
@@ -118,8 +142,12 @@ function dad_render(PDO $dbh, array $qdata, int $seed, bool $showans = false): a
  * what the author expects a student to enter. Call after dad_render, which loads the macros.
  */
 function dad_raw_vars(array $qdata, int $seed): array {
+    // interpret() echoes its own complaints ("Eeek.. unallowed macro range"); keep them as the error.
+    ob_start();
     $code = interpret('control', $qdata['qtype'], $qdata['control'], 1, [DAD_QSID]);
     $answerCode = empty($qdata['answer']) ? '' : interpret('answer', $qdata['qtype'], $qdata['answer'], 1, [DAD_QSID]);
+    $complaint = trim(strip_tags(ob_get_clean()));
+    if ($complaint !== '') return ['_error' => $complaint];
     ob_start();
     try {
         $vars = dad_eval_question($code, $answerCode, $seed);
@@ -359,6 +387,78 @@ function dad_student_candidates(array $render, bool $multi, string $qtype, array
     return [$cands, $problems, $untested];
 }
 
+/** The interactive preview page (see /api/preview). Everything it needs is inline. */
+function dad_preview_page(array $r, string $src, $question, int $seed, string $engine): string {
+    $flags = JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_UNESCAPED_UNICODE;
+    $payload = json_encode(['src' => $src, 'question' => $question, 'seed' => $seed, 'engine' => $engine], $flags);
+    $answers = '';
+    foreach ($r['answers'] as $pn => $a) {
+        $answers .= '<li><b>Part ' . ((int)$pn + 1) . ':</b> ' . (is_array($a) ? htmlspecialchars(implode(', ', $a)) : $a) . '</li>';
+    }
+    $errs = $r['errors'] ? '<div class="qerr" role="alert">' . htmlspecialchars(implode(' | ', $r['errors'])) . '</div>' : '';
+    return <<<HTML
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Question preview</title>
+<script>window.MathJax={loader:{load:["input/asciimath","output/chtml"]},asciimath:{delimiters:[["`","`"]]}};</script>
+<script src="https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/startup.js" id="MathJax-script" async></script>
+<style>
+:root{color-scheme:light;--ink:#1f1b16;--muted:#5a5240;--line:#d8cfbf;--accent:#a4482a;--ok:#1f6f3f;--bad:#a12a2a}
+body{font:16px/1.55 "Source Sans 3",-apple-system,"Segoe UI",Roboto,sans-serif;color:var(--ink);background:#fff;margin:0;padding:16px 20px 32px}
+.bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:0 0 14px;padding-bottom:12px;border-bottom:1px solid var(--line)}
+.bar .seed{color:var(--muted);font-size:13px;margin-right:auto}
+button{font:inherit;font-size:14px;padding:6px 14px;border-radius:8px;border:1px solid var(--line);background:#fff;color:var(--ink);cursor:pointer}
+button:hover{border-color:var(--accent)}button:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+button.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+input[type=text]{font:inherit;padding:4px 6px;border:1px solid #999;border-radius:4px}
+input:focus-visible,select:focus-visible{outline:3px solid var(--accent);outline-offset:1px}
+.qerr{color:var(--bad);font:13px ui-monospace,monospace;margin-bottom:10px}
+#result{margin-top:14px;font-size:15px}#result .ok{color:var(--ok)}#result .bad{color:var(--bad)}
+details{margin-top:14px;border-top:1px solid var(--line);padding-top:10px}summary{cursor:pointer;color:var(--muted)}
+</style></head><body>
+<div class="bar"><span class="seed">Version $seed</span>
+<button type="button" id="newv">New Version</button>
+<button type="button" class="primary" id="check">Check Answers</button></div>
+$errs
+<form id="dadq" onsubmit="return false">{$r['html']}</form>
+<div id="result" aria-live="polite"></div>
+<details><summary>Show Answers</summary><ul>$answers</ul></details>
+<script>
+const D = $payload;
+function fields() {
+  const post = {};
+  for (const [k, v] of new FormData(document.getElementById('dadq'))) {
+    const m = k.match(/^([^\[]+)\[([^\]]*)\]$/);
+    if (m) { (post[m[1]] ||= {})[m[2] === '' ? Object.keys(post[m[1]]).length : m[2]] = v; }
+    else post[k] = v;
+  }
+  return post;
+}
+async function call(path, body) {
+  const r = await fetch(D.engine + path, {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)});
+  if (!r.ok) throw new Error('the engine answered ' + r.status);
+  return r.json();
+}
+document.getElementById('check').onclick = async () => {
+  const out = document.getElementById('result');
+  out.textContent = 'Checking…';
+  try {
+    const s = await call('/api/score', {src: D.src, question: D.question, seed: D.seed, post: fields()});
+    const raw = Array.isArray(s.raw) ? s.raw : Object.values(s.raw || {});
+    out.innerHTML = raw.map((x, i) => '<div class="' + (x > 0.98 ? 'ok' : 'bad') + '">Part ' + (i + 1) + ': '
+      + (x > 0.98 ? 'correct' : x > 0 ? 'partly correct (' + Math.round(x * 100) + '%)' : 'not correct') + '</div>').join('')
+      + '<div>' + raw.filter(x => x > 0.98).length + ' of ' + raw.length + ' parts right · score ' + Math.round((s.total || 0) * 100) + '%</div>';
+  } catch (e) { out.textContent = 'Could not check: ' + e.message + '. Is the engine running?'; }
+};
+document.getElementById('newv').onclick = async () => {
+  try {
+    const p = await call('/api/preview', {src: D.src, question: D.question, seed: Math.floor(Math.random() * 100000)});
+    document.open(); document.write(p.html); document.close();
+  } catch (e) { document.getElementById('result').textContent = 'Could not draw a new version: ' + e.message; }
+};
+</script></body></html>
+HTML;
+}
+
 // --- Routes ---
 
 if ($path === '/' || $path === '') {
@@ -392,8 +492,19 @@ if ($path === '/api/render') {
 if ($path === '/api/score') {
     $seed = (int)($body['seed'] ?? 4242);
     $answers = is_array($body['answers'] ?? null) ? $body['answers'] : [];
+    $post = is_array($body['post'] ?? null) ? $body['post'] : null;   // form fields as a page submits them
     $render = dad_render($dbh, $qdata, $seed);
-    dad_json(dad_score($dbh, $qdata, $seed, $answers, dad_is_multipart($qdata, $render['answeights'])));
+    dad_json(dad_score($dbh, $qdata, $seed, $answers, dad_is_multipart($qdata, $render['answeights']), $post));
+}
+
+if ($path === '/api/preview') {
+    // The question as a student sees it, as one self-contained page: answer it, Check Answers scores it
+    // through /api/score, New Version draws another seed, Show Answers reveals the key.
+    $seed = (int)($body['seed'] ?? 4242);
+    $r = dad_render($dbh, $qdata, $seed);
+    $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
+    $engine = $scheme . '://' . ($_SERVER['HTTP_HOST'] ?? '127.0.0.1:8791');
+    dad_json(['seed' => $seed, 'errors' => $r['errors'], 'html' => dad_preview_page($r, (string)($body['src'] ?? ''), $body['question'] ?? null, $seed, $engine)]);
 }
 
 if ($path === '/api/vars') {
@@ -416,6 +527,12 @@ if ($path === '/api/selftest') {
         $raw = dad_raw_vars($qdata, $seed);
         [$cands, $problems, $untested] = dad_student_candidates($render, $multi, $qdata['qtype'], $raw);
         if (isset($raw['_error'])) $problems[] = 'could not read the question variables: ' . $raw['_error'];
+        // "///" splits a multipart question into sequential steps, but only alone in its own paragraph
+        // (<p>///</p>) or between double line breaks; IMathAS removes it then. Written any other way it
+        // is printed, so check the rendered page, not the source.
+        if (preg_match('#(^|>)\s*///+\s*(<|$)#', $render['html'])) {
+            $problems[] = 'the question text shows a stray "///" to students: to split the question into steps put /// alone in its own paragraph (<p>///</p>); otherwise remove it';
+        }
         $unset = dad_unset_printed($qdata, $raw);
         if ($unset) $problems[] = 'the question text prints ' . implode(', ', array_map(fn($v) => '$' . $v, $unset))
             . ' but the code never sets ' . (count($unset) === 1 ? 'it' : 'them') . ' at this seed, so nothing shows there';
@@ -459,6 +576,13 @@ if ($path === '/api/selftest') {
         ];
     }
     // "untested" parts (essay, file upload, drawing) passed nothing and failed nothing: a teacher must look.
+    $stray = trim(strip_tags(ob_get_contents() ?: ''));
+    if ($stray !== '') {
+        // Text IMathAS printed outside any question part is a problem with the question's code.
+        $pass = false;
+        foreach ($runs as &$run) { $run['ok'] = false; $run['problems'][] = 'IMathAS reported: ' . mb_substr($stray, 0, 300); }
+        unset($run);
+    }
     dad_json(['pass' => $pass, 'qtype' => $qdata['qtype'], 'untested_parts' => $untestedAll, 'runs' => $runs]);
 }
 

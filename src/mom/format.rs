@@ -88,6 +88,14 @@ impl MomQuestion {
                 q.qtext = qtext.trim().to_string();
             }
         }
+        // A third layout: no ANSWER section, and a lone `///` line inside QUESTION TEXT separating the
+        // question from its worked solution. Only outside multipart, where `///` means sequential steps.
+        if answer.is_empty() && !matches!(q.qtype.to_ascii_lowercase().as_str(), "multipart" | "conditional") {
+            if let Some((qtext, tail)) = split_on_line(&q.qtext, |l| l.trim() == "///") {
+                q.qtext = qtext.trim().to_string();
+                answer = tail.trim().to_string();
+            }
+        }
         if !answer.is_empty() {
             if looks_like_code(&answer) { q.answer_code = answer } else { q.solution = answer }
         }
@@ -209,6 +217,16 @@ mod tests {
         let src = STANDARD.replace("$a = rand(2,9)\n", "$a = rand(2,9)\n// === Scenario picker ===\n$label = \"x\"\n");
         let q = MomQuestion::parse(&src);
         assert_eq!(q.control, "$a = rand(2,9)\n// === Scenario picker ===\n$label = \"x\"\n$answer = $a + 1");
+    }
+
+    #[test]
+    fn a_lone_triple_slash_splits_off_the_solution_outside_multipart() {
+        let src = "// === SET QUESTION TYPE TO: choices ===\n// === COMMON CONTROL ===\n$a = 1\n// === QUESTION TEXT ===\nPick one.\n\n///\n\n<b>Step 1</b> think.\n";
+        let q = MomQuestion::parse(src);
+        assert_eq!(q.qtext, "Pick one.");
+        assert_eq!(q.solution, "<b>Step 1</b> think.");
+        let multi = src.replace("choices", "multipart");
+        assert!(MomQuestion::parse(&multi).qtext.contains("///"), "multipart keeps /// as its step separator");
     }
 
     #[test]

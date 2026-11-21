@@ -4,6 +4,8 @@
 pub mod author;
 pub mod engine;
 pub mod format;
+#[cfg(not(target_arch = "wasm32"))]
+pub mod harness;
 pub mod health;
 
 pub use format::MomQuestion;

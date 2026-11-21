@@ -1,0 +1,8 @@
+{
+  "models": [
+    {"label": "deepseek-v4.1-flash", "provider": "ollama", "base": "http://127.0.0.1:11434", "model": "deepseek-v4.1-flash:cloud"},
+    {"label": "gemma4-31b", "provider": "ollama", "base": "http://127.0.0.1:11434", "model": "gemma4:31b-cloud"},
+    {"label": "claude-sonnet-5.5", "provider": "custom", "base": "https://cli.lefthanddev.com/v1", "model": "claude-sonnet-5-5", "key_env": "VERSHION_AI_KEY"}
+  ],
+  "judge": "claude-sonnet-5.5"
+}

@@ -1,0 +1,284 @@
+{
+ "cases": [
+  {
+   "id": "bank-01",
+   "source": "bank",
+   "course": "Integrated Math 1",
+   "ref": "questions/im1/1-47-determine-if-the-relationship-is-a-function.php",
+   "request": "Integrated Math 1: write a MyOpenMath question. 1-47 determine if the relationship is a function"
+  },
+  {
+   "id": "bank-02",
+   "source": "bank",
+   "course": "Intro statistics",
+   "ref": "questions/descriptive-stats/bar-graph-counts-versus-percentages.php",
+   "request": "Intro statistics: write a MyOpenMath question. Bar Graph of Counts Versus Percentages - The same category table is drawn twice, once as counts and once as percentages; recover the group size, compute one category's percentage, and say why changing to percentages leaves the shape of the graph alone"
+  },
+  {
+   "id": "bank-03",
+   "source": "bank",
+   "course": "Intro statistics (probability)",
+   "ref": "questions/probability/addition-rule-union-probability.php",
+   "request": "Intro statistics (probability): write a MyOpenMath question. Addition Rule for a Union Probability - compute P(A OR B) by subtracting the overlap, and recognize why adding the two rates alone overcounts"
+  },
+  {
+   "id": "bank-04",
+   "source": "bank",
+   "course": "Intro statistics (inference)",
+   "ref": "questions/stats-tests/chi-square/q4-independence-expected.php",
+   "request": "Intro statistics (inference): write a MyOpenMath question. Independence Expected Counts (2x2) - Compute three expected cells from row and column totals"
+  },
+  {
+   "id": "bank-05",
+   "source": "bank",
+   "course": "Intro statistics (free response)",
+   "ref": "questions/frq/descriptive-statistics/q12-reading-a-study-frq.php",
+   "request": "Intro statistics (free response): write a MyOpenMath question. Reading a Study - Students classify a study as observational or experimental, name a plausible source of bias or confounding, and state what conclusion is and is not justified"
+  },
+  {
+   "id": "bank-06",
+   "source": "bank",
+   "course": "Intro statistics (normal distribution)",
+   "ref": "questions/normal-distribution/ch5t-critical-z-which-area-to-use.php",
+   "request": "Intro statistics (normal distribution): write a MyOpenMath question. Critical z, Which Area to Use - Decide which left area to give invNorm for a right-tail area, find that critical z, and find the z that bounds the middle percent of the standard normal curve"
+  },
+  {
+   "id": "bank-07",
+   "source": "bank",
+   "course": "Intro statistics (regression)",
+   "ref": "questions/regression/intro/q11-scatter-with-line.php",
+   "request": "Intro statistics (regression): write a MyOpenMath question. Scatterplot with Line - Does the data show scatter around a roughly linear trend"
+  },
+  {
+   "id": "bank-08",
+   "source": "bank",
+   "course": "Intro statistics (sampling distributions)",
+   "ref": "questions/sampling-distributions/pre-frq-grade-a-sum-interpretation.php",
+   "request": "Intro statistics (sampling distributions): write a MyOpenMath question. Pre-FRQ Grade a Sum Interpretation - a sums scenario with a grading checklist, where the student grades four sample responses against the rubric instead of writing one"
+  },
+  {
+   "id": "bank-09",
+   "source": "bank",
+   "course": "Integrated Math 3",
+   "ref": "questions/im3/evaluating-logarithms-base-2-3-or-4-hardcoded-for-test.php",
+   "request": "Integrated Math 3: write a MyOpenMath question. Evaluating Logarithms Base 2, 3, or 4"
+  },
+  {
+   "id": "bank-10",
+   "source": "bank",
+   "course": "Finite math",
+   "ref": "questions/combinatorics/q12-handshakes.php",
+   "request": "Finite math: write a MyOpenMath question. Handshakes - Pairwise count among n people equals nC2"
+  },
+  {
+   "id": "bank-11",
+   "source": "bank",
+   "course": "Finite math",
+   "ref": "questions/sets/q12-venn-3circle-streamers.php",
+   "request": "Finite math: write a MyOpenMath question. 3-Circle Venn - Streaming services, count regions"
+  },
+  {
+   "id": "bank-12",
+   "source": "bank",
+   "course": "Intro statistics",
+   "ref": "questions/data-collection/camila-vs-rosa-settlement.php",
+   "request": "Intro statistics: write a MyOpenMath question. Camila vs Rosa Settlement - more than three from both tables gives the same share, and the boundary explains why"
+  },
+  {
+   "id": "bank-13",
+   "source": "bank",
+   "course": "Finite math (finance)",
+   "ref": "questions/finance/compound-interest/q10-annual-vs-monthly-comparison.php",
+   "request": "Finite math (finance): write a MyOpenMath question. 6.1 Compound Interest - Annual vs. Monthly Comparison"
+  },
+  {
+   "id": "bank-14",
+   "source": "bank",
+   "course": "Finite math",
+   "ref": "questions/linear-programming/q3-simplex-candle-shop.php",
+   "request": "Finite math: write a MyOpenMath question. Simplex Candle Shop - Maximize candle shop profit using the simplex method"
+  },
+  {
+   "id": "bank-15",
+   "source": "bank",
+   "course": "Finite math (matrices)",
+   "ref": "questions/matrix/matrix-3x3-inverse-equation.php",
+   "request": "Finite math (matrices): write a MyOpenMath question. Matrix Inverse & Equation (3x3) - Find A^{-1} then solve AX=B using the inverse method"
+  },
+  {
+   "id": "bank-16",
+   "source": "bank",
+   "course": "Intro statistics",
+   "ref": "questions/data-sampling/q3-sampling-method-identify.php",
+   "request": "Intro statistics: write a MyOpenMath question. Identify Sampling Method - Match a study description to the correct sampling method (simple random, stratified, cluster, systematic, convenience)"
+  },
+  {
+   "id": "bank-17",
+   "source": "bank",
+   "course": "Intro statistics (data displays)",
+   "ref": "questions/displays/q4-boxplot-outliers-context.php",
+   "request": "Intro statistics (data displays): write a MyOpenMath question. Boxplot - IQR, Fences, and Outlier Check (Context) - From a five-number summary in context, compute IQR and the 1.5*IQR fences, then decide whether a new observation is an outlier"
+  },
+  {
+   "id": "bank-18",
+   "source": "bank",
+   "course": "Algebra",
+   "ref": "questions/functions/q4-function-comprehensive.php",
+   "request": "Algebra: write a MyOpenMath question. Function Comprehensive - Evaluate, find domain, and compute AROC for one real-world function"
+  },
+  {
+   "id": "bank-19",
+   "source": "bank",
+   "course": "Intro statistics (linear models)",
+   "ref": "questions/linear-functions/q4-best-fit-line-concept.php",
+   "request": "Intro statistics (linear models): write a MyOpenMath question. Best-Fit Line Concept - Compute yhat, residual, and interpret sign for a candidate regression line"
+  },
+  {
+   "id": "bank-20",
+   "source": "bank",
+   "course": "Integrated Math 1",
+   "ref": "questions/im1/2-102-3-given-table-fractions-write-equation-linear.php",
+   "request": "Integrated Math 1: write a MyOpenMath question. 2-102.3 Given table (fractions), write equation (linear)"
+  },
+  {
+   "id": "bank-21",
+   "source": "bank",
+   "course": "Intro statistics",
+   "ref": "questions/descriptive-stats/build-the-grouped-frequency-table.php",
+   "request": "Intro statistics: write a MyOpenMath question. Build the Grouped Frequency Table for a Histogram - Sort twenty raw measurements into five given classes, enter each class frequency and the total, then say why the bars of a histogram touch while a bar graph leaves gaps"
+  },
+  {
+   "id": "bank-22",
+   "source": "bank",
+   "course": "Intro statistics (probability)",
+   "ref": "questions/probability/binomial/q11-binomial-or-not.php",
+   "request": "Intro statistics (probability): write a MyOpenMath question. Binomial or Not - Classify each described experiment"
+  },
+  {
+   "id": "bank-23",
+   "source": "bank",
+   "course": "Intro statistics (inference)",
+   "ref": "questions/stats-tests/ci-ht-connection/q10-ci-to-test-hypothesis.php",
+   "request": "Intro statistics (inference): write a MyOpenMath question. Confidence interval to test hypothesis - interval given."
+  },
+  {
+   "id": "bank-24",
+   "source": "bank",
+   "course": "Intro statistics (free response)",
+   "ref": "questions/frq/descriptive-statistics/q7-comparing-means-and-standard-deviations.php",
+   "request": "Intro statistics (free response): write a MyOpenMath question. Comparing Means and Standard Deviations - Students interpret identical means with different standard deviations to draw conclusions about consistency and spread across two groups."
+  },
+  {
+   "id": "bank-25",
+   "source": "bank",
+   "course": "Intro statistics (normal distribution)",
+   "ref": "questions/normal-distribution/chebyshev-at-least-share-and-the-exactly-misconception.php",
+   "request": "Intro statistics (normal distribution): write a MyOpenMath question. Chebyshev's Rule, At Least What Percent - Give the guaranteed share within 2, 3 and 4.5 standard deviations of the mean for data of any shape, then reject the claim that the rule gives an exact share"
+  },
+  {
+   "id": "bank-26",
+   "source": "bank",
+   "course": "Intro statistics (regression)",
+   "ref": "questions/regression/intro/q17-4-2-use-a-regression-equation-to-make-predictions-.php",
+   "request": "Intro statistics (regression): write a MyOpenMath question. 4.2: Use a regression equation to make predictions; interpret slope/y-intercept."
+  },
+  {
+   "id": "bank-27",
+   "source": "bank",
+   "course": "Intro statistics (sampling distributions)",
+   "ref": "questions/sampling-distributions/q16-sum-probability-greater.php",
+   "request": "Intro statistics (sampling distributions): write a MyOpenMath question. Probability That a Sum Is Greater Than a Value - P(Sigma x > c)"
+  },
+  {
+   "id": "bank-28",
+   "source": "bank",
+   "course": "Integrated Math 3",
+   "ref": "questions/im3/logarithmic-properties-09-power-with-video-hardcoded-for-test.php",
+   "request": "Integrated Math 3: write a MyOpenMath question. Logarithmic Properties-09 power"
+  },
+  {
+   "id": "bank-29",
+   "source": "bank",
+   "course": "Finite math",
+   "ref": "questions/combinatorics/q19-combinations-with-condition.php",
+   "request": "Finite math: write a MyOpenMath question. Combinations With Condition - Count committees from a group, then count those including a specific member"
+  },
+  {
+   "id": "bank-30",
+   "source": "bank",
+   "course": "Finite math",
+   "ref": "questions/sets/q2-subsets-two-element.php",
+   "request": "Finite math: write a MyOpenMath question. Subsets - Two-element set: count, then list each non-empty subset"
+  },
+  {
+   "id": "edge-picture",
+   "source": "edge",
+   "course": "",
+   "ref": null,
+   "request": "Integrated Math 1: show a graph of a line through two random lattice points (use showplot), and ask for its slope as a fraction in lowest terms; the student must enter a fraction, not a decimal."
+  },
+  {
+   "id": "edge-select-all",
+   "source": "edge",
+   "course": "",
+   "ref": null,
+   "request": "Intro statistics: select all that apply. Generate a random data set of 8 values and list six statements about its mean, median, range and mode; the truth of each statement must be computed from the data at that seed, and at least two must be true."
+  },
+  {
+   "id": "edge-matching",
+   "source": "edge",
+   "course": "",
+   "ref": null,
+   "request": "Intro statistics: a matching question with 5 vocabulary terms about sampling (population, sample, parameter, statistic, census) and 6 descriptions, so the last term is not free by elimination."
+  },
+  {
+   "id": "edge-dropdown",
+   "source": "edge",
+   "course": "",
+   "ref": null,
+   "request": "Algebra: a two-part question. Part (a): solve a random linear inequality ax + b < c and enter the answer in interval notation. Part (b): a dropdown asking whether the endpoint is included or excluded."
+  },
+  {
+   "id": "edge-money",
+   "source": "edge",
+   "course": "",
+   "ref": null,
+   "request": "Finite math: compound interest with a random principal, rate and years, compounded monthly; the student enters the future value in dollars rounded to the cent."
+  },
+  {
+   "id": "edge-matrix",
+   "source": "edge",
+   "course": "",
+   "ref": null,
+   "request": "Finite math: multiply a random 2x3 matrix by a random 3x2 matrix, the student enters the 2x2 product."
+  },
+  {
+   "id": "edge-equation",
+   "source": "edge",
+   "course": "",
+   "ref": null,
+   "request": "Integrated Math 1: given two random points, the student writes the equation of the line in slope-intercept form y = mx + b (accept any equivalent equation)."
+  },
+  {
+   "id": "edge-distractors",
+   "source": "edge",
+   "course": "",
+   "ref": null,
+   "request": "Precalculus: multiple choice. A sine function with random amplitude, period and vertical shift is given by its equation; ask for the amplitude. Distractors must never equal the correct answer or each other at any seed."
+  },
+  {
+   "id": "edge-string",
+   "source": "edge",
+   "course": "",
+   "ref": null,
+   "request": "Intro statistics: a scenario describing a study; the student types whether it is an observational study or an experiment (accept either capitalization)."
+  },
+  {
+   "id": "edge-feedback-solution",
+   "source": "edge",
+   "course": "",
+   "ref": null,
+   "request": "Integrated Math 1: evaluate a random expression a(b - c)^2 with integers, and include a step-by-step worked solution in $solutionguide."
+  }
+ ]
+}

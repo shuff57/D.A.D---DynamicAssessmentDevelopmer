@@ -97,7 +97,7 @@ web-sys = { version = "0.3", features = [
     "Navigator", "Storage", "StorageManager", "Event", "EventTarget", "Headers", "Request", "RequestInit",
     "RequestMode", "Response", "ReadableStream", "ReadableStreamDefaultReader", "AbortSignal",
     "AbortController", "MediaQueryList", "Location", "Crypto", "SubtleCrypto", "Performance", "Node",
-    "RequestCredentials", "RequestRedirect", "History",
+    "RequestCredentials", "RequestRedirect", "History", "HtmlIFrameElement", "KeyboardEvent",
 ] }
 
 # Size first: Cloudflare Pages rejects any file over 25 MiB, and the web build's wasm is one file.

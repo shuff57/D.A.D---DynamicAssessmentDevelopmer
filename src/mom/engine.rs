@@ -47,6 +47,9 @@ pub struct SelftestResponse {
     pub untested_parts: Vec<usize>,
     #[serde(default)]
     pub runs: Vec<SelftestRun>,
+    /// The engine could not finish (time or memory limit); the one problem to report.
+    #[serde(default)]
+    pub fatal: Option<String>,
 }
 
 #[derive(Deserialize, Debug, Default, Clone)]
@@ -78,18 +81,33 @@ impl SelftestResponse {
     /// defined" that follow are consequences, and listing them buries the one line to fix. The same
     /// error reported by render and by scoring (with and without "of Common Control") counts once.
     pub fn problems(&self) -> Vec<String> {
+        const UNREAD: &str = "could not read the question variables: ";
+        if let Some(f) = &self.fatal {
+            return vec![f.clone()];
+        }
         let all: Vec<&String> = self.runs.iter().flat_map(|r| r.problems.iter().chain(&r.render_errors).chain(&r.correct.errors)).collect();
-        let code_failed = all.iter().any(|p| p.starts_with("Caught error while evaluating") || p.contains("Eeek"));
+        let is_root = |p: &str| p.starts_with("Caught error while evaluating") || p.contains("Eeek");
+        // Is the code's failure named anywhere besides "could not read the question variables"? When
+        // that line is the only one naming it (IMathAS's code checker said "unallowed macro shuffle"),
+        // it is the root and is kept, reworded.
+        let named_elsewhere = all.iter().any(|p| !p.starts_with(UNREAD) && is_root(p));
+        let code_failed = named_elsewhere || all.iter().any(|p| p.starts_with(UNREAD));
         let consequence = |p: &str| code_failed && (
-            p.contains("no correct answer to try") || p.starts_with("could not read the question variables")
+            p.contains("no correct answer to try") || (named_elsewhere && p.starts_with(UNREAD))
             || p.contains("anstypes not defined") || p.contains("missing $anstypes")
-            || p.contains("correct answer scored") || p == "no correct answers exposed");
+            || p.contains("correct answer scored") || p == "no correct answers exposed"
+            || p.contains("no option matches the correct answer"));
+        let reword = |p: &String| match p.strip_prefix(UNREAD) {
+            Some(rest) => format!("IMathAS rejected the code: {rest}"),
+            None => p.clone(),
+        };
         let key = |p: &str| p.replace(" of Common Control", "").replace(" of Question Text", "");
         let mut seen: Vec<(String, Vec<i64>)> = Vec::new();
         for run in &self.runs {
             let errs = run.render_errors.iter().chain(run.correct.errors.iter());
             for p in run.problems.iter().filter(|p| *p != "render errors" && *p != "score errors").chain(errs) {
                 if consequence(p) { continue; }
+                let p = &reword(p);
                 if let Some((_, seeds)) = seen.iter_mut().find(|(t, _)| key(t) == key(p) && t != p) {
                     if !seeds.contains(&run.seed) { seeds.push(run.seed); }
                     continue;
@@ -139,6 +157,20 @@ mod tests {
         assert_eq!(r.problems(), vec![
             "Caught error while evaluating the code in this question: syntax error on line 3 of Common Control (seeds 4242, 7)".to_string(),
         ]);
+    }
+
+    #[test]
+    fn the_code_checker_message_is_kept_when_it_is_the_root() {
+        let r: SelftestResponse = serde_json::from_value(serde_json::json!({"pass": false, "runs": [
+            {"seed": 1, "ok": false, "problems": ["could not read the question variables: Eeek.. unallowed macro shuffle",
+                "part 0 (number): no correct answer to try"], "render_errors": [], "correct": {"total": 0, "errors": []}}]})).unwrap();
+        assert_eq!(r.problems(), vec!["IMathAS rejected the code: Eeek.. unallowed macro shuffle (seed 1)".to_string()]);
+    }
+
+    #[test]
+    fn a_fatal_engine_error_is_the_only_problem() {
+        let r: SelftestResponse = serde_json::from_value(serde_json::json!({"pass": false, "fatal": "ran longer than the limit", "runs": []})).unwrap();
+        assert_eq!(r.problems(), vec!["ran longer than the limit".to_string()]);
     }
 
     #[test]

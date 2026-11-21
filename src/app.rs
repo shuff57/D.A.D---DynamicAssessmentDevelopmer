@@ -46,6 +46,8 @@ pub struct Settings {
 pub enum Screen {
     Welcome,
     Home,
+    /// D.A.D: write a MyOpenMath question with the AI, test it, copy it into MyOpenMath.
+    Mom,
     Banks,
     Exams,
     Imports,
@@ -184,7 +186,8 @@ impl App {
         theme::set_dark(settings.dark, Some(ctx));
         let app = App {
             store: Store::load(),
-            screen: Screen::Welcome,
+            // D.A.D opens on its MyOpenMath writer; verSHion's welcome page is still reachable from Home.
+            screen: Screen::Mom,
             bank: None,
             exam: None,
             qedit: None,
@@ -236,6 +239,7 @@ impl App {
                 "exams" => Screen::Exams,
                 "imports" => Screen::Imports,
                 "figures" => Screen::Figures,
+                "mom" => Screen::Mom,
                 "grade" => Screen::Grade,
                 // The Grade screen with work to review: "grade:N" picks the exam at index N, "grade:N:S"
                 // opens the first page of its S-th submission, "grade:N:S:P" its page P; a last ":tray"

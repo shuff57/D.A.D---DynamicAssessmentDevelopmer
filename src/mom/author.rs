@@ -53,20 +53,28 @@ pub struct HttpEngine {
 
 impl AuthorEngine for HttpEngine {
     async fn selftest(&mut self, src: &str, seeds: &[i64]) -> Result<SelftestResponse, String> {
-        let url = format!("{}/api/selftest", self.base.trim_end_matches('/'));
         let body = serde_json::to_value(SelftestRequest { src, seeds }).map_err(|e| e.to_string())?;
-        #[cfg(not(target_arch = "wasm32"))]
-        let v: serde_json::Value = {
-            let mut resp = ureq::post(&url)
-                .header("Content-Type", "application/json")
-                .send(body.to_string())
-                .map_err(|e| format!("Can't reach the engine at {url}: {e}"))?;
-            let text = resp.body_mut().read_to_string().map_err(|e| format!("Bad reply from the engine: {e}"))?;
-            serde_json::from_str(&text).map_err(|e| format!("The engine did not answer with JSON ({e})"))?
-        };
-        #[cfg(target_arch = "wasm32")]
-        let v = crate::ai::post_json_browser(&url, &body).await?;
+        let v = post_engine(&self.base, "/api/selftest", &body).await?;
         serde_json::from_value(v).map_err(|e| format!("The engine did not answer with a self-test ({e})"))
+    }
+}
+
+/// One JSON POST to the engine: blocking HTTP on the desktop, fetch in the browser.
+pub async fn post_engine(base: &str, path: &str, body: &serde_json::Value) -> Result<serde_json::Value, String> {
+    let url = format!("{}{path}", base.trim_end_matches('/'));
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        let mut resp = ureq::post(&url)
+            .header("Content-Type", "application/json")
+            .send(body.to_string())
+            .map_err(|e| format!("Can't reach the question engine at {base}. Start it with engine/run.sh, or set its address in Settings. ({e})"))?;
+        let text = resp.body_mut().read_to_string().map_err(|e| format!("Bad reply from the engine: {e}"))?;
+        serde_json::from_str(&text).map_err(|e| format!("The engine did not answer with JSON ({e})"))
+    }
+    #[cfg(target_arch = "wasm32")]
+    {
+        crate::ai::post_json_browser(&url, body).await
+            .map_err(|e| format!("Can't reach the question engine at {base}. ({e})"))
     }
 }
 
@@ -152,15 +160,31 @@ pub fn static_problems(q: &MomQuestion) -> Vec<String> {
 
 /// Write a question for `request`, test it, and repair it until it passes or `max_tries` runs out.
 pub async fn author_async<C: AuthorChat, E: AuthorEngine>(request: &str, chat: &mut C, engine: &mut E, max_tries: usize) -> AuthorRun {
+    author_async_logged(request, chat, engine, max_tries, |_| {}).await
+}
+
+/// [`author_async`], calling `on_log` with each log line as it happens (the screen's live progress).
+pub async fn author_async_logged<C: AuthorChat, E: AuthorEngine>(
+    request: &str, chat: &mut C, engine: &mut E, max_tries: usize, mut on_log: impl FnMut(&str),
+) -> AuthorRun {
     let mut run = AuthorRun::default();
+    let mut logged = 0;
+    macro_rules! flush { () => { while logged < run.log.len() { on_log(&run.log[logged]); logged += 1; } } }
+    on_log("writing the question…");
     let mut turns = vec![Turn::new("system", system_prompt()), Turn::new("user", request.to_string())];
     let mut format_retries = 0;
     while run.tries < max_tries.max(1) {
+        // One retry: a provider or proxy hiccup (a gateway error page instead of JSON) is not the question's fault.
         let reply = match chat.chat(&turns).await {
+            Ok(r) => Ok(r),
+            Err(_) => { on_log("the AI did not answer; trying once more…"); chat.chat(&turns).await }
+        };
+        let reply = match reply {
             Ok(r) => r,
             Err(e) => {
                 run.error = Some(format!("The AI did not answer: {e}"));
                 run.log.push("the AI did not answer".into());
+                flush!();
                 return run;
             }
         };
@@ -171,22 +195,26 @@ pub async fn author_async<C: AuthorChat, E: AuthorEngine>(request: &str, chat: &
                 format_retries += 1;
                 run.log.push(format!("unreadable reply, asked again ({e})"));
                 turns.push(Turn::new("user", format!("{e}\n\n{REPLY_SHAPE}")));
+                flush!();
                 continue;
             }
             Err(e) => {
                 run.error = Some(format!("The AI's replies could not be read as a question: {e}"));
                 run.log.push("gave up: unreadable replies".into());
+                flush!();
                 return run;
             }
         };
         run.tries += 1;
         let attempt = run.tries;
+        on_log(&format!("try {attempt}: testing \"{}\" at seeds {:?}…", q.name, DEFAULT_SEEDS));
         let report = match engine.selftest(&q.emit(), &DEFAULT_SEEDS).await {
             Ok(r) => r,
             Err(e) => {
                 run.error = Some(e);
                 run.question = Some(q);
                 run.log.push(format!("try {attempt}: the engine could not be reached"));
+                flush!();
                 return run;
             }
         };
@@ -203,9 +231,11 @@ pub async fn author_async<C: AuthorChat, E: AuthorEngine>(request: &str, chat: &
         run.problems = problems.clone();
         run.report = Some(report);
         run.question = Some(q);
+        flush!();
         if run.passed {
             return run;
         }
+        on_log("sending the problems back to the AI…");
         turns.push(Turn::new(
             "user",
             format!(
@@ -215,6 +245,7 @@ pub async fn author_async<C: AuthorChat, E: AuthorEngine>(request: &str, chat: &
             ),
         ));
     }
+    flush!();
     run
 }
 

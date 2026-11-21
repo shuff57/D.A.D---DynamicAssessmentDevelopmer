@@ -80,6 +80,15 @@ fn main() -> Result<(), eframe::Error> {
         std::fs::write(vershion::env_var("VERSHION_OUT").expect("VERSHION_OUT"), png).expect("write");
         return Ok(());
     }
+    // Headless: DAD_EVAL=harness/evals.json runs the question-writing harness (see src/mom/harness.rs).
+    #[cfg(not(target_arch = "wasm32"))]
+    if vershion::env_var("DAD_EVAL").is_ok() {
+        if let Err(e) = vershion::mom::harness::run_from_env() {
+            eprintln!("harness: {e}");
+            std::process::exit(1);
+        }
+        return Ok(());
+    }
     // Headless one-shot: DAD_AUTHOR="<what the teacher asked for>" writes a MyOpenMath question with the
     // configured AI, tests and repairs it against the engine (DAD_ENGINE, default http://127.0.0.1:8791),
     // prints the log and the question file, and exits 0 only if it passed. DAD_AI_PROVIDER / DAD_AI_MODEL

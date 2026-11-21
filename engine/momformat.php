@@ -53,6 +53,13 @@ function dad_parse_mom(string $src): array {
         }
     }
 
+    // A third layout: no ANSWER section, and a lone "///" line inside QUESTION TEXT separating the
+    // question from its worked solution. Only outside multipart, where "///" means sequential steps.
+    if ($answer === '' && !in_array(strtolower($qtype), ['multipart', 'conditional'], true)
+        && preg_match('#^\s*///\s*$#m', $qtext)) {
+        [$qtext, $answer] = array_map('trim', preg_split('#^\s*///\s*$#m', $qtext, 2));
+    }
+
     // The ANSWER section is one of two things. Newer files put code there (`$solutionguide = '...'`,
     // per steve-desktop's learned-rules.md), which runs after control as in the VPS sandbox. Older
     // files put the worked solution there as prose, which is MyOpenMath's Detailed Solution field;
