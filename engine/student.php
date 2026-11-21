@@ -26,6 +26,17 @@ const DAD_STATE_SECRET = 'dad-sandbox';
 function dad_student(PDO $dbh, array $qdata, array $body): void {
     $qn = DAD_STUDENT_QN;
     $post = is_array($body['post'] ?? null) ? $body['post'] : null;
+    // The worked solution, as MyOpenMath shows it: the Detailed Solution box holds `$solutionguide`
+    // when the code builds one, shown with the answer and as a "Written Example" help link, for this student's own version (MyOpenMath's default 2 and 4, plus 1).
+    if (($qdata['solution'] ?? '') === '' && preg_match('/^\s*\$solutionguide\s*\.?=/m', $qdata['control'] ?? '')) {
+        $qdata['solution'] = '$solutionguide';
+    }
+    if (($qdata['solution'] ?? '') !== '') $qdata['solutionopts'] = 7;
+    // What IMathAS's "Written Example" link reads from a MyOpenMath server (a signed showsoln.php
+    // address); the sandbox answers that link itself.
+    $_SESSION['secsalt'] = $_SESSION['secsalt'] ?? 'dad-sandbox';
+    $GLOBALS['basesiteurl'] = $GLOBALS['basesiteurl'] ?? '';
+    $GLOBALS['cid'] = $GLOBALS['cid'] ?? 0;
     $a2 = new AssessStandalone($dbh);
     $a2->setQuestionData(DAD_QSID, $qdata);
 

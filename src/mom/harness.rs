@@ -47,6 +47,12 @@ pub struct ModelSpec {
     pub provider: String,
     pub base: String,
     pub model: String,
+    /// "off", "low", "medium" or "high"; absent leaves the model's default.
+    #[serde(default)]
+    pub think: Option<String>,
+    /// Offer the reference as a native function tool instead of the text LOOKUP protocol.
+    #[serde(default)]
+    pub tools: bool,
 }
 
 #[derive(Deserialize)]
@@ -58,7 +64,7 @@ struct ModelsFile {
 
 impl ModelSpec {
     pub fn cfg(&self) -> AiCfg {
-        AiCfg { provider: self.provider.clone(), base: self.base.trim_end_matches('/').to_string(), model: self.model.clone() }
+        AiCfg { provider: self.provider.clone(), base: self.base.trim_end_matches('/').to_string(), model: self.model.clone(), think: self.think.clone() }
     }
 }
 
@@ -358,7 +364,7 @@ pub fn run_from_env() -> Result<(), String> {
                     let cfg = m.cfg();
                     loop {
                         let Some(case) = queue.lock().unwrap().pop_front() else { break };
-                        let mut chat = ModelChat { cfg: &cfg };
+                        let mut chat = ModelChat { cfg: &cfg, tools: m.tools };
                         let r = run_case(&case, &m.label, &mut chat, engine, loop_cfg, judge_cfg);
                         let mut n = finished.lock().unwrap();
                         *n += 1;

@@ -1,14 +1,19 @@
-//! The MyOpenMath screen: describe a question, the AI writes it, the engine tests it at three
-//! random versions, and the teacher previews it, edits it, saves it and copies it into MyOpenMath.
+//! The Write screen, for teachers who never see code: three steps.
 //!
-//! Left: the request, live progress, and saved questions. Right: the question, with Preview
-//! (the engine's interactive page: in the browser build an iframe over the canvas, on the desktop
-//! a page opened in the system browser), Code (editable, re-testable) and Copy to MyOpenMath (one
-//! copy button per editor field, and the bookmarklet that fills the editor in the teacher's own tab).
-//! Saving always runs the self-test first, so the bank only ever records a tested verdict.
+//! 1. Describe it: course, topic, answer type per part, difficulty, rounding and a few options, all
+//!    dropdowns and checkboxes (src/mom/form.rs turns them into the AI's request). While the AI
+//!    writes, progress is in plain words.
+//! 2. Try it: the question exactly as students see it (the engine's MyOpenMath page: full-window in
+//!    the browser build, the system browser on the desktop), then Looks Good, or a "change it"
+//!    dropdown that rewrites it.
+//! 3. Add to MyOpenMath: numbered steps with one copy button per editor box, and the bookmarklet.
+//!
+//! My Questions keeps approved questions. The code, the raw log and the checker's address sit behind
+//! "Show advanced tools", off by default. Errors are plain sentences with the details folded away.
 
 use crate::mom::author::{author_async_logged, post_engine, HttpEngine, ModelChat, AuthorEngine};
 use crate::mom::engine::{SelftestResponse, DEFAULT_SEEDS};
+use crate::mom::form::{self, Answer, Change, Difficulty, Form, Rounding, Topic, AI_CHOOSES, COURSES, MAX_PARTS};
 use crate::mom::MomQuestion;
 use crate::pageshell;
 use crate::theme;
@@ -23,6 +28,8 @@ pub const DEFAULT_ENGINE: &str = crate::mom::author::BUNDLED_ENGINE;
 #[cfg(not(target_arch = "wasm32"))]
 pub const DEFAULT_ENGINE: &str = "http://127.0.0.1:8791";
 const LIBRARY: &str = "mom/library.json";
+const FORM: &str = "mom/form.json";
+const ADVANCED: &str = "mom/advanced.json";
 const MAX_TRIES: usize = 4;
 
 /// One saved question.
@@ -71,6 +78,13 @@ enum Outcome {
     Tested(Result<SelftestResponse, String>, /* then save */ bool),
     Preview(Result<String, String>),
     TestedAll(Vec<(String, Result<SelftestResponse, String>)>),
+    /// The helper browser is signed in to MyOpenMath: the teacher's courses.
+    #[cfg(not(target_arch = "wasm32"))]
+    Courses(Result<Vec<crate::mom::poster::Course>, String>),
+    #[cfg(not(target_arch = "wasm32"))]
+    Assessments(u64, Result<Vec<crate::mom::poster::Assessment>, String>),
+    #[cfg(not(target_arch = "wasm32"))]
+    Posted(Result<crate::mom::poster::Added, String>),
 }
 
 #[derive(Default)]
@@ -84,7 +98,7 @@ struct Job {
 }
 
 #[derive(PartialEq, Clone, Copy, Default)]
-enum Tab { #[default] Preview, Code, Copy }
+enum Step { #[default] Describe, Try, Copy }
 
 #[derive(Default)]
 struct State {
@@ -96,13 +110,20 @@ struct State {
     error: Option<String>,
     note: Option<String>,
     current: Option<Current>,
-    tab: Tab,
+    step: Step,
+    form: Form,
+    change: Change,
+    change_other: String,
+    /// Show the code, the raw log and the checker's address.
+    advanced: bool,
     preview_html: Option<String>,
     preview_for: String,
     library: Library,
     /// What happened to the saved questions (saved, tested), shown in their card.
     lib_note: Option<String>,
     confirm_delete: Option<String>,
+    #[cfg(not(target_arch = "wasm32"))]
+    poster: autoadd::Poster,
 }
 
 thread_local! {
@@ -124,16 +145,20 @@ impl crate::App {
             st.engine = crate::store::load_json::<String>("mom/engine.json").unwrap_or_else(|| DEFAULT_ENGINE.to_string());
             if st.engine == crate::mom::author::BUNDLED_ENGINE { crate::mom::author::warm_bundled_engine(); }
             st.library = crate::store::load_json(LIBRARY).unwrap_or_default();
+            st.form = crate::store::load_json(FORM).unwrap_or_default();
+            st.form.fix();
+            st.advanced = crate::store::load_json(ADVANCED).unwrap_or(false);
             // Screenshot/test hook: DAD_MOM_REQUEST pre-fills the request box.
             if let Ok(r) = crate::env_var("DAD_MOM_REQUEST") { st.request = r; }
             // Screenshot/test hook: DAD_MOM_OPEN=<file.php> opens a question and self-tests it;
-            // DAD_MOM_TAB=code|copy picks the tab.
+            // DAD_MOM_TAB=code|copy|copy-approved picks the step (code: Try it with advanced tools open).
             #[cfg(not(target_arch = "wasm32"))]
             if let Some(src) = crate::env_var("DAD_MOM_OPEN").ok().and_then(|p| std::fs::read_to_string(p).ok()) {
                 st.current = Some(Current { q: MomQuestion::parse(&src), request: st.request.clone(), ..Default::default() });
-                st.tab = match crate::env_var("DAD_MOM_TAB").as_deref() { Ok("code") => Tab::Code, Ok("copy" | "copy-approved") => Tab::Copy, _ => Tab::Preview };
+                st.step = match crate::env_var("DAD_MOM_TAB").as_deref() { Ok("copy" | "copy-approved") => Step::Copy, _ => Step::Try };
+                if crate::env_var("DAD_MOM_TAB").as_deref() == Ok("code") { st.advanced = true; }
                 if crate::env_var("DAD_MOM_TAB").as_deref() == Ok("copy-approved") {
-                    if let Some(c) = st.current.as_mut() { c.reviewed = true; }
+                    if let Some(c) = st.current.as_mut() { c.reviewed = true; c.sandbox_seen = true; }
                 }
                 start_test(&mut st, ctx, false);
             }
@@ -157,12 +182,25 @@ fn collect(st: &mut State) {
 
 fn take(st: &mut State, outcome: Outcome) {
     match outcome {
+        #[cfg(not(target_arch = "wasm32"))]
+        Outcome::Courses(r) => autoadd::courses_in(st, r),
+        #[cfg(not(target_arch = "wasm32"))]
+        Outcome::Assessments(cid, r) => autoadd::assessments_in(st, cid, r),
+        #[cfg(not(target_arch = "wasm32"))]
+        Outcome::Posted(r) => autoadd::posted(st, r),
         Outcome::Authored { q, passed, problems, untested, error } => {
             st.error = error;
-            if let Some(q) = q {
-                st.current = Some(Current { q, request: st.request.clone(), passed: Some(passed), problems, untested, ..Default::default() });
-                st.tab = Tab::Preview;
+            if let Some(mut q) = q {
+                // A question needs a name (MyOpenMath's Description); a model sometimes leaves it out.
+                if q.name.trim().is_empty() {
+                    q.name = st.form.short_name();
+                }
+                // A rewrite keeps the question's place in My Questions.
+                let saved_id = st.current.as_ref().and_then(|c| c.saved_id.clone());
+                st.current = Some(Current { q, request: st.request.clone(), passed: Some(passed), problems, untested, saved_id, ..Default::default() });
+                st.step = Step::Try;
                 st.preview_html = None;
+                st.note = None;
             }
         }
         Outcome::Tested(r, then_save) => match r {
@@ -232,12 +270,14 @@ fn finish(job: &Arc<Mutex<Job>>, ctx: &egui::Context, outcome: Outcome) {
     ctx.request_repaint();
 }
 
-fn start_write(st: &mut State, ctx: &egui::Context, cfg: &crate::ai::AiCfg) {
+/// Ask the AI to write `request` (the form's request, or a "change it" request that carries the
+/// current question); the teacher's own request stays in `st.request`.
+fn start_write(st: &mut State, ctx: &egui::Context, cfg: &crate::ai::AiCfg, request: String) {
     st.log.clear();
     let job = start(st, "Writing");
-    let (request, engine, cfg, ctx) = (st.request.trim().to_string(), st.engine.clone(), cfg.clone(), ctx.clone());
+    let (request, engine, cfg, ctx) = (request.trim().to_string(), st.engine.clone(), cfg.clone(), ctx.clone());
     run_bg(async move {
-        let mut chat = ModelChat { cfg: &cfg };
+        let mut chat = ModelChat { cfg: &cfg, tools: false };
         let mut eng = HttpEngine { base: engine };
         let log_job = job.clone();
         let log_ctx = ctx.clone();
@@ -264,14 +304,17 @@ fn start_test(st: &mut State, ctx: &egui::Context, then_save: bool) {
 fn start_preview(st: &mut State, ctx: &egui::Context) {
     let Some(c) = &st.current else { return };
     let src = c.q.emit();
+    let name = if c.q.name.trim().is_empty() { "Practice question".to_string() } else { c.q.name.clone() };
     st.preview_for = src.clone();
     let job = start(st, "Drawing the preview");
     let (engine, ctx) = (st.engine.clone(), ctx.clone());
     run_bg(async move {
         // The page's own Check Answers / New Version calls go to the same engine: "bundled" makes the
         // page ask the app's window.dadEngine instead of fetching a server.
-        let body = serde_json::json!({"src": src, "seed": DEFAULT_SEEDS[0], "engine": engine, "static": sandbox_static(&engine)});
-        let r = post_engine(&engine, "/api/student", &body).await
+        // MyOpenMath's own student player (assess2), answered by the engine: the same page, score
+        // box, "Get a similar question" and "Show Detailed Solution" students see.
+        let body = serde_json::json!({"src": src, "name": name, "seed": DEFAULT_SEEDS[0], "engine": engine, "static": sandbox_static(&engine)});
+        let r = post_engine(&engine, "/api/assess", &body).await
             .and_then(|v| v.get("html").and_then(|h| h.as_str()).map(str::to_string).ok_or_else(|| "The engine sent no preview.".to_string()));
         finish(&job, &ctx, Outcome::Preview(r));
     });
@@ -309,7 +352,7 @@ fn save_current(st: &mut State) {
         None => st.library.questions.insert(0, entry),
     }
     st.lib_note = Some(match crate::store::save_json(LIBRARY, &st.library) {
-        Ok(()) => if c.passed == Some(true) { "Saved. It passed the self-test.".into() } else { "Saved, marked as needing fixes.".into() },
+        Ok(()) => if c.passed == Some(true) { "Saved to My Questions.".into() } else { "Saved to My Questions, marked as needing fixing.".into() },
         Err(e) => format!("Could not save: {e}"),
     });
 }
@@ -323,123 +366,520 @@ fn slug(name: &str) -> String {
 
 // ---------- drawing ----------
 
+/// Field label above its control.
+fn field_label(ui: &mut Ui, text: &str) {
+    ui.add_space(10.0);
+    ui.label(theme::strong(text).size(14.0));
+    ui.add_space(2.0);
+}
+
+/// A dropdown of `labels`; returns true when the choice changed.
+fn dropdown(ui: &mut Ui, id: &str, labels: &[&str], cur: &mut usize, width: f32) -> bool {
+    let before = *cur;
+    let shown = labels.get(*cur).copied().unwrap_or("");
+    // Tall enough that a course's whole topic list (and "Other" at its end) shows without scrolling.
+    egui::ComboBox::from_id_salt(id).selected_text(shown).width(width).height(520.0).show_ui(ui, |ui| {
+        for (i, l) in labels.iter().enumerate() {
+            ui.selectable_value(cur, i, *l);
+        }
+    });
+    *cur != before
+}
+
 fn page(ui: &mut Ui, ctx: &egui::Context, st: &mut State, cfg: &crate::ai::AiCfg) {
-    pageshell::title(ui, "", "MyOpenMath",
-        "Describe a question. The AI writes it, IMathAS tests it at three random versions, and you copy it into MyOpenMath.");
+    pageshell::title(ui, "", "Write a Question",
+        "Pick what you need. The AI writes it and checks it, you try it as a student, then it goes into MyOpenMath.");
+    ui.add_space(8.0);
+    steps(ui, st);
     ui.add_space(12.0);
-    let wide = ui.available_width() >= 980.0;
+    let wide = ui.available_width() >= 1040.0;
     if wide {
-        let left_w = 380.0;
+        let side_w = 320.0;
         ui.horizontal_top(|ui| {
-            ui.allocate_ui_with_layout(egui::vec2(left_w, ui.available_height()), egui::Layout::top_down(egui::Align::Min), |ui| {
-                egui::ScrollArea::vertical().id_salt("mom_left").show(ui, |ui| left(ui, ctx, st, cfg));
+            let main_w = ui.available_width() - side_w - 16.0;
+            ui.allocate_ui_with_layout(egui::vec2(main_w, ui.available_height()), egui::Layout::top_down(egui::Align::Min), |ui| {
+                egui::ScrollArea::vertical().id_salt("mom_main").show(ui, |ui| main(ui, ctx, st, cfg));
             });
             ui.add_space(16.0);
-            ui.allocate_ui_with_layout(egui::vec2(ui.available_width(), ui.available_height()), egui::Layout::top_down(egui::Align::Min), |ui| {
-                right(ui, ctx, st);
+            ui.allocate_ui_with_layout(egui::vec2(side_w, ui.available_height()), egui::Layout::top_down(egui::Align::Min), |ui| {
+                egui::ScrollArea::vertical().id_salt("mom_side").show(ui, |ui| side(ui, ctx, st));
             });
         });
     } else {
         egui::ScrollArea::vertical().id_salt("mom_stack").show(ui, |ui| {
-            left(ui, ctx, st, cfg);
+            main(ui, ctx, st, cfg);
             ui.add_space(12.0);
-            right(ui, ctx, st);
+            side(ui, ctx, st);
         });
     }
 }
 
-fn left(ui: &mut Ui, ctx: &egui::Context, st: &mut State, cfg: &crate::ai::AiCfg) {
-    let working = busy(st);
-    pageshell::card(ui, |ui| {
-        ui.label(theme::strong("What should the question ask?").size(15.0));
-        ui.add_space(4.0);
-        let edit = ui.add(
-            egui::TextEdit::multiline(&mut st.request)
-                .desired_rows(5)
-                .desired_width(f32::INFINITY)
-                .hint_text("Integrated Math 1: give two random points; part (a) the slope as a fraction, part (b) is the line increasing or decreasing…"),
-        );
-        edit.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::TextEdit, true, "What should the question ask?"));
-        ui.add_space(8.0);
-        ui.horizontal(|ui| {
-            let label = if working { "Writing…" } else { "Write Question" };
-            let can = !working && !st.request.trim().is_empty();
-            let pressed = ui.add_enabled_ui(can, |ui| pageshell::primary(ui, label)).inner.clicked();
-            let ctrl_enter = edit.has_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter) && i.modifiers.command);
-            if (pressed || ctrl_enter) && can { start_write(st, ctx, cfg); }
-            ui.label(theme::muted(format!("{} · {}", cfg.provider, cfg.model)).size(12.0))
-                .on_hover_text("The AI comes from Settings → AI. Ctrl+Enter writes the question.");
-        });
-        if !st.log.is_empty() || working {
-            ui.add_space(8.0);
-            for line in st.log.iter().rev().take(14).collect::<Vec<_>>().into_iter().rev() {
-                let col = if line.contains("passes") { theme::green() } else if line.starts_with("    ") { theme::red() } else { theme::muted_col() };
-                ui.add(egui::Label::new(RichText::new(line).size(12.0).color(col)).wrap());
-            }
-            if working { ui.horizontal(|ui| { ui.spinner(); ui.label(theme::muted(st.job.lock().map(|j| j.what).unwrap_or("Working")).size(12.0)); }); }
+/// The three steps across the top; a step opens once the one before it is done.
+fn steps(ui: &mut Ui, st: &mut State) {
+    let has_q = st.current.is_some();
+    let reviewed = st.current.as_ref().is_some_and(|c| c.reviewed);
+    ui.horizontal_wrapped(|ui| {
+        for (i, (step, name, open)) in [(Step::Describe, "Describe it", true), (Step::Try, "Try it", has_q), (Step::Copy, "Add to MyOpenMath", reviewed)].into_iter().enumerate() {
+            if i > 0 { ui.label(theme::muted("›").size(18.0)); }
+            let label = format!("{}   {name}", i + 1);
+            let r = ui.add_enabled_ui(open && !busy(st), |ui| step_pill(ui, &label, st.step == step)).inner;
+            if r.clicked() { st.step = step; }
         }
-        if let Some(e) = &st.error {
-            ui.add_space(6.0);
-            ui.add(egui::Label::new(RichText::new(e).color(theme::red()).size(13.0)).wrap());
+        if has_q && !busy(st) {
+            ui.add_space(12.0);
+            if pageshell::outline(ui, "Start a New Question").on_hover_text("Your choices below stay picked").clicked() {
+                st.step = Step::Describe;
+                st.current = None;
+                st.error = None;
+                st.preview_html = None;
+            }
         }
     });
+}
+
+/// One step in the row across the top: the current one filled, the others outlined.
+fn step_pill(ui: &mut Ui, label: &str, on: bool) -> egui::Response {
+    let fill = if on { theme::accent_faded() } else { theme::card() };
+    let stroke = egui::Stroke::new(if on { 1.5 } else { 1.0 }, if on { theme::accent_col() } else { theme::border() });
+    let fg = if on { theme::accent_col() } else { theme::text_col() };
+    ui.add(egui::Button::new(RichText::new(label).family(theme::bold_family()).size(15.0).color(fg))
+        .fill(fill).stroke(stroke).corner_radius(egui::CornerRadius::same(255)).min_size(egui::vec2(0.0, 36.0)))
+}
+
+fn main(ui: &mut Ui, ctx: &egui::Context, st: &mut State, cfg: &crate::ai::AiCfg) {
+    if busy(st) && st.job.lock().map(|j| j.what == "Writing").unwrap_or(false) {
+        leave();
+        writing(ui, st);
+    } else {
+        match st.step {
+            Step::Describe => { leave(); describe(ui, ctx, st, cfg) }
+            Step::Try => try_it(ui, ctx, st, cfg),
+            Step::Copy => { leave(); copy_step(ui, ctx, st) }
+        }
+    }
     ui.add_space(12.0);
-    library(ui, ctx, st);
-    ui.add_space(12.0);
-    egui::CollapsingHeader::new(theme::muted("Engine").size(13.0)).id_salt("mom_engine").show(ui, |ui| {
-        ui.label(theme::muted(if st.engine == crate::mom::author::BUNDLED_ENGINE {
-            "Built in: IMathAS runs inside this page. Type a server address to use one instead."
-        } else {
-            "The IMathAS engine that tests questions. Start it with engine/run.sh."
-        }).size(12.0));
+    advanced(ui, ctx, st, cfg);
+}
+
+/// A dropdown whose first entry is "Let the AI choose" (None), then `labels` (Some(index)).
+fn ai_dropdown(ui: &mut Ui, id: &str, labels: &[&str], cur: &mut Option<usize>, width: f32) -> bool {
+    let mut all = vec![AI_CHOOSES];
+    all.extend_from_slice(labels);
+    let mut k = cur.map(|i| i + 1).unwrap_or(0);
+    let changed = dropdown(ui, id, &all, &mut k, width);
+    if changed { *cur = k.checked_sub(1); }
+    changed
+}
+
+/// [`ai_dropdown`] over a list of values.
+fn ai_pick<T: Copy + PartialEq>(ui: &mut Ui, id: &str, all: &[T], label: impl Fn(T) -> &'static str, cur: &mut Option<T>, width: f32) {
+    let labels: Vec<&str> = all.iter().map(|v| label(*v)).collect();
+    let mut k = cur.and_then(|v| all.iter().position(|x| *x == v));
+    if ai_dropdown(ui, id, &labels, &mut k, width) { *cur = k.map(|i| all[i]); }
+}
+
+fn describe(ui: &mut Ui, ctx: &egui::Context, st: &mut State, cfg: &crate::ai::AiCfg) {
+    pageshell::card(ui, |ui| {
+        pageshell::heading(ui, "What kind of question do you need?");
+        ui.label(theme::muted("Pick what matters to you. Anything left on \"Let the AI choose\" is up to the AI.").size(13.0));
+        let f = &mut st.form;
+
+        field_label(ui, "Course");
+        let names: Vec<&str> = COURSES.iter().map(|c| c.0).collect();
+        if ai_dropdown(ui, "mom_course", &names, &mut f.course, 320.0) { f.topic = Topic::Ai; f.fix(); }
+
+        field_label(ui, "Topic");
+        let mut topics: Vec<&str> = vec![AI_CHOOSES];
+        topics.extend_from_slice(f.topics());
+        topics.push("Other (type it)");
+        let other = topics.len() - 1;
+        let mut ti = match f.topic { Topic::Ai => 0, Topic::Listed(i) => i + 1, Topic::Typed => other };
+        if dropdown(ui, "mom_topic", &topics, &mut ti, 320.0) {
+            f.topic = if ti == 0 { Topic::Ai } else if ti == other { Topic::Typed } else { Topic::Listed(ti - 1) };
+        }
+        if f.topic == Topic::Typed {
+            ui.add_space(4.0);
+            let r = ui.add(egui::TextEdit::singleline(&mut f.topic_text).desired_width(320.0).hint_text("For example: Venn diagrams"));
+            r.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::TextEdit, true, "Your topic"));
+            if f.topic_text.trim().is_empty() { crate::kit::attention_ring(ui, &r); }
+            if ui.link(theme::muted("Pick from the list instead").size(13.0)).clicked() { f.topic = Topic::Ai; }
+        } else if ui.link(theme::muted("My topic isn't in the list").size(13.0)).clicked() {
+            f.topic = Topic::Typed;
+        }
+
+        field_label(ui, "How many parts?");
+        let counts: Vec<String> = (1..=MAX_PARTS).map(|n| if n == 1 { "1 (a single question)".into() } else { format!("{n} parts") }).collect();
+        let counts: Vec<&str> = counts.iter().map(String::as_str).collect();
+        let mut n = f.part_count.map(|n| n - 1);
+        if ai_dropdown(ui, "mom_parts", &counts, &mut n, 220.0) { f.part_count = n.map(|n| n + 1); f.fix(); }
+
+        let per_part = f.part_count.is_some_and(|n| n > 1);
+        field_label(ui, match f.part_count {
+            None => "What does the student answer? (every part)",
+            Some(1) => "What does the student answer?",
+            Some(_) => "What does the student answer in each part?",
+        });
+        for i in 0..f.answers.len() {
+            ui.horizontal(|ui| {
+                if per_part { ui.add_sized([62.0, 22.0], egui::Label::new(theme::text(format!("Part ({})", (b'a' + i as u8) as char)))); }
+                ai_pick(ui, &format!("mom_ans_{i}"), &Answer::ALL, Answer::label, &mut f.answers[i], 300.0);
+            });
+        }
+        if f.answers.contains(&Some(Answer::Written)) {
+            ui.label(theme::muted("Written answers aren't checked automatically: you grade them in MyOpenMath.").size(12.0));
+        }
+
+        ui.horizontal_wrapped(|ui| {
+            ui.vertical(|ui| {
+                field_label(ui, "Difficulty");
+                ai_pick(ui, "mom_diff", &Difficulty::ALL, Difficulty::label, &mut f.difficulty, 170.0);
+            });
+            if f.uses_rounding() {
+                ui.add_space(16.0);
+                ui.vertical(|ui| {
+                    field_label(ui, "Round answers to");
+                    ai_pick(ui, "mom_round", &Rounding::ALL, Rounding::label, &mut f.rounding, 190.0);
+                });
+            }
+            if f.uses_options() {
+                ui.add_space(16.0);
+                ui.vertical(|ui| {
+                    field_label(ui, "Answer choices");
+                    let labels = ["2 choices", "3 choices", "4 choices", "5 choices", "6 choices"];
+                    let mut k = f.options.map(|n| n - 2);
+                    if ai_dropdown(ui, "mom_opts", &labels, &mut k, 170.0) { f.options = k.map(|k| k + 2); }
+                });
+            }
+            ui.add_space(16.0);
+            ui.vertical(|ui| {
+                field_label(ui, "Real-world situation");
+                let mut k = f.story.map(|b| if b { 0 } else { 1 });
+                if ai_dropdown(ui, "mom_story", &["Yes, use a story", "No, just the math"], &mut k, 190.0) { f.story = k.map(|k| k == 0); }
+            });
+        });
+
+        field_label(ui, "Options");
+        ui.checkbox(&mut f.random, "Give every student different numbers");
         ui.horizontal(|ui| {
-            let r = ui.add(egui::TextEdit::singleline(&mut st.engine).desired_width(240.0).hint_text(DEFAULT_ENGINE));
-            r.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::TextEdit, true, "Engine address"));
-            if r.lost_focus() { let _ = crate::store::save_json("mom/engine.json", &st.engine); }
+            ui.label(RichText::new("✔").color(theme::green()));
+            ui.label(theme::text("Every question comes with a worked solution, shown to students after they answer.").size(13.0));
+        });
+
+        field_label(ui, "Anything else? (optional)");
+        let r = ui.add(egui::TextEdit::multiline(&mut f.extra).desired_rows(2).desired_width(f32::INFINITY)
+            .hint_text("For example: use money amounts, or ask for the y-intercept too"));
+        r.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::TextEdit, true, "Anything else (optional)"));
+
+        ui.add_space(16.0);
+        let missing = f.missing();
+        if pageshell::primary_on(ui, "Write My Question", missing.is_none()).clicked() && missing.is_none() {
+            st.request = st.form.request();
+            let _ = crate::store::save_json(FORM, &st.form);
+            let request = st.request.clone();
+            start_write(st, ctx, cfg, request);
+        }
+        if let Some(why) = missing { crate::kit::gated_reason(ui, why); }
+        error_box(ui, st);
+    });
+}
+
+/// A plain-language error, with the technical text one click away.
+fn error_box(ui: &mut Ui, st: &State) {
+    if let Some(e) = &st.error {
+        ui.add_space(8.0);
+        ui.add(egui::Label::new(RichText::new(form::plain_error(e)).color(theme::red()).size(14.0)).wrap());
+        egui::CollapsingHeader::new(theme::muted("Show details").size(12.0)).id_salt("mom_err_details").show(ui, |ui| {
+            ui.add(egui::Label::new(theme::muted(e).size(12.0)).wrap());
+        });
+    }
+}
+
+fn writing(ui: &mut Ui, st: &State) {
+    pageshell::card(ui, |ui| {
+        pageshell::heading(ui, "Writing your question");
+        ui.add_space(6.0);
+        let mut said: Vec<String> = Vec::new();
+        for line in &st.log {
+            if let Some(p) = form::plain_progress(line, MAX_TRIES) {
+                if said.last() != Some(&p) { said.push(p); }
+            }
+        }
+        if said.is_empty() { said.push("Writing your question…".into()); }
+        let last = said.len() - 1;
+        for (i, p) in said.iter().enumerate().skip(said.len().saturating_sub(5)) {
+            ui.horizontal(|ui| {
+                if i == last { ui.spinner(); ui.label(theme::strong(p).size(15.0)); }
+                else { ui.label(RichText::new("✔").color(theme::green())); ui.label(theme::muted(p).size(14.0)); }
+            });
+        }
+        ui.add_space(8.0);
+        ui.label(theme::muted("This usually takes between 10 seconds and a minute. You can leave this page open and come back.").size(13.0));
+    });
+}
+
+fn try_it(ui: &mut Ui, ctx: &egui::Context, st: &mut State, cfg: &crate::ai::AiCfg) {
+    let Some(c) = st.current.as_ref() else { st.step = Step::Describe; return };
+    let working = busy(st);
+    let src = c.q.emit();
+    let stale = st.preview_html.is_none() || st.preview_for != src;
+    if stale && !working && st.error.is_none() && c.passed == Some(true) {
+        start_preview(st, ctx);
+    }
+    #[cfg(target_arch = "wasm32")]
+    match overlay::take_action() {
+        Some(overlay::Action::Approve) => approve(st),
+        Some(overlay::Action::Close) | None => {}
+    }
+    pageshell::card(ui, |ui| {
+        let c = st.current.as_ref().unwrap();
+        ui.add(egui::Label::new(theme::serif(if c.q.name.is_empty() { "Your question" } else { &c.q.name }).size(20.0)).wrap());
+        ui.add_space(6.0);
+        match c.passed {
+            Some(true) => { ui.label(RichText::new("✔ It works: we checked it with 3 different sets of numbers.").color(theme::green()).size(14.0)); }
+            Some(false) => {
+                ui.add(egui::Label::new(RichText::new("✖ The AI couldn't get this one fully working.").color(theme::red()).size(15.0)).wrap());
+                ui.label(theme::muted("Write it again (it often works the second time), or go back and change your choices.").size(13.0));
+                ui.add_space(6.0);
+                ui.horizontal(|ui| {
+                    if ui.add_enabled_ui(!working, |ui| pageshell::primary(ui, "Write It Again")).inner.clicked() {
+                        let request = st.request.clone();
+                        start_write(st, ctx, cfg, request);
+                    }
+                    if pageshell::outline(ui, "Change My Choices").clicked() { st.step = Step::Describe; }
+                });
+                let c = st.current.as_ref().unwrap();
+                egui::CollapsingHeader::new(theme::muted("Show details").size(12.0)).id_salt("mom_problems").show(ui, |ui| {
+                    for p in c.problems.iter().take(6) { ui.add(egui::Label::new(theme::muted(format!("• {p}")).size(12.0)).wrap()); }
+                });
+                return;
+            }
+            None if working => { ui.horizontal(|ui| { ui.spinner(); ui.label(theme::muted("Checking it…")); }); }
+            None => { ui.label(theme::muted("Changed since the last check. Open Advanced tools and press Check It Again.")); }
+        }
+        let c = st.current.as_ref().unwrap();
+        if !c.untested.is_empty() {
+            ui.label(theme::muted(format!("Part {} is a written or upload answer: check that one yourself.",
+                c.untested.iter().map(|p| ((b'a' + *p as u8) as char).to_string()).collect::<Vec<_>>().join(", "))).size(13.0));
+        }
+
+        ui.add_space(14.0);
+        ui.label(theme::strong("Try it as a student").size(15.0));
+        ui.add(egui::Label::new(theme::muted("It opens exactly as your students will see it in MyOpenMath. Answer it and press Submit: the worked solution appears under the question. Then try \"Try a similar question\" once or twice to see new numbers.").size(13.0)).wrap());
+        if st.current.as_ref().is_some_and(|c| c.q.detailed_solution_field().is_empty()) {
+            ui.add(egui::Label::new(RichText::new("This one has no worked solution. Pick \"Make the worked solution clearer\" below and press Rewrite It to add one.").color(theme::red()).size(13.0)).wrap());
+        }
+        ui.add_space(6.0);
+        let ready = st.preview_html.is_some();
+        if ui.add_enabled_ui(ready, |ui| pageshell::primary(ui, if ready { "Try It as a Student" } else { "Getting it ready…" })).inner.clicked() {
+            open_sandbox(st, ctx);
+        }
+
+        ui.add_space(14.0);
+        let (seen, reviewed) = st.current.as_ref().map(|c| (c.sandbox_seen, c.reviewed)).unwrap_or_default();
+        if reviewed {
+            ui.horizontal(|ui| {
+                ui.label(RichText::new("✔ Approved and saved").color(theme::green()));
+                if pageshell::primary(ui, "Add It to MyOpenMath").clicked() { st.step = Step::Copy; }
+            });
+        } else {
+            ui.label(theme::strong("Happy with it?").size(15.0));
+            ui.add_space(4.0);
+            if pageshell::primary_on(ui, "Looks Good", seen).on_hover_text("Saves it to My Questions and shows how to add it to MyOpenMath").clicked() && seen {
+                approve(st);
+            }
+            if !seen { crate::kit::gated_reason(ui, "Try it as a student first."); }
+        }
+
+        ui.add_space(14.0);
+        ui.label(theme::strong("Not quite right?").size(15.0));
+        ui.add_space(4.0);
+        ui.horizontal_wrapped(|ui| {
+            let labels: Vec<&str> = Change::ALL.iter().map(|c| c.label()).collect();
+            let mut k = Change::ALL.iter().position(|c| *c == st.change).unwrap_or(0);
+            if dropdown(ui, "mom_change", &labels, &mut k, 240.0) { st.change = Change::ALL[k]; }
+            let other_ok = st.change != Change::Other || !st.change_other.trim().is_empty();
+            if ui.add_enabled_ui(!working, |ui| pageshell::primary_on(ui, "Rewrite It", other_ok)).inner.clicked() && other_ok && !working {
+                let c = st.current.as_ref().unwrap();
+                let request = form::change_request(&c.request, &c.q.emit(), st.change, &st.change_other);
+                start_write(st, ctx, cfg, request);
+            }
+        });
+        if st.change == Change::Other {
+            ui.add_space(4.0);
+            let r = ui.add(egui::TextEdit::singleline(&mut st.change_other).desired_width(f32::INFINITY).hint_text("For example: use a pizza shop instead of a bakery"));
+            r.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::TextEdit, true, "What to change"));
+        }
+        error_box(ui, st);
+
+        #[cfg(not(target_arch = "wasm32"))]
+        if let Some(html) = &st.preview_html {
+            ui.add_space(14.0);
+            ui.label(theme::strong("Quick look (the full version opens in your browser)").size(13.0));
+            let question = sandbox_question_html(html).unwrap_or_default();
+            ui.add(egui::Label::new(RichText::new(plain(&question)).size(14.0)).wrap());
+        }
+    });
+}
+
+fn open_sandbox(st: &mut State, ctx: &egui::Context) {
+    #[cfg(target_arch = "wasm32")]
+    {
+        let can_approve = st.current.as_ref().is_some_and(|c| c.passed == Some(true));
+        overlay::open(st.preview_html.as_deref().unwrap_or(""), can_approve, ctx);
+        if let Some(c) = st.current.as_mut() { c.sandbox_seen = true; }
+    }
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        let _ = ctx;
+        let path = crate::store::store_dir().join("mom").join("preview.html");
+        let html = st.preview_html.clone().unwrap_or_default();
+        match crate::platform::write(&path, html.as_bytes()) {
+            Ok(()) => {
+                crate::platform::open_path(&path);
+                if let Some(c) = st.current.as_mut() { c.sandbox_seen = true; }
+            }
+            Err(e) => st.error = Some(format!("Could not write the preview: {e}")),
+        }
+    }
+}
+
+/// The teacher tried it and likes it: save it and show how to add it to MyOpenMath.
+fn approve(st: &mut State) {
+    let Some(c) = st.current.as_mut() else { return };
+    if c.passed != Some(true) { return; }
+    c.reviewed = true;
+    save_current(st);
+    st.step = Step::Copy;
+}
+
+fn copy_step(ui: &mut Ui, ctx: &egui::Context, st: &mut State) {
+    let Some(c) = st.current.as_ref() else { st.step = Step::Describe; return };
+    if !c.reviewed {
+        pageshell::card(ui, |ui| {
+            pageshell::heading(ui, "Try it first");
+            ui.label(theme::muted("Try the question as a student and press Looks Good. Then this page shows how to add it to MyOpenMath.").size(14.0));
+            ui.add_space(8.0);
+            if pageshell::primary(ui, "Go to Try It").clicked() { st.step = Step::Try; }
+        });
+        return;
+    }
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        autoadd::card(ui, ctx, st);
+        ui.add_space(12.0);
+    }
+    #[cfg(target_arch = "wasm32")]
+    {
+        let _ = ctx;
+        webhelper::card(ui, st);
+        ui.add_space(12.0);
+    }
+    let Some(c) = st.current.as_ref() else { return };
+    let menu = form::type_menu_label(&c.q.qtype);
+    let menu = if menu.is_empty() { c.q.qtype.trim().to_string() } else { menu.to_string() };
+    let fields = [
+        ("Description", c.q.name.clone(), "the Description box"),
+        ("Common Control", c.q.common_control_field(), "the Common Control box"),
+        ("Question Text", c.q.qtext.clone(), "the Question Text box"),
+        ("Detailed Solution", c.q.detailed_solution_field(), "the Detailed Solution box"),
+    ];
+    let mut copied: Option<String> = None;
+    pageshell::card(ui, |ui| {
+        pageshell::heading(ui, if cfg!(target_arch = "wasm32") { "Add it to MyOpenMath" } else { "Or copy it in yourself" });
+        ui.add_space(8.0);
+        ui.label(theme::strong("1.  In MyOpenMath, open your course, click Manage Question Set, then Add New Question.").size(14.0));
+        ui.add_space(10.0);
+        ui.label(theme::strong(format!("2.  Set the Question type menu to \"{menu}\".")).size(14.0));
+        ui.add_space(10.0);
+        ui.label(theme::strong("3.  Copy each item and paste it into the box with the same name.").size(14.0));
+        ui.add_space(6.0);
+        for (name, value, place) in &fields {
+            if value.trim().is_empty() { continue; }
+            ui.horizontal(|ui| {
+                ui.add_space(22.0);
+                if pageshell::outline(ui, &format!("Copy {name}")).clicked() {
+                    ui.ctx().copy_text(value.clone());
+                    copied = Some(format!("Copied. Now paste it into {place} in MyOpenMath."));
+                }
+            });
+            if *name == "Detailed Solution" {
+                ui.horizontal(|ui| {
+                    ui.add_space(22.0);
+                    ui.add(egui::Label::new(theme::muted("Above that box, tick \"Uses random variables from the question\" so students see the solution for their own numbers.").size(13.0)).wrap());
+                });
+            }
+            ui.add_space(4.0);
+        }
+        ui.add_space(10.0);
+        ui.label(theme::strong("4.  Press Save in MyOpenMath.").size(14.0));
+        if let Some(n) = copied.as_ref().or(st.note.as_ref()) {
+            ui.add_space(8.0);
+            ui.label(RichText::new(n).color(theme::green()).size(14.0));
+        }
+    });
+    if let Some(n) = copied { st.note = Some(n); }
+    ui.add_space(12.0);
+    pageshell::card(ui, |ui| {
+        egui::CollapsingHeader::new(theme::strong("Faster: fill every box with one click").size(15.0)).id_salt("mom_bm").show(ui, |ui| {
+            ui.add(egui::Label::new(theme::muted("Set up once: press Copy the Bookmark, make a new bookmark in your browser, and paste it as the bookmark's address (URL). Name it \"Fill MyOpenMath\".").size(13.0)).wrap());
+            ui.add_space(4.0);
+            if pageshell::outline(ui, "Copy the Bookmark").clicked() {
+                ui.ctx().copy_text(BOOKMARKLET.trim().to_string());
+                st.note = Some("Copied the bookmark. Paste it as a new bookmark's address.".into());
+            }
+            ui.add_space(8.0);
+            ui.add(egui::Label::new(theme::muted("Each time: press Copy This Question, open Add New Question in MyOpenMath, and click your Fill MyOpenMath bookmark. Check the boxes, then press Save.").size(13.0)).wrap());
+            ui.add_space(4.0);
+            if pageshell::primary(ui, "Copy This Question").clicked() {
+                let c = st.current.as_ref().unwrap();
+                ui.ctx().copy_text(bookmarklet_package(&c.q));
+                st.note = Some("Copied. Now click your Fill MyOpenMath bookmark in MyOpenMath.".into());
+            }
         });
     });
 }
 
-fn library(ui: &mut Ui, ctx: &egui::Context, st: &mut State) {
+/// My Questions: everything saved, with a plain status and Open / Delete.
+fn side(ui: &mut Ui, ctx: &egui::Context, st: &mut State) {
     pageshell::card(ui, |ui| {
-        ui.horizontal(|ui| {
-            ui.label(theme::strong("Saved Questions").size(15.0));
-            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                if !st.library.questions.is_empty() && ui.add_enabled_ui(!busy(st), |ui| pageshell::outline(ui, "Test All")).inner
-                    .on_hover_text("Run every saved question through the engine again").clicked() {
-                    start_test_all(st, ctx);
-                }
-            });
-        });
+        pageshell::heading(ui, "My Questions");
+        ui.add_space(4.0);
         if st.library.questions.is_empty() {
-            ui.label(theme::muted("Nothing saved yet. Questions you save appear here, with whether they passed.").size(13.0));
+            ui.label(theme::muted("Questions you approve are saved here so you can add them again later.").size(13.0));
         }
         let mut open: Option<Saved> = None;
         let mut delete: Option<String> = None;
         for s in &st.library.questions {
             let q = MomQuestion::parse(&s.src);
+            let name = if q.name.is_empty() { "Untitled question".to_string() } else { q.name.clone() };
+            ui.add_space(6.0);
+            ui.add(egui::Label::new(theme::text(&name).size(14.0)).wrap());
             ui.horizontal(|ui| {
-                let (mark, col, tip) = if s.passed { ("✔", theme::green(), "Passed the self-test") } else { ("✖", theme::red(), "Needs fixes") };
-                ui.label(RichText::new(mark).color(col)).on_hover_text(tip);
-                let name = if q.name.is_empty() { "Untitled question".to_string() } else { q.name.clone() };
-                let short: String = name.chars().take(40).collect::<String>() + if name.chars().count() > 40 { "…" } else { "" };
-                if ui.link(short).on_hover_text(&name).clicked() { open = Some(s.clone()); }
-                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                    if st.confirm_delete.as_deref() == Some(s.id.as_str()) {
-                        if ui.button("Cancel").clicked() { st.confirm_delete = None; }
-                        if ui.button(RichText::new("Delete").color(theme::red())).clicked() { delete = Some(s.id.clone()); }
-                    } else if ui.small_button("Delete").on_hover_text("Delete this saved question").clicked() {
-                        st.confirm_delete = Some(s.id.clone());
-                    }
-                });
+                let (status, fill, fg) = if !s.passed {
+                    ("Needs fixing", theme::error_wash(), theme::red())
+                } else if s.reviewed {
+                    ("Ready", theme::accent_faded(), theme::accent_col())
+                } else {
+                    ("Not tried yet", theme::highlighter(), theme::on_highlighter())
+                };
+                crate::kit::pill(ui, status, fill, fg);
+                if ui.link("Open").clicked() { open = Some(s.clone()); }
+                if st.confirm_delete.as_deref() == Some(s.id.as_str()) {
+                    if ui.button(RichText::new("Yes, delete").color(theme::red())).clicked() { delete = Some(s.id.clone()); }
+                    if ui.button("Keep it").clicked() { st.confirm_delete = None; }
+                } else if ui.link(RichText::new("Delete").color(theme::muted_col())).clicked() {
+                    st.confirm_delete = Some(s.id.clone());
+                }
             });
         }
         if let Some(s) = open {
             let q = MomQuestion::parse(&s.src);
-            st.current = Some(Current { q, request: s.request.clone(), passed: Some(s.passed), problems: s.problems.clone(), untested: vec![], saved_id: Some(s.id.clone()), sandbox_seen: false, reviewed: s.reviewed });
+            st.current = Some(Current { q, request: s.request.clone(), passed: Some(s.passed), problems: s.problems.clone(), untested: vec![], saved_id: Some(s.id.clone()), sandbox_seen: s.reviewed, reviewed: s.reviewed });
             st.request = s.request;
             st.preview_html = None;
-            st.tab = Tab::Preview;
+            st.error = None;
+            st.note = None;
+            st.step = if s.reviewed { Step::Copy } else { Step::Try };
         }
         if let Some(id) = delete {
             st.library.questions.retain(|s| s.id != id);
@@ -449,6 +889,13 @@ fn library(ui: &mut Ui, ctx: &egui::Context, st: &mut State) {
             }
             let _ = crate::store::save_json(LIBRARY, &st.library);
         }
+        if st.advanced && !st.library.questions.is_empty() {
+            ui.add_space(8.0);
+            if ui.add_enabled_ui(!busy(st), |ui| pageshell::outline(ui, "Check All Again")).inner
+                .on_hover_text("Run every saved question through the checker again").clicked() {
+                start_test_all(st, ctx);
+            }
+        }
         if let Some(n) = &st.lib_note {
             ui.add_space(4.0);
             ui.label(theme::muted(n).size(12.0));
@@ -456,159 +903,61 @@ fn library(ui: &mut Ui, ctx: &egui::Context, st: &mut State) {
     });
 }
 
-fn right(ui: &mut Ui, ctx: &egui::Context, st: &mut State) {
-    let Some(_) = st.current else {
-        leave();
-        pageshell::card(ui, |ui| {
-            ui.add_space(30.0);
-            ui.vertical_centered(|ui| {
-                ui.label(theme::serif("No question yet").size(22.0));
-                ui.add_space(4.0);
-                ui.label(theme::muted("Describe one on the left and press Write Question, or open a saved one.").size(14.0));
-            });
-            ui.add_space(30.0);
-        });
-        return;
-    };
+/// Off by default: the code, the raw log, the checker's address and which AI is used.
+fn advanced(ui: &mut Ui, ctx: &egui::Context, st: &mut State, cfg: &crate::ai::AiCfg) {
+    if ui.checkbox(&mut st.advanced, theme::muted("Show advanced tools (question code, test log, checker)").size(13.0)).changed() {
+        let _ = crate::store::save_json(ADVANCED, &st.advanced);
+    }
+    if !st.advanced { return; }
     let working = busy(st);
     pageshell::card(ui, |ui| {
-        let c = st.current.as_ref().unwrap();
-        ui.add(egui::Label::new(theme::serif(if c.q.name.is_empty() { "Untitled question" } else { &c.q.name }).size(18.0)).wrap());
-        ui.add_space(4.0);
-        let (passed, nprob) = (c.passed, c.problems.len());
-        ui.horizontal(|ui| {
-            match passed {
-                Some(true) => { ui.label(RichText::new(format!("✔ Passed at versions {}", DEFAULT_SEEDS.map(|s| s.to_string()).join(", "))).color(theme::green())); }
-                Some(false) => { ui.label(RichText::new(format!("✖ {} problem(s) left", nprob.max(1))).color(theme::red())); }
-                None if working => { ui.horizontal(|ui| { ui.spinner(); ui.label(theme::muted("Testing at three random versions…")); }); }
-                None => { ui.label(theme::muted("Not tested since the last edit: press Run Self-Test on the Code tab.")); }
-            }
-            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                let label = if st.current.as_ref().and_then(|c| c.saved_id.as_ref()).is_some() { "Save Changes" } else { "Save to Bank" };
-                if ui.add_enabled_ui(!working, |ui| pageshell::primary(ui, label)).inner
-                    .on_hover_text("Runs the self-test, then saves the question with its verdict").clicked() {
-                    start_test(st, ctx, true);
+        ui.label(theme::muted(format!("AI: {} · {}   (change it in Settings, then AI)", cfg.provider, cfg.model)).size(12.0));
+        if !st.request.is_empty() {
+            egui::CollapsingHeader::new(theme::muted("What the AI was told").size(13.0)).id_salt("mom_req").show(ui, |ui| {
+                ui.add(egui::Label::new(theme::muted(&st.request).size(12.0)).wrap());
+            });
+        } else if st.step == Step::Describe {
+            egui::CollapsingHeader::new(theme::muted("What the AI will be told").size(13.0)).id_salt("mom_req_next").show(ui, |ui| {
+                ui.add(egui::Label::new(theme::muted(st.form.request()).size(12.0)).wrap());
+            });
+        }
+        if !st.log.is_empty() {
+            egui::CollapsingHeader::new(theme::muted("Test log").size(13.0)).id_salt("mom_log").show(ui, |ui| {
+                for line in st.log.iter().rev().take(30).collect::<Vec<_>>().into_iter().rev() {
+                    ui.add(egui::Label::new(RichText::new(line).size(12.0).color(theme::muted_col())).wrap());
                 }
-                if ui.add_enabled_ui(!working, |ui| pageshell::outline(ui, "Download .php")).inner.clicked() {
-                    let c = st.current.as_ref().unwrap();
-                    let name = format!("{}.php", slug(&c.q.name));
-                    if let Some(path) = crate::platform::save_path(&name, "MyOpenMath question", &["php"]) {
-                        st.note = Some(match crate::platform::write(&path, c.q.emit().as_bytes()) {
-                            Ok(()) => format!("Saved {}", path.display()),
-                            Err(e) => format!("Could not save the file: {e}"),
-                        });
+            });
+        }
+        if st.current.is_some() {
+            egui::CollapsingHeader::new(theme::muted("Question code").size(13.0)).id_salt("mom_code_hdr").show(ui, |ui| {
+                ui.horizontal(|ui| {
+                    if ui.add_enabled_ui(!working, |ui| pageshell::outline(ui, "Download File")).inner.clicked() {
+                        let c = st.current.as_ref().unwrap();
+                        let name = format!("{}.php", slug(&c.q.name));
+                        if let Some(path) = crate::platform::save_path(&name, "MyOpenMath question", &["php"]) {
+                            st.note = Some(match crate::platform::write(&path, c.q.emit().as_bytes()) {
+                                Ok(()) => format!("Saved {}", path.display()),
+                                Err(e) => format!("Could not save the file: {e}"),
+                            });
+                        }
                     }
-                }
-            });
-        });
-        let c = st.current.as_ref().unwrap();
-        if !c.untested.is_empty() {
-            ui.label(theme::muted(format!("Part(s) {} are essay, upload, drawing or picture parts: check them yourself.",
-                c.untested.iter().map(|p| (p + 1).to_string()).collect::<Vec<_>>().join(", "))).size(12.0));
-        }
-        for p in c.problems.iter().take(6) {
-            ui.add(egui::Label::new(RichText::new(format!("• {p}")).size(12.0).color(theme::red())).wrap());
-        }
-        ui.add_space(8.0);
-        ui.horizontal(|ui| {
-            let reviewed = st.current.as_ref().is_some_and(|c| c.reviewed);
-            let copy_name = if reviewed { "Copy to MyOpenMath" } else { "Copy to MyOpenMath (review first)" };
-            for (t, name) in [(Tab::Preview, "Sandbox"), (Tab::Code, "Code"), (Tab::Copy, copy_name)] {
-                if ui.selectable_label(st.tab == t, name).clicked() { st.tab = t; }
-            }
-        });
-        ui.separator();
-        match st.tab {
-            Tab::Preview => preview_tab(ui, ctx, st, working),
-            Tab::Code => { leave(); code_tab(ui, ctx, st, working) }
-            Tab::Copy => { leave(); copy_tab(ui, st) }
-        }
-    });
-}
-
-fn preview_tab(ui: &mut Ui, ctx: &egui::Context, st: &mut State, working: bool) {
-    let src = st.current.as_ref().map(|c| c.q.emit()).unwrap_or_default();
-    let stale = st.preview_html.is_none() || st.preview_for != src;
-    if stale && !working && st.error.is_none() {
-        start_preview(st, ctx);
-    }
-
-    #[cfg(target_arch = "wasm32")]
-    {
-        // The sandbox is the whole window: a small page laid over part of the canvas is composited
-        // badly by some browsers, and a review deserves the room. Its own bar approves or closes it.
-        match overlay::take_action() {
-            Some(overlay::Action::Approve) => {
-                if let Some(c) = st.current.as_mut() { c.reviewed = true; }
-                st.tab = Tab::Copy;
-                st.note = Some("Approved. Copy it into MyOpenMath.".into());
-            }
-            Some(overlay::Action::Close) | None => {}
-        }
-        let ready = st.preview_html.is_some();
-        if ui.add_enabled_ui(ready, |ui| pageshell::primary(ui, if ready { "Open the Sandbox" } else { "Preparing the sandbox…" })).inner.clicked() {
-            let can_approve = st.current.as_ref().is_some_and(|c| c.passed == Some(true));
-            overlay::open(st.preview_html.as_deref().unwrap_or(""), can_approve, ctx);
-            if let Some(c) = st.current.as_mut() { c.sandbox_seen = true; }
-        }
-        ui.add_space(10.0);
-        review_bar(ui, st);
-    }
-    #[cfg(not(target_arch = "wasm32"))]
-    {
-
-        let ready = st.preview_html.is_some();
-        if ui.add_enabled_ui(ready, |ui| pageshell::primary(ui, if ready { "Open the Sandbox in Your Browser" } else { "Preparing the sandbox…" })).inner.clicked() {
-            let path = crate::store::store_dir().join("mom").join("preview.html");
-            let html = st.preview_html.clone().unwrap_or_default();
-            match crate::platform::write(&path, html.as_bytes()) {
-                Ok(()) => {
-                    crate::platform::open_path(&path);
-                    if let Some(c) = st.current.as_mut() { c.sandbox_seen = true; }
-                }
-                Err(e) => st.error = Some(format!("Could not write the preview: {e}")),
-            }
-        }
-        ui.add_space(10.0);
-        review_bar(ui, st);
-        ui.add_space(10.0);
-        if let Some(html) = &st.preview_html {
-            ui.label(theme::strong(format!("Quick look at version {} (the sandbox shows the math typeset)", DEFAULT_SEEDS[0])).size(13.0));
-            let question = sandbox_question_html(html).unwrap_or_default();
-            egui::ScrollArea::vertical().id_salt("mom_qtext").max_height(ui.available_height() - 4.0).show(ui, |ui| {
-                ui.add(egui::Label::new(RichText::new(plain(&question)).size(14.0)).wrap());
+                    if ui.add_enabled_ui(!working, |ui| pageshell::outline(ui, "Save to My Questions")).inner.clicked() {
+                        start_test(st, ctx, true);
+                    }
+                });
+                code_tab(ui, ctx, st, working);
             });
         }
-    }
-}
-
-/// What to do in the sandbox, and the approval that unlocks copying into MyOpenMath.
-fn review_bar(ui: &mut Ui, st: &mut State) {
-    let Some(c) = st.current.as_mut() else { return };
-    if c.reviewed {
-        ui.horizontal(|ui| {
-            ui.label(RichText::new("✔ Approved for MyOpenMath").color(theme::green()));
-            if ui.link("Copy it now").clicked() { st.tab = Tab::Copy; }
+        egui::CollapsingHeader::new(theme::muted("Question checker").size(13.0)).id_salt("mom_engine").show(ui, |ui| {
+            ui.label(theme::muted(if st.engine == crate::mom::author::BUNDLED_ENGINE {
+                "Built in: IMathAS runs inside this page. Type a server address to use one instead."
+            } else {
+                "The IMathAS engine that checks questions. Start it with engine/run.sh."
+            }).size(12.0));
+            let r = ui.add(egui::TextEdit::singleline(&mut st.engine).desired_width(240.0).hint_text(DEFAULT_ENGINE));
+            r.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::TextEdit, true, "Checker address"));
+            if r.lost_focus() { let _ = crate::store::save_json("mom/engine.json", &st.engine); }
         });
-        return;
-    }
-    ui.add(egui::Label::new(theme::muted("Try it as a student in MyOpenMath's own view: answer it, press Submit, and Try a similar question once or twice. When it is right, approve it to unlock copying into MyOpenMath.").size(13.0)).wrap());
-    ui.add_space(4.0);
-    let why = if c.passed != Some(true) {
-        Some("It has to pass the self-test first.")
-    } else if !c.sandbox_seen {
-        Some("Open the sandbox first.")
-    } else {
-        None
-    };
-    ui.horizontal(|ui| {
-        let r = ui.add_enabled_ui(why.is_none(), |ui| pageshell::primary(ui, "Approve for MyOpenMath")).inner;
-        if r.clicked() {
-            c.reviewed = true;
-            st.tab = Tab::Copy;
-            st.note = Some("Approved. Copy it into MyOpenMath.".into());
-        }
-        if let Some(why) = why { ui.label(theme::muted(why).size(12.0)); }
     });
 }
 
@@ -656,10 +1005,10 @@ fn plain(html: &str) -> String {
 
 fn code_tab(ui: &mut Ui, ctx: &egui::Context, st: &mut State, working: bool) {
     ui.horizontal(|ui| {
-        if ui.add_enabled_ui(!working, |ui| pageshell::outline(ui, if working { "Testing…" } else { "Run Self-Test" })).inner.clicked() {
+        if ui.add_enabled_ui(!working, |ui| pageshell::outline(ui, if working { "Checking…" } else { "Check It Again" })).inner.clicked() {
             start_test(st, ctx, false);
         }
-        ui.label(theme::muted("Edit any field, then test it again at three random versions.").size(12.0));
+        ui.label(theme::muted("Edit any box, then check it again with three sets of numbers.").size(12.0));
     });
     ui.add_space(6.0);
     let mut changed = false;
@@ -686,64 +1035,10 @@ fn code_tab(ui: &mut Ui, ctx: &egui::Context, st: &mut State, working: bool) {
     }
 }
 
-fn copy_tab(ui: &mut Ui, st: &mut State) {
-    if !st.current.as_ref().is_some_and(|c| c.reviewed) {
-        ui.add_space(12.0);
-        ui.label(theme::serif("Review it in the sandbox first").size(18.0));
-        ui.add(egui::Label::new(theme::muted("Copying into MyOpenMath unlocks once you have tried this question as a student in the sandbox and approved it. Editing it locks it again.").size(13.0)).wrap());
-        ui.add_space(8.0);
-        if pageshell::primary(ui, "Go to the Sandbox").clicked() { st.tab = Tab::Preview; }
-        return;
-    }
-    let c = st.current.as_ref().unwrap();
-    ui.add(egui::Label::new(theme::muted("In MyOpenMath open Manage Question Set → Add New Question, then copy each field into the box of the same name. Or use the bookmarklet below to fill them all at once.").size(13.0)).wrap());
-    ui.add_space(8.0);
-    let fields = [
-        ("Description", c.q.name.clone()),
-        ("Question type", c.q.qtype.clone()),
-        ("Common Control", c.q.common_control_field()),
-        ("Question Text", c.q.qtext.clone()),
-        ("Detailed Solution", c.q.solution.clone()),
-    ];
-    let mut copied = None;
-    for (name, value) in &fields {
-        if value.trim().is_empty() { continue; }
-        ui.horizontal(|ui| {
-            ui.add_sized([130.0, 22.0], egui::Label::new(theme::strong(*name).size(13.0)));
-            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                if ui.button("Copy").on_hover_text(format!("Copy the {name} field")).clicked() {
-                    ui.ctx().copy_text(value.clone());
-                    copied = Some(*name);
-                }
-                let first = value.lines().next().unwrap_or("");
-                ui.add(egui::Label::new(theme::muted(first).size(12.0).family(egui::FontFamily::Monospace)).truncate());
-            });
-        });
-        ui.add_space(4.0);
-    }
-    ui.add_space(12.0);
-    ui.separator();
-    ui.label(theme::strong("Fill MyOpenMath in one click").size(14.0));
-    ui.add(egui::Label::new(theme::muted("Once: make a bookmark and paste the bookmarklet as its address. Then: press Copy for Bookmarklet here, open the question editor in MyOpenMath, and click the bookmark. It fills every field; you check it and press Save.").size(13.0)).wrap());
-    ui.add_space(6.0);
-    ui.horizontal(|ui| {
-        if pageshell::primary(ui, "Copy for Bookmarklet").clicked() {
-            ui.ctx().copy_text(bookmarklet_package(&c.q));
-            copied = Some("the question for the bookmarklet");
-        }
-        if pageshell::outline(ui, "Copy Bookmarklet").on_hover_text("The bookmark's address. You only need this once.").clicked() {
-            ui.ctx().copy_text(BOOKMARKLET.trim().to_string());
-            copied = Some("the bookmarklet");
-        }
-    });
-    if let Some(what) = copied { st.note = Some(format!("Copied {what}.")); }
-    if let Some(n) = &st.note { ui.label(theme::muted(n).size(12.0)); }
-}
-
 /// What "Copy for Bookmarklet" puts on the clipboard: a marker and the editor's fields as JSON.
 pub fn bookmarklet_package(q: &MomQuestion) -> String {
     format!("DADMOM1{}", serde_json::json!({
-        "description": q.name, "qtype": q.qtype, "control": q.common_control_field(), "qtext": q.qtext, "solution": q.solution,
+        "description": q.name, "qtype": q.qtype, "control": q.common_control_field(), "qtext": q.qtext, "solution": q.detailed_solution_field(),
     }))
 }
 
@@ -764,7 +1059,11 @@ mod overlay {
 
     const ID: &str = "dad_mom_sandbox";
     static ACTION: AtomicU8 = AtomicU8::new(0);
-    thread_local! { static CTX: RefCell<Option<egui::Context>> = const { RefCell::new(None) }; }
+    thread_local! {
+        static CTX: RefCell<Option<egui::Context>> = const { RefCell::new(None) };
+        /// The open sandbox page's blob: URL, released when the next one opens.
+        static BLOB: RefCell<Option<String>> = const { RefCell::new(None) };
+    }
 
     pub enum Action { Approve, Close }
 
@@ -805,21 +1104,29 @@ mod overlay {
         let Ok(title) = doc.create_element("div") else { return };
         let _ = title.set_attribute("style", "margin-right:auto;min-width:0");
         title.set_inner_html(if can_approve {
-            "<b style=\"font-size:17px\">Sandbox</b> &nbsp;Answer it as a student, press Submit, and Try a similar question once or twice."
+            "<b style=\"font-size:17px\">Try it as a student</b> &nbsp;Answer it and press Submit, then Show Detailed Solution. Try \"Try a similar question\" once or twice."
         } else {
-            "<b style=\"font-size:17px\">Sandbox</b> &nbsp;This question has problems left: fix them before approving it."
+            "<b style=\"font-size:17px\">Try it as a student</b> &nbsp;This question still has a problem, so it can't be approved yet."
         });
         let _ = bar.append_child(&title);
-        if let Some(b) = button(&doc, "Back to Editing", false, 2) { let _ = bar.append_child(&b); }
+        if let Some(b) = button(&doc, "Back", false, 2) { let _ = bar.append_child(&b); }
         if can_approve {
-            if let Some(b) = button(&doc, "Approve for MyOpenMath", true, 1) { let _ = bar.append_child(&b); }
+            if let Some(b) = button(&doc, "Looks Good", true, 1) { let _ = bar.append_child(&b); }
         }
         let Ok(frame) = doc.create_element("iframe") else { return };
         let Ok(frame) = frame.dyn_into::<web_sys::HtmlIFrameElement>() else { return };
         let _ = frame.set_attribute("title", "The question as a student sees it");
         let _ = frame.set_attribute("sandbox", "allow-scripts allow-same-origin allow-modals");
         let _ = frame.set_attribute("style", "flex:1;border:0;width:100%;background:#fff");
-        frame.set_srcdoc(html);
+        // A blob: page, not srcdoc: MyOpenMath's player routes with the URL's #hash, and in a srcdoc
+        // frame that resolves against the app's own address, which loads the app inside the frame.
+        let parts = js_sys::Array::of1(&wasm_bindgen::JsValue::from_str(html));
+        let bag = web_sys::BlobPropertyBag::new();
+        bag.set_type("text/html");
+        let Ok(blob) = web_sys::Blob::new_with_str_sequence_and_options(&parts, &bag) else { return };
+        let Ok(url) = web_sys::Url::create_object_url_with_blob(&blob) else { return };
+        frame.set_src(&url);
+        BLOB.with(|b| { if let Some(old) = b.borrow_mut().replace(url) { let _ = web_sys::Url::revoke_object_url(&old); } });
         let _ = panel.append_child(&bar);
         let _ = panel.append_child(&frame);
         let _ = body.append_child(&panel);
@@ -870,5 +1177,343 @@ mod tests {
     #[test]
     fn plain_drops_tags() {
         assert_eq!(plain("<p>What is <b>`$a`</b>?</p> $answerbox"), "What is `$a` ? $answerbox");
+    }
+}
+
+/// "Add it to MyOpenMath for me" (desktop): D.A.D opens MyOpenMath in its own Chrome window, with a
+/// profile of its own so the sign-in is remembered, and fills (and optionally saves) the question in
+/// the assessment the teacher picks. Sign-in is the teacher's, in that window, unless they saved a
+/// MyOpenMath password in the keychain, which D.A.D then types into the sign-in form itself.
+#[cfg(not(target_arch = "wasm32"))]
+mod autoadd {
+    use super::*;
+    use crate::mom::chrome::{Chrome, Tab};
+    use crate::mom::poster::{self, Added, Assessment, Course};
+    use std::time::Duration;
+
+    const PREFS: &str = "mom/poster.json";
+
+    /// The helper browser, kept open between adds.
+    static BROWSER: Mutex<Option<Chrome>> = Mutex::new(None);
+
+    #[derive(Serialize, Deserialize, Default, Clone)]
+    #[serde(default)]
+    struct Prefs { course: Option<u64>, assessment: Option<u64>, auto_save: bool }
+
+    #[derive(Default)]
+    pub struct Poster {
+        loaded: bool,
+        prefs: Prefs,
+        courses: Vec<Course>,
+        assessments: Vec<Assessment>,
+        assessments_for: Option<u64>,
+        result: Option<Result<String, String>>,
+        user: String,
+        pass: String,
+        has_login: Option<bool>,
+    }
+
+    fn tab() -> Result<Tab, String> {
+        let mut b = BROWSER.lock().map_err(|_| "browser lock")?;
+        if !b.as_mut().is_some_and(|c| c.alive()) {
+            let profile = crate::store::store_dir().join("mom").join("browser");
+            *b = Some(Chrome::launch(&profile, false)?);
+        }
+        b.as_ref().unwrap().tab()
+    }
+
+    fn log(job: &Arc<Mutex<Job>>, ctx: &egui::Context, line: &str) {
+        if let Ok(mut j) = job.lock() { j.log.push(line.to_string()); }
+        ctx.request_repaint();
+    }
+
+    /// Signed in, by the saved password or by the teacher in the window (waits up to 10 minutes).
+    fn ensure_signed_in(t: &mut Tab, job: &Arc<Mutex<Job>>, ctx: &egui::Context) -> Result<(), String> {
+        log(job, ctx, "Opening MyOpenMath…");
+        if poster::signed_in(t)? { return Ok(()); }
+        if let Some((u, p)) = poster::saved_login() {
+            log(job, ctx, "Signing in with your saved MyOpenMath login…");
+            if poster::sign_in_with(t, &u, &p)? { return Ok(()); }
+            log(job, ctx, "The saved login didn't work.");
+        }
+        t.show();
+        log(job, ctx, "Please sign in to MyOpenMath in the Chrome window that opened. D.A.D continues as soon as you're in.");
+        if poster::wait_signed_in(t, Duration::from_secs(600))? { Ok(()) } else { Err("Nobody signed in to MyOpenMath, so nothing was added.".into()) }
+    }
+
+    fn start_connect(st: &mut State, ctx: &egui::Context) {
+        st.log.clear();
+        st.poster.result = None;
+        let job = start(st, "MyOpenMath");
+        let ctx = ctx.clone();
+        run_bg(async move {
+            let r = tab().and_then(|mut t| { ensure_signed_in(&mut t, &job, &ctx)?; log(&job, &ctx, "Reading your courses…"); poster::courses(&mut t) });
+            finish(&job, &ctx, Outcome::Courses(r));
+        });
+    }
+
+    fn start_assessments(st: &mut State, ctx: &egui::Context, cid: u64) {
+        st.log.clear();
+        let job = start(st, "MyOpenMath");
+        let ctx = ctx.clone();
+        run_bg(async move {
+            log(&job, &ctx, "Reading the assessments…");
+            let r = tab().and_then(|mut t| poster::assessments(&mut t, cid));
+            finish(&job, &ctx, Outcome::Assessments(cid, r));
+        });
+    }
+
+    fn start_add(st: &mut State, ctx: &egui::Context, cid: u64, aid: u64) {
+        let Some(q) = st.current.as_ref().map(|c| c.q.clone()) else { return };
+        st.log.clear();
+        st.poster.result = None;
+        let save = st.poster.prefs.auto_save;
+        let job = start(st, "MyOpenMath");
+        let ctx = ctx.clone();
+        run_bg(async move {
+            let r = tab().and_then(|mut t| {
+                ensure_signed_in(&mut t, &job, &ctx)?;
+                let (j, c) = (job.clone(), ctx.clone());
+                let r = poster::add_question(&mut t, cid, aid, &q, save, &mut |l| log(&j, &c, l));
+                if r.is_ok() { t.show(); }
+                r
+            });
+            finish(&job, &ctx, Outcome::Posted(r));
+        });
+    }
+
+    pub fn courses_in(st: &mut State, r: Result<Vec<Course>, String>) {
+        match r {
+            Ok(c) => {
+                st.poster.courses = c;
+                if st.poster.courses.is_empty() { st.poster.result = Some(Err("No courses you teach were found on MyOpenMath.".into())); }
+            }
+            Err(e) => st.poster.result = Some(Err(e)),
+        }
+    }
+
+    pub fn assessments_in(st: &mut State, cid: u64, r: Result<Vec<Assessment>, String>) {
+        match r {
+            Ok(a) => { st.poster.assessments = a; st.poster.assessments_for = Some(cid); }
+            Err(e) => st.poster.result = Some(Err(e)),
+        }
+    }
+
+    pub fn posted(st: &mut State, r: Result<Added, String>) {
+        let name = st.poster.prefs.assessment
+            .and_then(|a| st.poster.assessments.iter().find(|x| x.id == a)).map(|a| a.name.clone()).unwrap_or_default();
+        st.poster.result = Some(match r {
+            Ok(Added::Saved) => Ok(format!("Done. It's saved in \"{name}\" on MyOpenMath.")),
+            Ok(Added::Filled) => Ok("It's filled in. Check it in the Chrome window, then press Save there.".into()),
+            Err(e) => Err(e),
+        });
+    }
+
+    pub fn card(ui: &mut Ui, ctx: &egui::Context, st: &mut State) {
+        if !st.poster.loaded {
+            st.poster.loaded = true;
+            st.poster.prefs = crate::store::load_json(PREFS).unwrap_or_default();
+        }
+        let working = busy(st);
+        let mine = st.job.lock().map(|j| j.what == "MyOpenMath").unwrap_or(false);
+        pageshell::card(ui, |ui| {
+            pageshell::heading(ui, "Add it to MyOpenMath for me");
+            ui.add_space(4.0);
+            if st.poster.courses.is_empty() {
+                ui.add(egui::Label::new(theme::muted("D.A.D opens MyOpenMath in its own Chrome window and puts the question into the assessment you pick. The first time, sign in to MyOpenMath in that window; it remembers you after that.").size(13.0)).wrap());
+                ui.add_space(8.0);
+                if ui.add_enabled_ui(!working, |ui| pageshell::primary(ui, "Connect to MyOpenMath")).inner.clicked() {
+                    start_connect(st, ctx);
+                }
+            } else {
+                field_label(ui, "Course");
+                let names: Vec<&str> = st.poster.courses.iter().map(|c| c.name.as_str()).collect();
+                let mut k = st.poster.prefs.course.and_then(|id| st.poster.courses.iter().position(|c| c.id == id)).unwrap_or(usize::MAX);
+                let shown = if k == usize::MAX { "Pick a course" } else { names[k] };
+                let before = k;
+                egui::ComboBox::from_id_salt("mom_post_course").selected_text(shown).width(340.0).height(520.0).show_ui(ui, |ui| {
+                    for (i, n) in names.iter().enumerate() { ui.selectable_value(&mut k, i, *n); }
+                });
+                if k != before && k != usize::MAX {
+                    st.poster.prefs.course = Some(st.poster.courses[k].id);
+                    st.poster.prefs.assessment = None;
+                    st.poster.assessments.clear();
+                    let _ = crate::store::save_json(PREFS, &st.poster.prefs);
+                }
+                if let Some(cid) = st.poster.prefs.course {
+                    if st.poster.assessments_for != Some(cid) && !working {
+                        st.poster.assessments_for = Some(cid);
+                        start_assessments(st, ctx, cid);
+                    }
+                    field_label(ui, "Assessment");
+                    if st.poster.assessments.is_empty() {
+                        ui.label(theme::muted(if working { "Reading the assessments…" } else { "This course has no assessments yet. Make one in MyOpenMath first." }).size(13.0));
+                    } else {
+                        let names: Vec<&str> = st.poster.assessments.iter().map(|a| a.name.as_str()).collect();
+                        let mut k = st.poster.prefs.assessment.and_then(|id| st.poster.assessments.iter().position(|a| a.id == id)).unwrap_or(usize::MAX);
+                        let shown = if k == usize::MAX { "Pick an assessment" } else { names[k] };
+                        let before = k;
+                        egui::ComboBox::from_id_salt("mom_post_assess").selected_text(shown).width(340.0).height(520.0).show_ui(ui, |ui| {
+                            for (i, n) in names.iter().enumerate() { ui.selectable_value(&mut k, i, *n); }
+                        });
+                        if k != before && k != usize::MAX {
+                            st.poster.prefs.assessment = Some(st.poster.assessments[k].id);
+                            let _ = crate::store::save_json(PREFS, &st.poster.prefs);
+                        }
+                    }
+                }
+                ui.add_space(8.0);
+                if ui.checkbox(&mut st.poster.prefs.auto_save, "Save it automatically (otherwise it stops so you can check it and press Save)").changed() {
+                    let _ = crate::store::save_json(PREFS, &st.poster.prefs);
+                }
+                ui.add_space(8.0);
+                let target = st.poster.prefs.course.zip(st.poster.prefs.assessment);
+                if pageshell::primary_on(ui, "Add It Now", target.is_some() && !working).clicked() {
+                    if let (Some((cid, aid)), false) = (target, working) { start_add(st, ctx, cid, aid); }
+                }
+                if target.is_none() { crate::kit::gated_reason(ui, "Pick a course and an assessment first."); }
+            }
+            if mine || working && !st.log.is_empty() {
+                ui.add_space(8.0);
+                for line in st.log.iter().rev().take(3).collect::<Vec<_>>().into_iter().rev() {
+                    ui.horizontal(|ui| {
+                        if working && mine { ui.spinner(); }
+                        ui.add(egui::Label::new(theme::text(line).size(13.0)).wrap());
+                    });
+                }
+            }
+            match &st.poster.result {
+                Some(Ok(m)) => { ui.add_space(6.0); ui.add(egui::Label::new(RichText::new(format!("✔ {m}")).color(theme::green()).size(14.0)).wrap()); }
+                Some(Err(e)) => { ui.add_space(6.0); ui.add(egui::Label::new(RichText::new(e).color(theme::red()).size(14.0)).wrap()); }
+                None => {}
+            }
+            ui.add_space(8.0);
+            login_box(ui, st);
+        });
+    }
+
+    /// The optional saved MyOpenMath sign-in, kept in the computer's keychain.
+    fn login_box(ui: &mut Ui, st: &mut State) {
+        let p = &mut st.poster;
+        if p.has_login.is_none() { p.has_login = Some(poster::saved_login().is_some()); }
+        egui::CollapsingHeader::new(theme::muted("Sign in automatically (optional)").size(13.0)).id_salt("mom_post_login").show(ui, |ui| {
+            ui.add(egui::Label::new(theme::muted("For a plain MyOpenMath account (not Google or Clever sign-in). Saved in this computer's keychain; D.A.D types it into MyOpenMath's sign-in page and never shows it to the AI.").size(12.0)).wrap());
+            if p.has_login == Some(true) {
+                ui.horizontal(|ui| {
+                    ui.label(RichText::new("✔ A MyOpenMath login is saved.").color(theme::green()));
+                    if ui.link("Forget it").clicked() {
+                        p.result = Some(poster::store_login(None).map(|_| "Forgotten.".to_string()));
+                        p.has_login = Some(false);
+                    }
+                });
+                return;
+            }
+            ui.horizontal(|ui| {
+                let r = ui.add(egui::TextEdit::singleline(&mut p.user).desired_width(180.0).hint_text("Username"));
+                r.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::TextEdit, true, "MyOpenMath username"));
+                let r = ui.add(egui::TextEdit::singleline(&mut p.pass).password(true).desired_width(180.0).hint_text("Password"));
+                r.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::TextEdit, true, "MyOpenMath password"));
+                let ok = !p.user.trim().is_empty() && !p.pass.is_empty();
+                if pageshell::primary_on(ui, "Save Login", ok).clicked() && ok {
+                    let r = poster::store_login(Some((p.user.trim(), &p.pass)));
+                    p.pass.clear();
+                    p.has_login = Some(r.is_ok());
+                    p.result = Some(r.map(|_| "Login saved in the keychain.".to_string()));
+                }
+            });
+        });
+    }
+}
+
+/// "Add it to MyOpenMath for me" in the web app: the helper server's browser (src/mom/browserd.rs),
+/// in a full-window panel the teacher watches and can take over (src/mom/browserpanel.js).
+#[cfg(target_arch = "wasm32")]
+mod webhelper {
+    use super::*;
+    use wasm_bindgen::closure::Closure;
+    use wasm_bindgen::JsValue;
+
+    const PREFS: &str = "mom/helper.json";
+
+    #[derive(Serialize, Deserialize, Clone)]
+    #[serde(default)]
+    pub struct Prefs { server: String, token: String, course: Option<u64>, assessment: Option<u64>, auto_save: bool }
+
+    impl Default for Prefs {
+        fn default() -> Prefs { Prefs { server: "ws://127.0.0.1:8793".into(), token: String::new(), course: None, assessment: None, auto_save: false } }
+    }
+
+    thread_local! { static PREFS_NOW: RefCell<Option<Prefs>> = const { RefCell::new(None) }; }
+
+    fn prefs() -> Prefs {
+        PREFS_NOW.with(|p| p.borrow_mut().get_or_insert_with(|| crate::store::load_json(PREFS).unwrap_or_default()).clone())
+    }
+
+    fn update(f: impl FnOnce(&mut Prefs)) {
+        PREFS_NOW.with(|p| {
+            let mut b = p.borrow_mut();
+            let v = b.get_or_insert_with(|| crate::store::load_json(PREFS).unwrap_or_default());
+            f(v);
+            let _ = crate::store::save_json(PREFS, v);
+        });
+    }
+
+    fn open(src: &str, name: &str) -> Result<(), JsValue> {
+        let w = web_sys::window().ok_or("no window")?;
+        if js_sys::Reflect::get(&w, &"dadBrowser".into())?.is_undefined() {
+            js_sys::eval(include_str!("mom/browserpanel.js"))?;
+        }
+        let p = prefs();
+        let o = js_sys::Object::new();
+        let set = |k: &str, v: JsValue| js_sys::Reflect::set(&o, &k.into(), &v);
+        set("server", p.server.clone().into())?;
+        set("token", p.token.clone().into())?;
+        set("question", src.into())?;
+        set("name", name.into())?;
+        set("save", p.auto_save.into())?;
+        if let Some(c) = p.course { set("course", (c as f64).into())?; }
+        if let Some(a) = p.assessment { set("assessment", (a as f64).into())?; }
+        set("onSave", Closure::<dyn FnMut(bool)>::new(|b: bool| update(|p| p.auto_save = b)).into_js_value())?;
+        set("onTarget", Closure::<dyn FnMut(f64, f64)>::new(|c: f64, a: f64| update(|p| {
+            p.course = Some(c as u64);
+            if a > 0.0 { p.assessment = Some(a as u64); }
+        })).into_js_value())?;
+        let helper = js_sys::Reflect::get(&w, &"dadBrowser".into())?;
+        let f: js_sys::Function = js_sys::Reflect::get(&helper, &"open".into())?.into();
+        f.call1(&helper, &o)?;
+        Ok(())
+    }
+
+    pub fn card(ui: &mut Ui, st: &mut State) {
+        let mut p = prefs();
+        pageshell::card(ui, |ui| {
+            pageshell::heading(ui, "Add it to MyOpenMath for me");
+            ui.add_space(4.0);
+            ui.add(egui::Label::new(theme::muted("The MyOpenMath helper opens MyOpenMath in a window here and puts the question into the assessment you pick. You can watch it work and take over at any time; the first time, you sign in to MyOpenMath in that window.").size(13.0)).wrap());
+            ui.add_space(8.0);
+            let ready = !p.server.trim().is_empty() && p.token.trim().len() >= 8;
+            if pageshell::primary_on(ui, "Open the MyOpenMath Helper", ready).clicked() && ready {
+                if let Some(c) = st.current.as_ref() {
+                    if let Err(e) = open(&c.q.emit(), &c.q.name) {
+                        st.note = Some(format!("The helper could not open: {e:?}"));
+                    }
+                }
+            }
+            if !ready { crate::kit::gated_reason(ui, "Enter the helper's access code below first."); }
+            ui.add_space(6.0);
+            egui::CollapsingHeader::new(theme::muted("Helper settings").size(13.0)).id_salt("mom_helper_cfg").default_open(!ready).show(ui, |ui| {
+                field_label(ui, "Access code");
+                let r = ui.add(egui::TextEdit::singleline(&mut p.token).password(true).desired_width(260.0).hint_text("From whoever runs your helper"));
+                r.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::TextEdit, true, "Helper access code"));
+                let changed_token = r.changed();
+                field_label(ui, "Helper address");
+                let r = ui.add(egui::TextEdit::singleline(&mut p.server).desired_width(260.0));
+                r.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::TextEdit, true, "Helper address"));
+                if changed_token || r.changed() {
+                    let (server, token) = (p.server.clone(), p.token.clone());
+                    update(|q| { q.server = server; q.token = token; });
+                }
+            });
+        });
     }
 }

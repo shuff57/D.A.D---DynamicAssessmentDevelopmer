@@ -52,8 +52,14 @@ pub const MAX_LOOKUPS: usize = 6;
 /// The longest answer to one lookup line.
 const LOOKUP_CHARS: usize = 3000;
 
-/// The block for the system prompt.
+/// The block for the system prompt, with the text LOOKUP protocol.
 pub fn cheat_sheet() -> String {
+    cheat_sheet_with(false)
+}
+
+/// The block for the system prompt. `native_tools`: the model has the [`lookup_tool`] function, so
+/// the prompt points at it instead of describing LOOKUP lines.
+pub fn cheat_sheet_with(native_tools: bool) -> String {
     let r = reference();
     let mut s = String::from("MYOPENMATH REFERENCE (from IMathAS itself; trust it over memory):\n\n");
     s.push_str("Answer type codes, exactly as written in $anstypes and SET QUESTION TYPE TO:\n");
@@ -76,6 +82,12 @@ pub fn cheat_sheet() -> String {
     s.push_str("\nLibraries add functions: put loadlibrary(\"stats\") (or another) as the first line of the control. ");
     s.push_str("stats has normalcdf, invnormalcdf, tcdf, invtcdf, binomialpdf, mean, stdev, median, ...\n");
     s.push_str(&format!("\nReserved variable names (IMathAS rejects them): {}\n", r.disallowed_vars.iter().map(|v| format!("${v}")).collect::<Vec<_>>().join(", ")));
+    if native_tools {
+        s.push_str("\nTOOLS: you have a `lookup` function for this reference. Before writing, call it for the answer \
+            type(s) you will use (kind answer_type) and for any function you are not sure of (kind macro, or kind \
+            check with several names). Lookups do not use up attempts. Then reply with the question file.\n");
+        return s;
+    }
     s.push_str("\nTOOLS: before writing, you may reply with only lookup lines instead of a question, and the \
         docs come back. Lookups do not use up attempts. One per line, up to 3 per reply:\n\
         LOOKUP: answer_type <code>        the options and answer format of one answer type\n\
@@ -84,6 +96,41 @@ pub fn cheat_sheet() -> String {
         LOOKUP: topic <syntax|display|common-options|question-structure|dialect-rules>\n\
         LOOKUP: search <words>            find answer types and functions by keyword\n");
     s
+}
+
+/// The reference as a native function tool (the "tools" array of an Ollama or OpenAI-style chat
+/// request). A call's answer is [`run_tool`].
+pub fn lookup_tool() -> serde_json::Value {
+    serde_json::json!([{
+        "type": "function",
+        "function": {
+            "name": "lookup",
+            "description": "Look something up in the MyOpenMath (IMathAS) reference, which comes from IMathAS itself. \
+                answer_type: the options and answer format of one answer type code (choices, number, numfunc, matrix, ...). \
+                macro: what one function does and its arguments. check: whether functions (comma-separated) are allowed \
+                and which library they need. topic: syntax, display, common-options, question-structure or dialect-rules. \
+                search: find answer types and functions by keyword.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "kind": {"type": "string", "enum": ["answer_type", "macro", "check", "topic", "search"]},
+                    "query": {"type": "string", "description": "the code, function name(s), topic or keywords"}
+                },
+                "required": ["kind", "query"]
+            }
+        }
+    }])
+}
+
+/// Answer one call of [`lookup_tool`], as the lookup line it stands for ("macro diffrands").
+pub fn run_tool(call: &crate::ai::ToolCall) -> (String, String) {
+    let field = |k: &str| call.args.get(k).and_then(serde_json::Value::as_str).unwrap_or("").trim().to_string();
+    let line = format!("{} {}", field("kind"), field("query")).trim().to_string();
+    if call.name != "lookup" || line.is_empty() {
+        return (line, "Unknown tool. Call lookup with a kind (answer_type, macro, check, topic, search) and a query.".into());
+    }
+    let answer = lookup(&line);
+    (line, answer)
 }
 
 /// Lookup lines in a reply, if the reply is a lookup request (and not a question file).
@@ -233,7 +280,46 @@ pub fn preflight(q: &MomQuestion) -> Vec<String> {
             None => format!("\"{t}\" is not an IMathAS answer type. The codes are: {}.", r.answer_types.join(", ")),
         });
     }
+    for (section, text) in [("COMMON CONTROL", q.control.as_str()), ("ANSWER", q.answer_code.as_str())] {
+        problems.extend(split_statements(section, text));
+    }
     problems
+}
+
+/// IMathAS reads one statement per line: an expression continues onto the next line only inside an
+/// open ( or [. A line that starts with an operator (`. "more text"`) or ends with one (`"text" .`)
+/// is a syntax error ("unexpected token") whose reported line number points elsewhere, so models
+/// rarely find it. Checked against the engine: a leading or trailing `.` and a trailing `+` fail; the
+/// same expression wrapped in parentheses passes.
+fn split_statements(section: &str, code: &str) -> Vec<String> {
+    const OPS: [&str; 9] = ["&&", "||", ".", "+", "-", "*", "/", "?", ":"];
+    let stripped = mask_strings_and_comments(code, 'x');
+    let mut depth: i32 = 0;
+    let mut out = Vec::new();
+    for (n, (line, original)) in stripped.lines().zip(code.lines()).enumerate() {
+        let open = depth > 0;
+        for c in line.chars() {
+            match c {
+                '(' | '[' => depth += 1,
+                ')' | ']' => depth = (depth - 1).max(0),
+                _ => {}
+            }
+        }
+        let t = line.trim();
+        if t.is_empty() { continue; }
+        let starts = !open && OPS.iter().any(|op| t.starts_with(op)) && !t.starts_with("..")
+            && !t[1..].starts_with(|c: char| c.is_ascii_digit());
+        let ends = depth == 0 && !t.ends_with("++") && !t.ends_with("--") && OPS.iter().any(|op| t.ends_with(op));
+        if starts || ends {
+            out.push(format!(
+                "Line {} of the {section} ({}) {} an operator, but IMathAS reads one statement per line, so this is a syntax error. Keep the statement on one line or wrap the whole expression in parentheses: $s = (\"a\" . \"b\" ...);",
+                n + 1,
+                original.trim().chars().take(60).collect::<String>(),
+                if starts { "starts with" } else { "ends with" },
+            ));
+        }
+    }
+    out
 }
 
 /// Names followed by "(" that are not $variables or method calls.
@@ -262,23 +348,30 @@ fn called_functions(code: &str) -> Vec<String> {
 /// taken for calls. One scan over the whole text: IMathAS strings span lines (a $solutionguide of
 /// several paragraphs is one string).
 pub(crate) fn strip_strings_and_comments(code: &str) -> String {
+    mask_strings_and_comments(code, ' ')
+}
+
+/// [`strip_strings_and_comments`], but string literals (quotes included) become `fill` instead of
+/// spaces, so a line that opens or continues a string still shows that it has a value there.
+fn mask_strings_and_comments(code: &str, fill: char) -> String {
     let mut out = String::with_capacity(code.len());
     let mut chars = code.chars().peekable();
     let mut quote: Option<char> = None;
     let blank = |c: char| if c == '\n' { '\n' } else { ' ' };
+    let filled = |c: char| if c == '\n' { '\n' } else { fill };
     while let Some(c) = chars.next() {
         if let Some(q) = quote {
             if c == '\\' {
-                out.push(' ');
-                if let Some(n) = chars.next() { out.push(blank(n)); }
+                out.push(fill);
+                if let Some(n) = chars.next() { out.push(filled(n)); }
                 continue;
             }
             if c == q { quote = None; }
-            out.push(blank(c));
+            out.push(filled(c));
             continue;
         }
         match c {
-            '"' | '\'' => { quote = Some(c); out.push(' '); }
+            '"' | '\'' => { quote = Some(c); out.push(fill); }
             '/' if chars.peek() == Some(&'/') => { while let Some(&n) = chars.peek() { if n == '\n' { break; } chars.next(); } }
             '#' => { while let Some(&n) = chars.peek() { if n == '\n' { break; } chars.next(); } }
             '/' if chars.peek() == Some(&'*') => {
@@ -321,6 +414,17 @@ mod tests {
     fn preflight_accepts_good_code() {
         let good = q("loadlibrary(\"stats\")\n$a,$b = diffrands(1,9,2)\n$p = normalcdf($a)\n// shuffle( in a comment\n$s = \"implode( in a string\"\n$g = '<p>A long guide (with words like part (a)\nand size (n)) over lines</p>'\n/* sort( in a block */\n$anstypes = array(\"number\",\"choices\")\nif ($a > 1) { $c = round($a, 2) }");
         assert!(preflight(&good).is_empty(), "{:?}", preflight(&good));
+    }
+
+    #[test]
+    fn preflight_catches_a_statement_split_over_lines() {
+        let lead = MomQuestion { answer_code: "$solutionguide = '<p>a</p>'\n  . '<p>b</p>';".into(), ..q("$a = 1") };
+        assert!(preflight(&lead).iter().any(|x| x.contains("Line 2 of the ANSWER") && x.contains("starts with")), "{:?}", preflight(&lead));
+        assert!(preflight(&q("$a = 1\n$s = \"x\" .\n  \"y\"")).iter().any(|x| x.contains("Line 2 of the COMMON CONTROL") && x.contains("ends with")));
+        // Inside parentheses or brackets a statement may span lines; .5 is a number, $i++ is fine.
+        let ok = q("$s = (\"a\"\n  . \"b\")\n$t = array(1,\n 2)\n$u = $a *\n.5\n$i++");
+        let p = preflight(&ok);
+        assert!(p.iter().all(|x| !x.contains("Line 1") && !x.contains("Line 2") && !x.contains("Line 3") && !x.contains("Line 6")), "{p:?}");
     }
 
     #[test]

@@ -783,7 +783,7 @@ mod tests {
             r#"{"text": "1. B\n2. x = 4", "uncertain": [{"word": "B", "guess": "8", "confidence": 0.3}]}"#.to_string(),
             r#"{"text": "", "uncertain": []}"#.to_string(),
         ]);
-        let cfg = AiCfg { provider: "ollama".into(), base, model: "test".into() };
+        let cfg = AiCfg { provider: "ollama".into(), base, model: "test".into(), think: None };
         let mem = Mem::default();
         let s = staged(&["ana-1.png", "ana-2.png"]);
         let (subs, jobs) = build_submissions(&mem, "e1", &plan("Ana", false, &s), &s).unwrap();

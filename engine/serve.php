@@ -85,6 +85,7 @@ require_once __DIR__ . '/filter/filter.php';
 require_once __DIR__ . '/assess2/AssessStandalone.php';
 require_once __DIR__ . '/momformat.php';
 require_once __DIR__ . '/student.php';
+require_once __DIR__ . '/assess.php';
 $GLOBALS['RND'] = new Rand();
 $dbh = new PDO('sqlite::memory:');
 
@@ -560,6 +561,10 @@ if ($path === '/api/dialect') {
 
 if ($path === '/api/student') {
     dad_student($dbh, $qdata, $body);
+}
+
+if ($path === '/api/assess') {
+    dad_assess($dbh, $qdata, $body);
 }
 
 if ($path === '/api/selftest') {

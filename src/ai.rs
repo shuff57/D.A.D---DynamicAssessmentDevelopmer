@@ -100,6 +100,9 @@ pub struct AiCfg {
     pub provider: String,
     pub base: String,
     pub model: String,
+    /// How much the model reasons before answering: "off", "on", "low", "medium" or "high". None leaves
+    /// the model's own default (DeepSeek and Gemma think unless told not to).
+    pub think: Option<String>,
 }
 
 impl AiCfg {
@@ -136,7 +139,7 @@ impl AiCfg {
                 if own.starts_with("http://") || own.starts_with("https://") { own.to_string() } else { OLLAMA_DEFAULT_BASE.to_string() }
             }
         };
-        AiCfg { provider: provider.to_string(), base, model }
+        AiCfg { provider: provider.to_string(), base, model, think: None }
     }
 
     /// The built-in relay, whether it is the one a person typed in or the account server's own.
@@ -898,18 +901,47 @@ pub async fn check_models_async(cfg: &AiCfg, progress: &dyn Fn(usize, usize)) ->
     }
 }
 
-/// One message of a multi-turn chat (the figure agent's loop). `role` is "system", "user" or
-/// "assistant"; `images` are PNG bytes shown to the model alongside `text`.
+/// One message of a multi-turn chat (the figure agent's loop). `role` is "system", "user",
+/// "assistant" or "tool"; `images` are PNG bytes shown to the model alongside `text`.
 #[derive(Clone, Debug)]
 pub struct Turn {
     pub role: &'static str,
     pub text: String,
     pub images: Vec<Vec<u8>>,
+    /// An assistant turn's function calls (native tool calling).
+    pub calls: Vec<ToolCall>,
+    /// A "tool" turn: the call whose result `text` is.
+    pub answers: Option<ToolCall>,
+}
+
+/// One function call a model asked for: `args` is the arguments object.
+#[derive(Clone, Debug, PartialEq)]
+pub struct ToolCall {
+    pub id: String,
+    pub name: String,
+    pub args: Value,
+}
+
+/// A reply that may call tools instead of (or besides) answering in text.
+#[derive(Clone, Debug, Default)]
+pub struct ChatReply {
+    pub text: String,
+    pub calls: Vec<ToolCall>,
 }
 
 impl Turn {
     pub fn new(role: &'static str, text: impl Into<String>) -> Turn {
-        Turn { role, text: text.into(), images: Vec::new() }
+        Turn { role, text: text.into(), images: Vec::new(), calls: Vec::new(), answers: None }
+    }
+
+    /// The assistant's turn that called tools.
+    pub fn calling(text: impl Into<String>, calls: Vec<ToolCall>) -> Turn {
+        Turn { calls, ..Turn::new("assistant", text) }
+    }
+
+    /// The result of one tool call.
+    pub fn tool_result(call: &ToolCall, text: impl Into<String>) -> Turn {
+        Turn { answers: Some(call.clone()), ..Turn::new("tool", text) }
     }
 }
 
@@ -920,21 +952,36 @@ struct ChatReq {
     key: Option<String>,
     /// Where the reply text sits in the response JSON.
     pointer: &'static str,
+    /// Where its tool calls sit.
+    calls_pointer: &'static str,
 }
 
 /// `json` asks the provider for a JSON object (Ollama `format`, OpenAI `response_format`); without it
 /// the reply is free text, which suits answers that are mostly code.
-fn chat_request(cfg: &AiCfg, turns: &[Turn], temp: f64, json: bool) -> Result<ChatReq, String> {
+fn chat_request(cfg: &AiCfg, turns: &[Turn], temp: f64, json: bool, tools: Option<&Value>) -> Result<ChatReq, String> {
     match cfg.provider.as_str() {
         "ollama" => {
             let url = format!("{}/api/chat", cfg.base.trim_end_matches('/'));
             let messages: Vec<Value> = turns
                 .iter()
-                .map(|t| json!({"role": t.role, "content": t.text, "images": t.images.iter().map(|b| base64_encode(b)).collect::<Vec<_>>()}))
+                .map(|t| match (&t.answers, t.calls.is_empty()) {
+                    (Some(call), _) => json!({"role": "tool", "content": t.text, "tool_name": call.name}),
+                    (None, false) => json!({"role": t.role, "content": t.text,
+                        "tool_calls": t.calls.iter().map(|c| json!({"function": {"name": c.name, "arguments": c.args}})).collect::<Vec<_>>()}),
+                    _ => json!({"role": t.role, "content": t.text, "images": t.images.iter().map(|b| base64_encode(b)).collect::<Vec<_>>()}),
+                })
                 .collect();
             let mut body = json!({"model": cfg.model, "messages": messages, "stream": false, "options": {"temperature": temp}});
             if json { body["format"] = json!("json"); }
-            Ok(ChatReq { url, body, key: None, pointer: "/message/content" })
+            match cfg.think.as_deref() {
+                Some("off") => body["think"] = json!(false),
+                // Models with only on/off thinking (Gemma 4) take a bool.
+                Some("on") => body["think"] = json!(true),
+                Some(level) => body["think"] = json!(level),
+                None => {}
+            }
+            if let Some(t) = tools { body["tools"] = t.clone(); }
+            Ok(ChatReq { url, body, key: None, pointer: "/message/content", calls_pointer: "/message/tool_calls" })
         }
         _ => {
             let base = cfg.base.trim_end_matches('/');
@@ -945,6 +992,14 @@ fn chat_request(cfg: &AiCfg, turns: &[Turn], temp: f64, json: bool) -> Result<Ch
             let messages: Vec<Value> = turns
                 .iter()
                 .map(|t| {
+                    if let Some(call) = &t.answers {
+                        return json!({"role": "tool", "tool_call_id": call.id, "content": t.text});
+                    }
+                    if !t.calls.is_empty() {
+                        return json!({"role": "assistant", "content": if t.text.is_empty() { Value::Null } else { json!(t.text) },
+                            "tool_calls": t.calls.iter().map(|c| json!({"id": c.id, "type": "function",
+                                "function": {"name": c.name, "arguments": c.args.to_string()}})).collect::<Vec<_>>()});
+                    }
                     let mut content = vec![json!({"type": "text", "text": t.text})];
                     for b in &t.images {
                         content.push(json!({"type": "image_url", "image_url": {"url": format!("data:image/png;base64,{}", base64_encode(b))}}));
@@ -954,7 +1009,11 @@ fn chat_request(cfg: &AiCfg, turns: &[Turn], temp: f64, json: bool) -> Result<Ch
                 .collect();
             let mut body = json!({"model": cfg.model, "stream": false, "temperature": temp, "messages": messages});
             if json { body["response_format"] = json!({"type": "json_object"}); }
-            Ok(ChatReq { url, body, key: request_key(cfg), pointer: "/choices/0/message/content" })
+            if let Some(level) = cfg.think.as_deref() {
+                body["reasoning_effort"] = json!(match level { "off" => "none", "on" => "medium", l => l });
+            }
+            if let Some(t) = tools { body["tools"] = t.clone(); }
+            Ok(ChatReq { url, body, key: request_key(cfg), pointer: "/choices/0/message/content", calls_pointer: "/choices/0/message/tool_calls" })
         }
     }
 }
@@ -967,24 +1026,81 @@ fn chat_reply_text(req: &ChatReq, reply: &Value) -> Result<String, String> {
         .ok_or_else(|| "The reply had no message content.".to_string())
 }
 
+/// The text and tool calls of a reply to a request made with tools. Ollama sends arguments as an
+/// object, OpenAI-style APIs as a JSON string; both come out as an object.
+fn chat_reply_full(req: &ChatReq, reply: &Value) -> Result<ChatReply, String> {
+    let text = reply.pointer(req.pointer).and_then(Value::as_str).unwrap_or("").to_string();
+    let calls: Vec<ToolCall> = reply
+        .pointer(req.calls_pointer)
+        .and_then(Value::as_array)
+        .map(|a| a.iter().enumerate().filter_map(|(i, c)| {
+            let f = c.get("function")?;
+            let args = match f.get("arguments") {
+                Some(Value::String(s)) => serde_json::from_str(s).unwrap_or(json!({})),
+                Some(v) => v.clone(),
+                None => json!({}),
+            };
+            Some(ToolCall {
+                id: c.get("id").and_then(Value::as_str).map(str::to_string).unwrap_or_else(|| format!("call_{i}")),
+                name: f.get("name")?.as_str()?.to_string(),
+                args,
+            })
+        }).collect())
+        .unwrap_or_default();
+    if text.is_empty() && calls.is_empty() {
+        return Err("The reply had no message content.".to_string());
+    }
+    Ok(ChatReply { text, calls })
+}
+
+/// A conversation with function tools (`tools` is the "tools" array, the same shape for Ollama
+/// and OpenAI-style APIs): free text and any calls back.
+#[cfg(not(target_arch = "wasm32"))]
+pub fn chat_turns_tools(cfg: &AiCfg, turns: &[Turn], temp: f64, tools: &Value) -> Result<ChatReply, String> {
+    let req = chat_request(cfg, turns, temp, false, Some(tools))?;
+    let reply = post_json(&req.url, req.body.clone(), req.key.as_deref())?;
+    log_served(cfg, &reply);
+    chat_reply_full(&req, &reply)
+}
+
+/// The browser's [`chat_turns_tools`].
+#[cfg(target_arch = "wasm32")]
+pub async fn chat_turns_tools_async(cfg: &AiCfg, turns: &[Turn], temp: f64, tools: &Value) -> Result<ChatReply, String> {
+    let req = chat_request(cfg, turns, temp, false, Some(tools))?;
+    let reply = post_json_async(&req.url, &req.body, req.key.as_deref()).await?;
+    chat_reply_full(&req, &reply)
+}
+
+/// A router model (openrouter/free, openrouter/auto) names the model that actually answered;
+/// DAD_LOG_SERVED prints it (never set in the browser).
+fn log_served(cfg: &AiCfg, reply: &Value) {
+    if std::env::var_os("DAD_LOG_SERVED").is_some()
+        && let Some(served) = reply.get("model").and_then(Value::as_str)
+        && served != cfg.model
+    {
+        eprintln!("served-by: {served}");
+    }
+}
+
 /// A whole conversation in, the model's JSON reply out. Same providers and keys as [`transcribe`].
 pub fn chat_turns(cfg: &AiCfg, turns: &[Turn], temp: f64) -> Result<String, String> {
-    let req = chat_request(cfg, turns, temp, true)?;
+    let req = chat_request(cfg, turns, temp, true, None)?;
     let reply = post_json(&req.url, req.body.clone(), req.key.as_deref())?;
     chat_reply_text(&req, &reply)
 }
 
 /// [`chat_turns`] with a free-text reply (no JSON mode).
 pub fn chat_turns_text(cfg: &AiCfg, turns: &[Turn], temp: f64) -> Result<String, String> {
-    let req = chat_request(cfg, turns, temp, false)?;
+    let req = chat_request(cfg, turns, temp, false, None)?;
     let reply = post_json(&req.url, req.body.clone(), req.key.as_deref())?;
+    log_served(cfg, &reply);
     chat_reply_text(&req, &reply)
 }
 
 /// The browser's [`chat_turns`] / [`chat_turns_text`] (`json` picks which).
 #[cfg(target_arch = "wasm32")]
 pub async fn chat_turns_async(cfg: &AiCfg, turns: &[Turn], temp: f64, json: bool) -> Result<String, String> {
-    let req = chat_request(cfg, turns, temp, json)?;
+    let req = chat_request(cfg, turns, temp, json, None)?;
     let reply = post_json_async(&req.url, &req.body, req.key.as_deref()).await?;
     chat_reply_text(&req, &reply)
 }
@@ -1739,7 +1855,7 @@ mod tests {
     }
 
     fn relay_cfg(base: &str) -> AiCfg {
-        AiCfg { provider: "workers".into(), base: base.into(), model: String::new() }
+        AiCfg { provider: "workers".into(), base: base.into(), model: String::new(), think: None }
     }
 
     #[test]
@@ -1835,7 +1951,7 @@ mod tests {
         let refusal = r#"{"error":"'response_format.type' must be 'json_schema' or 'text'"}"#;
         let ok = r#"{"choices":[{"message":{"content":"{\"ok\":true}"}}]}"#;
         let (base, h) = stub_relay(vec![(400, refusal.into()), (200, ok.into()), (200, ok.into())]);
-        let cfg = AiCfg { provider: "custom".into(), base: base.clone(), model: "m".into() };
+        let cfg = AiCfg { provider: "custom".into(), base: base.clone(), model: "m".into(), think: None };
         assert_eq!(openai_chat_once(&cfg, "p", "image/png", &[], 0.0).unwrap(), "{\"ok\":true}");
         assert_eq!(openai_chat_once(&cfg, "p", "image/png", &[], 0.0).unwrap(), "{\"ok\":true}");
         let seen = h.join().unwrap();
@@ -1848,7 +1964,7 @@ mod tests {
     #[test]
     fn json_mode_is_only_dropped_for_a_400_that_names_it() {
         let (base, h) = stub_relay(vec![(400, r#"{"error":"model not found"}"#.into())]);
-        let cfg = AiCfg { provider: "custom".into(), base, model: "m".into() };
+        let cfg = AiCfg { provider: "custom".into(), base, model: "m".into(), think: None };
         assert!(openai_chat_once(&cfg, "p", "image/png", &[], 0.0).is_err());
         assert_eq!(h.join().unwrap().len(), 1, "no retry for an unrelated 400");
     }
@@ -1857,7 +1973,7 @@ mod tests {
     fn openrouter_is_asked_not_to_reason_and_to_report_cost() {
         let ok = r#"{"choices":[{"message":{"content":"{}"}}]}"#;
         let (base, h) = stub_relay(vec![(200, ok.into())]);
-        let cfg = AiCfg { provider: "openrouter".into(), base, model: "m".into() };
+        let cfg = AiCfg { provider: "openrouter".into(), base, model: "m".into(), think: None };
         openai_chat_once(&cfg, "p", "image/png", &[], 0.0).unwrap();
         let body = &h.join().unwrap()[0].1;
         assert!(body.contains(r#""reasoning":{"enabled":false}"#) && body.contains(r#""usage":{"include":true}"#));
@@ -1866,7 +1982,7 @@ mod tests {
     #[test]
     fn the_hosted_ai_with_nobody_signed_in_says_so_and_sends_nothing() {
         // The address comes from the signed-in account; without it the old code posted to a relative "/service".
-        let cfg = AiCfg { provider: "account".into(), base: String::new(), model: "m".into() };
+        let cfg = AiCfg { provider: "account".into(), base: String::new(), model: "m".into(), think: None };
         let err = begin_service(&cfg, "import", 1).unwrap_err();
         assert!(err.starts_with("Sign in on the Account screen"), "{err}");
     }
@@ -1876,7 +1992,7 @@ mod tests {
         let ok = r#"{"choices":[{"message":{"content":"{}"}}]}"#;
         let started = r#"{"session":"abc123","credits":2,"left":38}"#;
         let (base, h) = stub_relay(vec![(200, started.into()), (200, ok.into())]);
-        let cfg = AiCfg { provider: "workers".into(), base, model: String::new() };
+        let cfg = AiCfg { provider: "workers".into(), base, model: String::new(), think: None };
         let c = begin_service(&cfg, "import", 4).unwrap();
         assert_eq!(c, Charged { credits: 2, left: Some(38) });
         openai_chat_once(&cfg, "p", "image/png", &[], 0.0).unwrap();
@@ -1885,7 +2001,7 @@ mod tests {
         assert!(seen[0].1.contains(r#""service":"import""#) && seen[0].1.contains(r#""pages":4"#));
         assert!(seen[1].1.contains(r#""session":"abc123""#));
         let (base, h) = stub_relay(vec![(200, r#"{"session":null,"credits":0,"unlimited":true}"#.into()), (200, ok.into())]);
-        let cfg = AiCfg { provider: "workers".into(), base, model: String::new() };
+        let cfg = AiCfg { provider: "workers".into(), base, model: String::new(), think: None };
         begin_service(&cfg, "import", 1).unwrap();
         openai_chat_once(&cfg, "p", "image/png", &[], 0.0).unwrap();
         assert!(!h.join().unwrap()[1].1.contains("session"));
@@ -1895,10 +2011,10 @@ mod tests {
     fn a_refused_service_says_what_the_relay_said() {
         let body = r#"{"error":{"code":"insufficient_credits","message":"This needs 2 credits and you have 0 left this week."}}"#;
         let (base, h) = stub_relay(vec![(402, body.into())]);
-        let cfg = AiCfg { provider: "workers".into(), base, model: String::new() };
+        let cfg = AiCfg { provider: "workers".into(), base, model: String::new(), think: None };
         assert_eq!(begin_service(&cfg, "import", 1).unwrap_err(), "This needs 2 credits and you have 0 left this week.");
         h.join().unwrap();
-        assert_eq!(begin_service(&AiCfg { provider: "ollama".into(), base: String::new(), model: String::new() }, "import", 1).unwrap().credits, 0);
+        assert_eq!(begin_service(&AiCfg { provider: "ollama".into(), base: String::new(), model: String::new(), think: None }, "import", 1).unwrap().credits, 0);
     }
 
     #[test]
@@ -2102,15 +2218,52 @@ mod tests {
         assert_eq!(show_vision(&json!({"details": {}})), None);
     }
 
+
+    #[test]
+    fn think_setting_reaches_the_request() {
+        let turns = [Turn::new("user", "hi")];
+        let mut cfg = AiCfg { provider: "ollama".into(), base: "http://x".into(), model: "m".into(), think: None };
+        assert!(chat_request(&cfg, &turns, 0.2, false, None).unwrap().body.get("think").is_none());
+        cfg.think = Some("off".into());
+        assert_eq!(chat_request(&cfg, &turns, 0.2, false, None).unwrap().body["think"], json!(false));
+        cfg.think = Some("low".into());
+        assert_eq!(chat_request(&cfg, &turns, 0.2, false, None).unwrap().body["think"], json!("low"));
+        cfg.provider = "custom".into();
+        assert_eq!(chat_request(&cfg, &turns, 0.2, false, None).unwrap().body["reasoning_effort"], json!("low"));
+        cfg.think = Some("off".into());
+        assert_eq!(chat_request(&cfg, &turns, 0.2, false, None).unwrap().body["reasoning_effort"], json!("none"));
+    }
+
+    #[test]
+    fn tool_turns_and_calls_in_both_wire_shapes() {
+        let call = ToolCall { id: "c1".into(), name: "lookup".into(), args: json!({"kind": "macro", "query": "rand"}) };
+        let turns = [Turn::new("user", "q"), Turn::calling("", vec![call.clone()]), Turn::tool_result(&call, "doc")];
+        let tools = json!([{"type": "function", "function": {"name": "lookup"}}]);
+        let mut cfg = AiCfg { provider: "ollama".into(), base: "http://x".into(), model: "m".into(), think: None };
+        let req = chat_request(&cfg, &turns, 0.2, false, Some(&tools)).unwrap();
+        assert_eq!(req.body["tools"], tools);
+        assert_eq!(req.body["messages"][1]["tool_calls"][0]["function"]["arguments"]["query"], "rand");
+        assert_eq!((req.body["messages"][2]["role"].as_str(), req.body["messages"][2]["tool_name"].as_str()), (Some("tool"), Some("lookup")));
+        let r = chat_reply_full(&req, &json!({"message": {"content": "", "tool_calls": [{"function": {"name": "lookup", "arguments": {"kind": "check", "query": "x"}}}]}})).unwrap();
+        assert_eq!((r.calls[0].id.as_str(), r.calls[0].args["kind"].as_str()), ("call_0", Some("check")));
+        cfg.provider = "custom".into();
+        let req = chat_request(&cfg, &turns, 0.2, false, Some(&tools)).unwrap();
+        assert_eq!(req.body["messages"][1]["tool_calls"][0]["function"]["arguments"], json!(call.args.to_string()));
+        assert!(req.body["messages"][1]["content"].is_null());
+        assert_eq!(req.body["messages"][2]["tool_call_id"], "c1");
+        let r = chat_reply_full(&req, &json!({"choices": [{"message": {"content": null, "tool_calls": [{"id": "z", "function": {"name": "lookup", "arguments": "{\"kind\":\"topic\",\"query\":\"syntax\"}"}}]}}]})).unwrap();
+        assert_eq!((r.calls[0].id.as_str(), r.calls[0].args["query"].as_str()), ("z", Some("syntax")));
+        assert!(chat_reply_full(&req, &json!({"choices": [{"message": {"content": null}}]})).is_err());
+    }
     #[test]
     fn the_ping_is_one_tiny_picture_and_a_short_reply() {
-        let cloud = AiCfg { provider: "cloud".into(), base: "https://ollama.com/v1/".into(), model: "x".into() };
+        let cloud = AiCfg { provider: "cloud".into(), base: "https://ollama.com/v1/".into(), model: "x".into(), think: None };
         let (url, body) = probe_request(&cloud, "gemma4:31b");
         assert_eq!(url, "https://ollama.com/v1/chat/completions");
         assert_eq!(body["model"], "gemma4:31b");
         assert_eq!(body["max_tokens"], 8);
         assert!(body.pointer("/messages/0/content/1/image_url/url").and_then(Value::as_str).is_some_and(|u| u.starts_with("data:image/png;base64,")));
-        let local = AiCfg { provider: "ollama".into(), base: "http://127.0.0.1:11434".into(), model: "x".into() };
+        let local = AiCfg { provider: "ollama".into(), base: "http://127.0.0.1:11434".into(), model: "x".into(), think: None };
         let (url, body) = probe_request(&local, "m");
         assert_eq!(url, "http://127.0.0.1:11434/api/chat");
         assert_eq!(body["options"]["num_predict"], 8);

@@ -99,14 +99,79 @@ fn main() -> Result<(), eframe::Error> {
     // Headless one-shot: DAD_AUTHOR="<what the teacher asked for>" writes a MyOpenMath question with the
     // configured AI, tests and repairs it against the engine (DAD_ENGINE, default http://127.0.0.1:8791),
     // prints the log and the question file, and exits 0 only if it passed. DAD_AI_PROVIDER / DAD_AI_MODEL
-    // override the saved settings; DAD_TRIES caps the attempts (default 4).
+    // override the saved settings, DAD_AI_THINK sets reasoning (off/low/medium/high), DAD_TOOLS=1 gives it the reference as a function tool; DAD_TRIES caps the attempts (default 4).
+    // The MyOpenMath helper server for the web app: DAD_BROWSER_SERVER=127.0.0.1:8793
+    // DAD_BROWSER_TOKENS=<token>[,<token>…] (each teacher's access code; required).
+    #[cfg(not(target_arch = "wasm32"))]
+    if let Ok(addr) = vershion::env_var("DAD_BROWSER_SERVER") {
+        let tokens: Vec<String> = vershion::env_var("DAD_BROWSER_TOKENS").unwrap_or_default()
+            .split(',').map(|s| s.trim().to_string()).filter(|s| s.len() >= 8).collect();
+        if tokens.is_empty() {
+            eprintln!("Set DAD_BROWSER_TOKENS to at least one access code of 8 or more characters.");
+            std::process::exit(2);
+        }
+        if let Err(e) = vershion::mom::browserd::serve(&addr, tokens) { eprintln!("{e}"); std::process::exit(1); }
+        return Ok(());
+    }
+
+    // Headless add: DAD_POST=<question.php> DAD_POST_CID=<course> DAD_POST_AID=<assessment>
+    // [DAD_POST_SAVE=1] opens D.A.D's MyOpenMath browser (a window; sign in there the first time),
+    // fills the assessment's Add New Question editor, and saves it when DAD_POST_SAVE=1.
+    // DAD_POST_LIST=1 instead prints the courses (and the assessments of DAD_POST_CID).
+    #[cfg(not(target_arch = "wasm32"))]
+    if let Ok(path) = vershion::env_var("DAD_POST") {
+        use vershion::mom::{chrome::Chrome, poster};
+        let num = |k: &str| vershion::env_var(k).ok().and_then(|v| v.parse::<u64>().ok());
+        let profile = vershion::store::store_dir().join("mom").join("browser");
+        let chrome = match Chrome::launch(&profile, false) { Ok(c) => c, Err(e) => { eprintln!("{e}"); std::process::exit(1) } };
+        let code = (|| -> Result<i32, String> {
+            let mut tab = chrome.tab()?;
+            // DAD_POST_EVAL=<js>: print what a script says about the page as it is (debugging).
+            if let Ok(js) = vershion::env_var("DAD_POST_EVAL") {
+                println!("{}", tab.eval(&js)?);
+                return Ok(0);
+            }
+            // DAD_POST_ATTACH=1: the tab shows a just-saved question; put it in its assessment.
+            if vershion::env_var("DAD_POST_ATTACH").is_ok() {
+                println!("{:?}", poster::attach_after_save(&mut tab, &mut |l| eprintln!("{l}"))?);
+                return Ok(0);
+            }
+            if !poster::signed_in(&mut tab)? {
+                if let Some((u, p)) = poster::saved_login() { poster::sign_in_with(&mut tab, &u, &p)?; }
+            }
+            let wait = num("DAD_POST_WAIT").unwrap_or(600);
+            if !poster::wait_signed_in(&mut tab, std::time::Duration::from_secs(wait))? {
+                return Err("nobody signed in".into());
+            }
+            eprintln!("signed in");
+            if vershion::env_var("DAD_POST_LIST").is_ok() {
+                for c in poster::courses(&mut tab)? { println!("course {} {}", c.id, c.name); }
+                if let Some(cid) = num("DAD_POST_CID") {
+                    for a in poster::assessments(&mut tab, cid)? { println!("assessment {} {}", a.id, a.name); }
+                }
+                return Ok(0);
+            }
+            let src = std::fs::read_to_string(&path).map_err(|e| e.to_string())?;
+            let q = vershion::mom::MomQuestion::parse(&src);
+            let (cid, aid) = (num("DAD_POST_CID").ok_or("DAD_POST_CID")?, num("DAD_POST_AID").ok_or("DAD_POST_AID")?);
+            let save = vershion::env_var("DAD_POST_SAVE").as_deref() == Ok("1");
+            let r = poster::add_question(&mut tab, cid, aid, &q, save, &mut |l| eprintln!("{l}"))?;
+            println!("{r:?}");
+            Ok(0)
+        })();
+        let code = match code { Ok(c) => c, Err(e) => { eprintln!("error: {e}"); 1 } };
+        if vershion::env_var("DAD_POST_KEEP").is_err() { chrome.close(); }
+        std::process::exit(code);
+    }
+
     #[cfg(not(target_arch = "wasm32"))]
     if let Ok(request) = vershion::env_var("DAD_AUTHOR") {
         let mut settings: Settings = store::load_json("settings.json").unwrap_or_default();
         if let Ok(p) = vershion::env_var("DAD_AI_PROVIDER") { settings.ai_provider = p; }
         if let Ok(m) = vershion::env_var("DAD_AI_MODEL") { settings.ai_model = m; }
-        let cfg = ai::AiCfg::from(&settings);
-        let mut chat = vershion::mom::author::ModelChat { cfg: &cfg };
+        let mut cfg = ai::AiCfg::from(&settings);
+        cfg.think = vershion::env_var("DAD_AI_THINK").ok();
+        let mut chat = vershion::mom::author::ModelChat { cfg: &cfg, tools: vershion::env_var("DAD_TOOLS").is_ok_and(|v| v == "1") };
         let mut engine = vershion::mom::author::HttpEngine {
             base: vershion::env_var("DAD_ENGINE").unwrap_or_else(|_| "http://127.0.0.1:8791".into()),
         };

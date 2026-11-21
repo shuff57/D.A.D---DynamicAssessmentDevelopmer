@@ -25,7 +25,7 @@ cp "$WASM_DIR"/php_8_2.wasm "dist/$(basename "$WASM_DIR")/"
 cp dad-engine.js dist/
 STAGE=$(mktemp -d)
 (cd "$SRC" && cp -r assess2 assessment includes filter header.php footer.php "$STAGE/")
-cp ../serve.php ../momformat.php ../student.php "$STAGE/"
+cp ../serve.php ../momformat.php ../student.php ../assess.php "$STAGE/"
 (cd "$STAGE" && zip -qr -9 "$OLDPWD/dist/imathas-engine.zip" .)
 rm -rf "$STAGE"
 # The sandbox page's scripts, styles, fonts and images (MyOpenMath's student view), served by the web

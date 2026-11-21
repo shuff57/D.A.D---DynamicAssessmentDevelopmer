@@ -16,7 +16,7 @@ use super::engine::{SelftestRequest, SelftestResponse, DEFAULT_SEEDS};
 use super::format::MomQuestion;
 use super::health;
 use super::reference;
-use crate::ai::{AiCfg, Turn};
+use crate::ai::{AiCfg, ChatReply, Turn};
 
 /// Unreadable replies asked for again, per run, without spending a try.
 pub const FORMAT_RETRIES: usize = 2;
@@ -25,6 +25,12 @@ pub const FORMAT_RETRIES: usize = 2;
 #[allow(async_fn_in_trait)]
 pub trait AuthorChat {
     async fn chat(&mut self, turns: &[Turn]) -> Result<String, String>;
+    /// Whether [`AuthorChat::chat_tools`] offers the reference as a native function tool.
+    fn native_tools(&self) -> bool { false }
+    /// A reply that may call the reference's `lookup` tool ([`reference::lookup_tool`]).
+    async fn chat_tools(&mut self, turns: &[Turn]) -> Result<ChatReply, String> {
+        Ok(ChatReply { text: self.chat(turns).await?, calls: Vec::new() })
+    }
 }
 
 /// The engine's self-test, as the loop sees it.
@@ -33,9 +39,12 @@ pub trait AuthorEngine {
     async fn selftest(&mut self, src: &str, seeds: &[i64]) -> Result<SelftestResponse, String>;
 }
 
-/// The configured provider, free-text replies.
+/// The configured provider, free-text replies. `tools`: offer the reference as a native function
+/// tool (models trained on function calling, such as Gemma 4, use it; the text LOOKUP protocol they
+/// ignore). Off for providers or models without tool support.
 pub struct ModelChat<'a> {
     pub cfg: &'a AiCfg,
+    pub tools: bool,
 }
 
 impl AuthorChat for ModelChat<'_> {
@@ -44,6 +53,19 @@ impl AuthorChat for ModelChat<'_> {
         { crate::ai::chat_turns_text(self.cfg, turns, 0.2) }
         #[cfg(target_arch = "wasm32")]
         { crate::ai::chat_turns_async(self.cfg, turns, 0.2, false).await }
+    }
+
+    fn native_tools(&self) -> bool { self.tools }
+
+    async fn chat_tools(&mut self, turns: &[Turn]) -> Result<ChatReply, String> {
+        if !self.tools {
+            return Ok(ChatReply { text: self.chat(turns).await?, calls: Vec::new() });
+        }
+        let tools = reference::lookup_tool();
+        #[cfg(not(target_arch = "wasm32"))]
+        { crate::ai::chat_turns_tools(self.cfg, turns, 0.2, &tools) }
+        #[cfg(target_arch = "wasm32")]
+        { crate::ai::chat_turns_tools_async(self.cfg, turns, 0.2, &tools).await }
     }
 }
 
@@ -172,7 +194,12 @@ pub fn system_prompt() -> String {
 /// The system prompt: what IMathAS is, the reply shape, optionally the reference cheat sheet and its
 /// LOOKUP tools, and the learned rules.
 pub fn system_prompt_with(use_docs: bool) -> String {
-    let docs = if use_docs { format!("\n\n{}", reference::cheat_sheet()) } else { String::new() };
+    system_prompt_for(use_docs, false)
+}
+
+/// [`system_prompt_with`]; `native_tools` describes the `lookup` function instead of LOOKUP lines.
+pub fn system_prompt_for(use_docs: bool, native_tools: bool) -> String {
+    let docs = if use_docs { format!("\n\n{}", reference::cheat_sheet_with(native_tools)) } else { String::new() };
     format!(
         "You write questions for MyOpenMath, which runs IMathAS. A question is IMathAS question code: \
          a Common Control block (variables, randomization with rand/diffrands/randfrom, and the answer \
@@ -360,13 +387,45 @@ async fn conversation<C: AuthorChat, E: AuthorEngine, K: AuthorCritic>(
     let mut logged = 0;
     macro_rules! flush { () => { while logged < run.log.len() { on_log(&run.log[logged]); logged += 1; } } }
     on_log("writing the question…");
-    let mut turns = vec![Turn::new("system", system_prompt_with(use_docs)), Turn::new("user", ask.to_string())];
+    let native = use_docs && chat.native_tools();
+    let mut turns = vec![Turn::new("system", system_prompt_for(use_docs, native)), Turn::new("user", ask.to_string())];
     let mut format_retries = 0;
+    let mut tool_rounds = 0;
     while run.tries < max_tries.max(1) {
         // One retry: a provider or proxy hiccup (a gateway error page instead of JSON) is not the question's fault.
-        let reply = match chat.chat(&turns).await {
+        let reply = match chat.chat_tools(&turns).await {
             Ok(r) => Ok(r),
-            Err(_) => { on_log("the AI did not answer; trying once more…"); chat.chat(&turns).await }
+            Err(_) => { on_log("the AI did not answer; trying once more…"); chat.chat_tools(&turns).await }
+        };
+        let reply = match reply {
+            Ok(r) if !r.calls.is_empty() => {
+                // Native lookups: answer every call (the protocol needs a result per call), then ask again.
+                tool_rounds += 1;
+                turns.push(Turn::calling(r.text.clone(), r.calls.clone()));
+                let mut looked = Vec::new();
+                for call in &r.calls {
+                    let answer = if run.lookups < reference::MAX_LOOKUPS {
+                        run.lookups += 1;
+                        let (line, answer) = reference::run_tool(call);
+                        looked.push(line);
+                        answer
+                    } else {
+                        "No more lookups: write the question file now.".to_string()
+                    };
+                    turns.push(Turn::tool_result(call, answer));
+                }
+                if !looked.is_empty() { run.log.push(format!("looked up: {}", looked.join("; "))); }
+                flush!();
+                if tool_rounds > reference::MAX_LOOKUPS + 2 {
+                    run.error = Some("The AI kept calling tools instead of writing the question.".into());
+                    run.log.push("gave up: only tool calls".into());
+                    flush!();
+                    return run;
+                }
+                continue;
+            }
+            Ok(r) => Ok(r.text),
+            Err(e) => Err(e),
         };
         let reply = match reply {
             Ok(r) => r,
@@ -665,6 +724,37 @@ mod tests {
         assert!(run.passed, "{:?}", run.log);
         assert_eq!((run.tries, run.lookups), (1, 2));
         assert!(chat.0[1].contains("shuffle: NOT allowed") && chat.0[1].contains("numfunc"), "{}", chat.0[1]);
+    }
+
+    #[test]
+    fn a_native_tool_call_is_answered_without_spending_a_try() {
+        use crate::ai::ToolCall;
+        struct Calls(Vec<Turn>, usize);
+        impl AuthorChat for Calls {
+            async fn chat(&mut self, _: &[Turn]) -> Result<String, String> { unreachable!("tools are on") }
+            fn native_tools(&self) -> bool { true }
+            async fn chat_tools(&mut self, turns: &[Turn]) -> Result<ChatReply, String> {
+                self.1 += 1;
+                assert!(turns[0].text.contains("`lookup` function") && !turns[0].text.contains("LOOKUP: answer_type <code>"));
+                self.0 = turns.to_vec();
+                Ok(if self.1 == 1 {
+                    ChatReply { text: String::new(), calls: vec![
+                        ToolCall { id: "a".into(), name: "lookup".into(), args: serde_json::json!({"kind": "check", "query": "shuffle"}) },
+                        ToolCall { id: "b".into(), name: "lookup".into(), args: serde_json::json!({"kind": "answer_type", "query": "numfunc"}) },
+                    ] }
+                } else {
+                    ChatReply { text: GOOD.to_string(), calls: vec![] }
+                })
+            }
+        }
+        let mut chat = Calls(vec![], 0);
+        let run = author_with("x", &mut chat, &mut FakeEngine, &mut NoCritic, Budget { max_tries: 1, restarts: 0, use_docs: true });
+        assert!(run.passed, "{:?}", run.log);
+        assert_eq!((run.tries, run.lookups), (1, 2));
+        // The second request carries the calling turn and one result per call, in order.
+        let n = chat.0.len();
+        assert_eq!((chat.0[n - 3].calls.len(), chat.0[n - 2].role, chat.0[n - 1].role), (2, "tool", "tool"));
+        assert!(chat.0[n - 2].text.contains("shuffle: NOT allowed") && chat.0[n - 1].answers.as_ref().unwrap().id == "b");
     }
 
     #[test]

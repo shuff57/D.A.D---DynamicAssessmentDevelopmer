@@ -130,6 +130,20 @@ impl MomQuestion {
             format!("{}\n\n{}", self.control.trim(), self.answer_code.trim())
         }
     }
+
+    /// What goes in MyOpenMath's Detailed Solution box (shown to students after they answer): the
+    /// prose solution, or `$solutionguide` when the code builds the worked solution there.
+    pub fn detailed_solution_field(&self) -> String {
+        if !self.solution.trim().is_empty() {
+            return self.solution.trim().to_string();
+        }
+        let code = self.common_control_field();
+        let sets_guide = code.lines().any(|l| {
+            let l = l.trim_start();
+            l.strip_prefix("$solutionguide").is_some_and(|r| r.trim_start().starts_with('=') || r.trim_start().starts_with(".="))
+        });
+        if sets_guide { "$solutionguide".into() } else { String::new() }
+    }
 }
 
 /// The mom format's section markers; any other `// === X ===` line is a comment.
@@ -192,6 +206,16 @@ mod tests {
         assert_eq!(q.qtext, "What is `$a + 1`? $answerbox");
         assert_eq!(q.answer_code, "$solutionguide = 'Add one.'");
         assert!(q.solution.is_empty());
+    }
+
+    #[test]
+    fn the_detailed_solution_points_at_the_guide() {
+        let q = MomQuestion::parse(STANDARD);
+        assert_eq!(q.detailed_solution_field(), "$solutionguide");
+        let q = MomQuestion::parse(&STANDARD.replace("$solutionguide = 'Add one.'", "Add one to it."));
+        assert_eq!(q.detailed_solution_field(), "Add one to it.");
+        let q = MomQuestion::parse(&STANDARD.replace("$solutionguide = 'Add one.'", "$x = 1"));
+        assert_eq!(q.detailed_solution_field(), "");
     }
 
     #[test]

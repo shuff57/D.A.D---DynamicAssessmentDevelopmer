@@ -78,6 +78,9 @@ hayro = { version = "0.8", default-features = false, features = ["embed-fonts"] 
 eframe ={ version = "0.36", default-features = false, features = ["default_fonts", "wgpu", "accesskit", "wayland", "x11", "links"] }
 rfd = "0.17"
 ureq = { version = "3", features = ["platform-verifier"] }
+# Driving a local Chrome over the DevTools protocol (src/mom/chrome.rs): adding questions to MyOpenMath.
+tungstenite = "0.27"
+base64 = "0.22"
 # Shared-pool refresh and device tokens live in the OS keychain (src/share/vault.rs): macOS Keychain,
 # Windows Credential Manager, or a Secret Service on Linux (GNOME Keyring, KWallet). The Linux store
 # is the pure-Rust zbus client, so building needs no libdbus headers; running needs a Secret Service.
