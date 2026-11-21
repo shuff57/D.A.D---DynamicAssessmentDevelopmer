@@ -112,6 +112,49 @@ function dad_render(PDO $dbh, array $qdata, int $seed, bool $showans = false): a
 }
 
 /**
+ * The question's own variables after its code runs, read the way ScoreEngine reads them: control
+ * interpreted and evaluated at the seed, then the answer field at seed+1. The displayed answers are
+ * formatted for reading ("4 × 3 = 12", "xge5"), so the self-test types $answer instead, which is
+ * what the author expects a student to enter. Call after dad_render, which loads the macros.
+ */
+function dad_raw_vars(array $qdata, int $seed): array {
+    $code = interpret('control', $qdata['qtype'], $qdata['control'], 1, [DAD_QSID]);
+    $answerCode = empty($qdata['answer']) ? '' : interpret('answer', $qdata['qtype'], $qdata['answer'], 1, [DAD_QSID]);
+    ob_start();
+    try {
+        $vars = dad_eval_question($code, $answerCode, $seed);
+    } catch (Throwable $t) {
+        ob_end_clean();
+        return ['_error' => $t->getMessage() . ' @ line ' . $t->getLine()];
+    }
+    ob_end_clean();
+    $out = [];
+    foreach (['answer', 'answers', 'anstypes', 'questions', 'answersize', 'answerformat', 'displayformat'] as $v) {
+        if (array_key_exists($v, $vars)) $out[$v] = $vars[$v];
+    }
+    if (isset($out['anstypes']) && !is_array($out['anstypes'])) {
+        $out['anstypes'] = array_map('trim', explode(',', $out['anstypes']));
+    }
+    return $out;
+}
+
+/**
+ * Runs question code in a scope holding only what ScoreEngine's scope offers question code, so a
+ * question's own variable names cannot collide with ours. Every local here is double-underscored.
+ */
+function dad_eval_question(string $__control, string $__answer, int $__seed): array {
+    $RND = $GLOBALS['RND'];
+    $qnidx = 0; $thisq = 1; $attemptn = 0; $currentseed = $__seed;
+    $graphdispmode = 1; $drawentrymode = 1;
+    $stuanswers = []; $stuanswersval = []; $scorenonzero = []; $scoreiscorrect = [];
+    $RND->srand($__seed);
+    if ($__control !== 'error;') eval($__control);
+    $RND->srand($__seed + 1);
+    if ($__answer !== '') eval($__answer);
+    return array_filter(get_defined_vars(), fn($k) => !str_starts_with($k, '__'), ARRAY_FILTER_USE_KEY);
+}
+
+/**
  * Score answers. $answers maps part number => value (a string, or a list for matrix/matching parts).
  * IMathAS reads answers from $_POST: single-part "qn0", multipart "qn1000"+part.
  */
@@ -150,23 +193,44 @@ function dad_is_multipart(array $qdata, array $answeights): bool {
     return in_array($qdata['qtype'], ['multipart', 'conditional'], true) || count($answeights) > 1;
 }
 
-/** Collapse whitespace, drop tags and AsciiMath backticks, for comparing display text. */
+/** Collapse whitespace, drop real tags and AsciiMath backticks, for comparing display text.
+ *  Only "<" followed by a letter, "/" or "!" is a tag, so "X <= k" keeps its "<=". */
 function dad_norm(string $s): string {
-    $s = html_entity_decode(strip_tags($s), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+    $s = preg_replace('/<[a-z\/!][^>]*>/i', ' ', $s);
+    $s = html_entity_decode($s, ENT_QUOTES | ENT_HTML5, 'UTF-8');
     return trim(preg_replace('/\s+/u', ' ', str_replace('`', '', $s)));
 }
 
-/**
- * Build the form fields a student would submit to get each part right, from the rendered page and
- * IMathAS's displayed correct answers. Returns [post map, problems, untested part numbers].
- * Parts a machine cannot judge (essay, file upload, drawing) are listed as untested: they need a
- * teacher's look, but they are not failures. A part we should be able to answer but cannot is a
- * problem, so the self-test reports it instead of guessing.
- */
+/** A display answer turned into what a student types: AsciiMath words to symbols, × to *. */
+function dad_display_to_typed(string $display): string {
+    $t = ' ' . dad_norm($display) . ' ';
+    $t = preg_replace(['/(?<=[\s\d)a-z])le(?=[\s\d(-])/', '/(?<=[\s\d)a-z])ge(?=[\s\d(-])/',
+                       '/(?<=[\s\d)a-z])lt(?=[\s\d(-])/', '/(?<=[\s\d)a-z])gt(?=[\s\d(-])/',
+                       '/(?<=[\s\d)a-z])ne(?=[\s\d(-])/'],
+                      ['<=', '>=', '<', '>', '!='], $t);
+    $t = str_replace(['×', '÷', '≤', '≥', '≠', '−'], ['*', '/', '<=', '>=', '!=', '-'], $t);
+    return trim(preg_replace('/\s+/u', ' ', $t));
+}
+
+/** IMathAS shows several accepted answers as "A or B or C"; a student types one of them.
+ *  Strip tags only when the value looks like HTML; "y <= -4x-2" must keep its "<". */
+function dad_first_alternative(string $value): string {
+    $clean = preg_match('/<[a-z\/!][^>]*>/i', $value) ? dad_norm($value) : trim(preg_replace('/\s+/u', ' ', str_replace('`', '', $value)));
+    $parts = preg_split('/\s+or\s+/', $clean);
+    return $parts[0] ?? '';
+}
+
 const DAD_MANUAL_TYPES = ['essay', 'file', 'draw'];
 
-function dad_student_post(array $render, bool $multi, string $qtype): array {
-    $post = []; $problems = []; $untested = [];
+/**
+ * For each part, the form fields a student would try, best guess first, from the rendered page,
+ * IMathAS's displayed answers and the question's own variables. Returns [candidates, problems,
+ * untested]: candidates[pn] is a list of field maps. Parts a machine cannot judge (essay, upload,
+ * drawing, options that are only pictures) are untested: a teacher must look, but they are not
+ * failures. A part we should be able to answer but cannot is a problem.
+ */
+function dad_student_candidates(array $render, bool $multi, string $qtype, array $raw = []): array {
+    $cands = []; $problems = []; $untested = [];
     $doc = new DOMDocument();
     libxml_use_internal_errors(true);
     $doc->loadHTML('<?xml encoding="utf-8"?><div>' . $render['html'] . '</div>');
@@ -176,55 +240,104 @@ function dad_student_post(array $render, bool $multi, string $qtype): array {
         $label = $xp->query("//label[@for='" . $in->getAttribute('id') . "']")->item(0);
         return $label ? dad_norm($doc->saveHTML($label)) : '';
     };
-    foreach ($render['answers'] as $pn => $ans) {
-        $key = $multi ? 1000 + (int)$pn : 0;
-        $type = $render['jsparams'][$key]['qtype'] ?? $render['jsparams'][(string)$key]['qtype'] ?? $qtype;
+    $rawPart = function (string $var, int $pn) use ($raw, $multi) {
+        if (!array_key_exists($var, $raw)) return null;
+        $v = $raw[$var];
+        if ($multi) return is_array($v) ? ($v[$pn] ?? null) : null;
+        return $v;
+    };
+    // Every part, not only the ones IMathAS shows an answer for.
+    $parts = array_keys($render['answers']);
+    $nparts = max(count($render['answeights']), $multi && isset($raw['anstypes']) ? count($raw['anstypes']) : 1);
+    for ($i = 0; $i < $nparts; $i++) if (!in_array($i, $parts)) $parts[] = $i;
+    sort($parts);
+
+    foreach ($parts as $pn) {
+        $pn = (int)$pn;
+        $ans = $render['answers'][$pn] ?? '';
+        $key = $multi ? 1000 + $pn : 0;
         $name = "qn$key";
-        if (in_array($type, DAD_MANUAL_TYPES, true)) {
-            $untested[] = (int)$pn;
-        } elseif ($type === 'choices') {
-            // Radio buttons, or a dropdown when the question uses displayformat="select".
-            $want = dad_norm((string)$ans);
+        $type = $render['jsparams'][$key]['qtype'] ?? $render['jsparams'][(string)$key]['qtype']
+             ?? ($multi ? ($raw['anstypes'][$pn] ?? null) : null) ?? $qtype;
+        if (in_array($type, DAD_MANUAL_TYPES, true)) { $untested[] = $pn; continue; }
+
+        if ($type === 'choices' || $type === 'multans') {
+            $inputs = iterator_to_array($xp->query("//input[@name='$name' or starts-with(@name,'{$name}[')]"));
+            $options = iterator_to_array($xp->query("//select[@name='$name']/option[@value!='NA']"));
+            $texts = array_map(fn($el) => $el->tagName === 'option' ? dad_norm($el->textContent) : $labelText($el), array_merge($inputs, $options));
+            if ($texts && !array_filter($texts, fn($t) => $t !== '')) { $untested[] = $pn; continue; }   // picture options
+            // Question defects a student would trip on, whatever the answer key says.
+            $dups = array_unique(array_diff_assoc($texts, array_unique($texts)));
+            if ($dups) $problems[] = "part $pn ($type): duplicate options " . json_encode(array_values($dups)) . ' - picking the other copy is marked wrong';
+            $qs = $rawPart('questions', $pn);
+            if ($options && is_array($qs)) foreach ($qs as $q) {
+                if (preg_match('/<[a-z\/][^>]*>|`/i', (string)$q)) { $problems[] = "part $pn (choices): a dropdown option holds HTML or backtick math, which a dropdown shows as raw text"; break; }
+            }
+        }
+
+        if ($type === 'choices') {
+            $wants = [dad_norm((string)$ans)];
+            $qs = $rawPart('questions', $pn); $ai = $rawPart('answer', $pn);
+            if (is_array($qs) && is_scalar($ai) && isset($qs[(int)$ai])) $wants[] = dad_norm((string)$qs[(int)$ai]);
+            $squash = fn($t) => preg_replace('/\s+/u', '', $t);
+            $wantsSq = array_map($squash, $wants);
             $value = null;
-            foreach ($xp->query("//input[@name='$name']") as $in) {
-                if ($labelText($in) === $want) { $value = $in->getAttribute('value'); break; }
-            }
-            if ($value === null) foreach ($xp->query("//select[@name='$name']/option") as $opt) {
-                if (dad_norm($opt->textContent) === $want) { $value = $opt->getAttribute('value'); break; }
-            }
+            foreach ($inputs as $in) if (in_array($squash($labelText($in)), $wantsSq, true)) { $value = $in->getAttribute('value'); break; }
+            if ($value === null) foreach ($options as $opt) if (in_array($squash(dad_norm($opt->textContent)), $wantsSq, true)) { $value = $opt->getAttribute('value'); break; }
+            // With raw access, the answer index maps straight to the option whose text is $questions[$answer].
             if ($value === null) { $problems[] = "part $pn (choices): no option matches the correct answer"; continue; }
-            $post[$name] = $value;
+            $cands[$pn] = [[$name => $value]];
         } elseif ($type === 'multans') {
-            // Checkboxes named qnK[i]; IMathAS shows the correct ones joined by <br/>.
             $want = array_values(array_filter(array_map('dad_norm', preg_split('/<br\s*\/?>|\n/i', (string)$ans))));
             $picked = [];
-            foreach ($xp->query("//input[starts-with(@name,'{$name}[')]") as $in) {
+            foreach ($inputs as $in) {
                 if (in_array($labelText($in), $want, true)) {
                     $picked[(int)substr($in->getAttribute('name'), strlen($name) + 1)] = $in->getAttribute('value');
                 }
             }
-            if (count($picked) !== count($want)) { $problems[] = "part $pn (multans): matched " . count($picked) . " of " . count($want) . " correct options"; continue; }
-            $post[$name] = $picked;
+            if (!$want || count($picked) !== count($want)) { $problems[] = "part $pn (multans): matched " . count($picked) . " of " . count($want) . " correct options"; continue; }
+            $cands[$pn] = [[$name => $picked]];
         } elseif ($type === 'matching') {
-            // IMathAS shows the answer as the letter for each prompt in display order: "a d f e b h".
             $letters = preg_split('/\s+/', trim(dad_norm((string)$ans)));
+            $fields = [];
             foreach ($letters as $i => $l) {
                 if (!preg_match('/^[a-z]$/', $l)) { $problems[] = "part $pn (matching): unreadable answer \"$l\""; continue 2; }
-                $post["$name-$i"] = (string)(ord($l) - 97);
+                $fields["$name-$i"] = (string)(ord($l) - 97);
+            }
+            $cands[$pn] = [$fields];
+        } elseif (in_array($type, ['matrix', 'calcmatrix'], true)) {
+            // With a fixed size ("matrixsize"), each cell is its own box qnK-0, qnK-1, ... row by row;
+            // without one, the student types the whole matrix "[(1,2),(3,4)]" into one box.
+            $r = $rawPart('answer', $pn);
+            $m = dad_first_alternative(is_scalar($r) && trim((string)$r) !== '' ? (string)$r : (string)$ans);
+            $size = $render['jsparams'][$key]['matrixsize'] ?? null;
+            if ($size) {
+                $cells = preg_split('/\s*,\s*/', trim(preg_replace('/[\[\]()]/', ' ', str_replace('),(', ',', $m)), " ,"));
+                $fields = [];
+                foreach ($cells as $i => $c) $fields["$name-$i"] = $c;
+                $cands[$pn] = [$fields];
+            } else {
+                $cands[$pn] = [[$name => $m]];
             }
         } elseif (is_array($ans)) {
-            foreach (array_values($ans) as $i => $v) $post["$name-$i"] = dad_first_alternative((string)$v);
+            $fields = [];
+            foreach (array_values($ans) as $i => $v) $fields["$name-$i"] = dad_first_alternative((string)$v);
+            $cands[$pn] = [$fields];
         } else {
-            $post[$name] = dad_first_alternative((string)$ans);
+            // Typed answers: the author's $answer first, then the display form as typed.
+            $tries = [];
+            $r = $rawPart('answer', $pn);
+            if (is_scalar($r) && trim((string)$r) !== '') $tries[] = dad_first_alternative((string)$r);
+            if (trim((string)$ans) !== '') {
+                $tries[] = dad_first_alternative(dad_display_to_typed((string)$ans));
+                $tries[] = dad_first_alternative((string)$ans);
+            }
+            $tries = array_values(array_unique(array_filter($tries, fn($t) => $t !== '')));
+            if (!$tries) { $problems[] = "part $pn ($type): no correct answer to try"; continue; }
+            $cands[$pn] = array_map(fn($t) => [$name => $t], array_slice($tries, 0, 4));
         }
     }
-    return [$post, $problems, $untested];
-}
-
-/** IMathAS shows several accepted answers as "A or B or C"; a student types one of them. */
-function dad_first_alternative(string $display): string {
-    $parts = preg_split('/\s+or\s+/', dad_norm($display));
-    return $parts[0] ?? '';
+    return [$cands, $problems, $untested];
 }
 
 // --- Routes ---
@@ -264,6 +377,14 @@ if ($path === '/api/score') {
     dad_json(dad_score($dbh, $qdata, $seed, $answers, dad_is_multipart($qdata, $render['answeights'])));
 }
 
+if ($path === '/api/vars') {
+    // The question's variables after its code runs: what the self-test types, and a debugging aid.
+    $seed = (int)($body['seed'] ?? 4242);
+    $render = dad_render($dbh, $qdata, $seed);
+    dad_json(['vars' => dad_raw_vars($qdata, $seed), 'displayed' => $render['answers'],
+              'parts' => array_filter($render['jsparams'], fn($k) => is_numeric($k), ARRAY_FILTER_USE_KEY)]);
+}
+
 if ($path === '/api/selftest') {
     $seeds = array_slice(array_map('intval', (array)($body['seeds'] ?? [4242, 1, 2, 3, 5])), 0, 20);
     $runs = [];
@@ -272,8 +393,22 @@ if ($path === '/api/selftest') {
     foreach ($seeds as $seed) {
         $render = dad_render($dbh, $qdata, $seed);
         $multi = dad_is_multipart($qdata, $render['answeights']);
-        [$post, $problems, $untested] = dad_student_post($render, $multi, $qdata['qtype']);
-        $correct = dad_score($dbh, $qdata, $seed, [], $multi, $post);
+        $raw = dad_raw_vars($qdata, $seed);
+        [$cands, $problems, $untested] = dad_student_candidates($render, $multi, $qdata['qtype'], $raw);
+        if (isset($raw['_error'])) $problems[] = 'could not read the question variables: ' . $raw['_error'];
+        // Like a student: submit the best guess for every part, then retry only the parts that
+        // missed with their next candidate form, up to four rounds.
+        $pick = array_fill_keys(array_keys($cands), 0);
+        for ($round = 0; $round < 4; $round++) {
+            $post = [];
+            foreach ($cands as $pn => $list) $post += $list[$pick[$pn]];
+            $correct = dad_score($dbh, $qdata, $seed, [], $multi, $post);
+            $advanced = false;
+            foreach ($cands as $pn => $list) {
+                if ((float)($correct['raw'][$pn] ?? 0) < 0.98 && $pick[$pn] + 1 < count($list)) { $pick[$pn]++; $advanced = true; }
+            }
+            if (!$advanced) break;
+        }
         $blank = dad_score($dbh, $qdata, $seed, [], $multi, []);
         if ($render['errors']) $problems[] = 'render errors';
         if ($correct['errors']) $problems[] = 'score errors';

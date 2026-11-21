@@ -41,9 +41,15 @@ function dad_parse_mom(string $src): array {
         }
     }
 
-    // As in the VPS sandbox, the answer section runs as statements after control. IMathAS's own
-    // "answer" field is evaluated separately with seed+1, which this format never relied on.
-    if ($answer !== '') $control .= "\n" . $answer;
+    // The ANSWER section is one of two things. Newer files put code there (`$solutionguide = '...'`,
+    // per steve-desktop's learned-rules.md), which runs after control as in the VPS sandbox. Older
+    // files put the worked solution there as prose, which is MyOpenMath's Detailed Solution field;
+    // running prose as code is a syntax error on a question that is fine on MyOpenMath.
+    $solution = '';
+    if ($answer !== '') {
+        if (dad_looks_like_code($answer)) $control .= "\n" . $answer;
+        else $solution = $answer;
+    }
 
     return [
         'qtype' => $qtype,
@@ -51,7 +57,7 @@ function dad_parse_mom(string $src): array {
         'qcontrol' => '',
         'qtext' => $qtext,
         'answer' => '',
-        'solution' => '',
+        'solution' => $solution,
         'solutionopts' => 0,
         'hasimg' => 0,
         'extref' => '',
@@ -59,4 +65,17 @@ function dad_parse_mom(string $src): array {
         'a11yalt' => 0,
         'lastmoddate' => 0,
     ];
+}
+
+/**
+ * Whether an ANSWER section is question code rather than a prose solution: its first line that is
+ * not blank and not a comment starts like a statement (an assignment, a control keyword, a macro).
+ */
+function dad_looks_like_code(string $section): bool {
+    foreach (preg_split('/\R/', $section) as $line) {
+        $t = trim($line);
+        if ($t === '' || str_starts_with($t, '//')) continue;
+        return (bool)preg_match('/^(\$|if\s*\(|for\s*\(|foreach\s*\(|while\s*\(|loadlibrary\s*\(|includecodefrom\s*\(|[A-Za-z_]\w*\s*\(.*\)\s*;?$)/', $t);
+    }
+    return false;
 }

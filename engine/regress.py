@@ -3,6 +3,7 @@
 
     python3 engine/regress.py ~/Documents/GitHub/steve-desktop/steve-desktop/mom-content
     python3 engine/regress.py <bank> --only annuity --seeds 4242,7,99 --out /tmp/regress.json
+    python3 engine/regress.py <bank> --check engine/baseline.json   # fail on regressions
 
 For each question, the engine renders it at each seed, submits the question's own correct
 answers the way a student would (expects full marks) and a blank attempt (expects 0).
@@ -24,6 +25,7 @@ ap.add_argument("--seeds", default="4242,7,99")
 ap.add_argument("--only", default="", help="substring filter on the question path")
 ap.add_argument("--jobs", type=int, default=4)
 ap.add_argument("--out", type=pathlib.Path, default=pathlib.Path("/tmp/dad-regress.json"))
+ap.add_argument("--check", type=pathlib.Path, help="baseline.json: exit 1 if a question that passed there fails now")
 args = ap.parse_args()
 
 index = json.loads((args.bank / "reference" / "question-index.json").read_text())
@@ -72,3 +74,16 @@ print("\nWhy the rest fail (a question can count under several reasons):")
 for reason, n in counts.most_common(25):
     print(f"  {n:5d}  {reason}")
 print(f"\nfull results: {args.out}")
+
+if args.check:
+    base = json.loads(args.check.read_text())
+    broke = sorted(p for p, r in results.items() if base.get(p) and not r.get("pass"))
+    fixed = sorted(p for p, r in results.items() if base.get(p) is False and r.get("pass"))
+    if fixed:
+        print(f"\n{len(fixed)} question(s) now pass that failed in the baseline:")
+        for p in fixed: print("  " + p)
+    if broke:
+        print(f"\nREGRESSION: {len(broke)} question(s) passed in the baseline and fail now:")
+        for p in broke: print("  " + p)
+        sys.exit(1)
+    print("\nno regressions against the baseline")
