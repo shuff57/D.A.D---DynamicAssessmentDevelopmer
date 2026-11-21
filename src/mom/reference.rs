@@ -261,7 +261,7 @@ fn called_functions(code: &str) -> Vec<String> {
 /// The code with string literals and comments blanked (newlines kept), so words inside them are not
 /// taken for calls. One scan over the whole text: IMathAS strings span lines (a $solutionguide of
 /// several paragraphs is one string).
-fn strip_strings_and_comments(code: &str) -> String {
+pub(crate) fn strip_strings_and_comments(code: &str) -> String {
     let mut out = String::with_capacity(code.len());
     let mut chars = code.chars().peekable();
     let mut quote: Option<char> = None;

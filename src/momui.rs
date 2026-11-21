@@ -613,6 +613,8 @@ fn review_bar(ui: &mut Ui, st: &mut State) {
 }
 
 /// The question's own HTML inside the sandbox page, which hands it to IMathAS's `showandinit(0, {...})`.
+/// (Desktop quick look; the browser build shows the page itself.)
+#[cfg_attr(target_arch = "wasm32", allow(dead_code))]
 fn sandbox_question_html(page: &str) -> Option<String> {
     let rest = &page[page.find("showandinit(")? ..];
     let rest = &rest[rest.find(',')? + 1..];
@@ -634,6 +636,7 @@ fn sandbox_static(engine: &str) -> String {
 }
 
 /// Question text without its HTML (and without style or script blocks), for the desktop's quick look.
+#[cfg_attr(target_arch = "wasm32", allow(dead_code))]
 fn plain(html: &str) -> String {
     let mut html = html.to_string();
     for (open, close) in [("<style", "</style>"), ("<script", "</script>")] {

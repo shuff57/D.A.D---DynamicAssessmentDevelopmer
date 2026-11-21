@@ -255,19 +255,47 @@ fn engine_control(q: &MomQuestion) -> String {
 }
 
 /// IMathAS names a line ("syntax error ... on line 57 of Common Control") and the model has to count
-/// to find it; quote that line and its neighbours under the problem instead.
+/// to find it; quote the code there instead. At the top level IMathAS's number is the file's line
+/// and that line is marked. Inside a `{ }` block it skips blank and comment lines (measured: 1 to 2
+/// short), so the quote covers the block's lines from there to where the error can be, unmarked.
 pub fn with_code_context(problems: &[String], q: &MomQuestion) -> Vec<String> {
     let code = engine_control(q);
     let lines: Vec<&str> = code.lines().collect();
+    // Block depth at the start of each line, from the code with strings and comments blanked.
+    let bare = super::reference::strip_strings_and_comments(&code);
+    let mut depth_at = Vec::with_capacity(lines.len());
+    let mut depth: i32 = 0;
+    for l in bare.lines() {
+        depth_at.push(depth);
+        depth += l.matches('{').count() as i32 - l.matches('}').count() as i32;
+    }
+    let skippable = |i: usize| { let t = lines[i].trim(); t.is_empty() || t.starts_with("//") || t.starts_with('#') };
     problems.iter().map(|p| {
         let Some(at) = p.find("on line ") else { return p.clone() };
         let digits: String = p[at + 8..].chars().take_while(|c| c.is_ascii_digit()).collect();
         let Ok(n) = digits.parse::<usize>() else { return p.clone() };
         if n == 0 || n > lines.len() || p[at..].contains("in file") || p[at..].contains(".php") { return p.clone(); }
+        let inside = depth_at.get(n - 1).copied().unwrap_or(0) > 0;
         let mut out = p.clone();
-        out.push_str("\n  The code around that line:");
-        for i in n.saturating_sub(2)..(n + 1).min(lines.len()) {
-            out.push_str(&format!("\n  {}{:>4} | {}", if i + 1 == n { ">" } else { " " }, i + 1, lines[i]));
+        if !inside {
+            out.push_str("\n  The code around that line:");
+            for i in n.saturating_sub(2)..(n + 1).min(lines.len()) {
+                out.push_str(&format!("\n  {}{:>4} | {}", if i + 1 == n { ">" } else { " " }, i + 1, lines[i]));
+            }
+        } else {
+            // From line n on, count IMathAS's lines (skipping blank and comment ones) until the block
+            // closes; the error is at most that far down.
+            let mut end = n - 1;
+            let mut counted = 0;
+            while end + 1 < lines.len() && depth_at.get(end + 1).copied().unwrap_or(0) > 0 && counted < 8 {
+                end += 1;
+                if !skippable(end) { counted += 1; }
+                if counted >= 3 { break; }
+            }
+            out.push_str("\n  That line is inside a { } block, where IMathAS's line count skips blank and comment lines, so the error is at or a little below it:");
+            for i in n.saturating_sub(2)..=end.min(lines.len() - 1) {
+                out.push_str(&format!("\n   {:>4} | {}", i + 1, lines[i]));
+            }
         }
         out
     }).collect()
@@ -590,6 +618,10 @@ mod tests {
         // Line 4 is the ANSWER code, which the engine runs right after the control.
         let out = with_code_context(&["syntax error on line 4 of Common Control".into()], &q);
         assert!(out[0].contains(">   4 | $solutionguide = 'x'"), "{}", out[0]);
+        // Inside a block the number runs short: the quote reaches below it, unmarked.
+        let looped = MomQuestion { control: "$a = array(1,2)\nfor ($i = 0; $i < 2; $i++) {\n  // note\n\n  $u = 2 * $a\n}\n$answer = 1".into(), ..Default::default() };
+        let out = with_code_context(&["Unsupported operand types on line 3 of Common Control".into()], &looped);
+        assert!(out[0].contains("inside a { } block") && out[0].contains("   5 |   $u = 2 * $a") && !out[0].contains(">"), "{}", out[0]);
         // An error inside IMathAS's own files is not the question's line.
         let out = with_code_context(&["Undefined index on line 2 in file /imathas/x.php".into()], &q);
         assert!(!out[0].contains("code around"));

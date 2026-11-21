@@ -82,6 +82,13 @@ fn main() -> Result<(), eframe::Error> {
     }
     // Headless: DAD_EVAL=harness/evals.json runs the question-writing harness (see src/mom/harness.rs).
     #[cfg(not(target_arch = "wasm32"))]
+    if vershion::env_var("DAD_REJUDGE").is_ok() {
+        if let Err(e) = vershion::mom::harness::rejudge_from_env() {
+            eprintln!("rejudge: {e}");
+            std::process::exit(1);
+        }
+        return Ok(());
+    }
     if vershion::env_var("DAD_EVAL").is_ok() {
         if let Err(e) = vershion::mom::harness::run_from_env() {
             eprintln!("harness: {e}");

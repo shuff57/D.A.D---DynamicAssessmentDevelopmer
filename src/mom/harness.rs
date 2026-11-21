@@ -274,6 +274,42 @@ pub fn report(results: &[CaseResult], cases: &[EvalCase], models: &[String]) -> 
     out
 }
 
+/// Re-judge a finished run's passing questions with another model (`DAD_REJUDGE=<run dir>`,
+/// `DAD_REJUDGE_MODEL=<label>`): an independent check when the run's own judge also coached the
+/// writer in the loop. Writes `<run dir>/rejudge-<label>.jsonl` and prints a summary line.
+pub fn rejudge_from_env() -> Result<(), String> {
+    let env = |k: &str| crate::env_var(k).ok();
+    let dir = std::path::PathBuf::from(env("DAD_REJUDGE").unwrap());
+    let models_file: ModelsFile = serde_json::from_str(&std::fs::read_to_string(env("DAD_EVAL_MODELS").unwrap_or_else(|| "harness/models.json".into())).map_err(|e| e.to_string())?)
+        .map_err(|e| format!("models file: {e}"))?;
+    let label = env("DAD_REJUDGE_MODEL").ok_or("DAD_REJUDGE_MODEL=<label> is required")?;
+    let cfg = models_file.models.iter().find(|m| m.label == label).ok_or(format!("no model {label}"))?.cfg();
+    let cases: Vec<EvalCase> = serde_json::from_str::<EvalFile>(&std::fs::read_to_string(env("DAD_EVAL").unwrap_or_else(|| "harness/evals.json".into())).map_err(|e| e.to_string())?)
+        .map_err(|e| format!("evals file: {e}"))?.cases;
+    let results = load_results(&dir.join("results.jsonl"));
+    let todo: Vec<&CaseResult> = results.iter().filter(|r| r.passed && r.question.is_some()).collect();
+    let jobs: usize = env("DAD_EVAL_JOBS").and_then(|t| t.parse().ok()).unwrap_or(4).max(1);
+    let queue = Mutex::new(todo.iter().collect::<VecDeque<_>>());
+    let out = Mutex::new(Vec::new());
+    std::thread::scope(|s| for _ in 0..jobs {
+        s.spawn(|| loop {
+            let Some(r) = queue.lock().unwrap().pop_front() else { break };
+            let request = cases.iter().find(|c| c.id == r.case).map(|c| c.request.clone()).unwrap_or_default();
+            let q = MomQuestion::parse(r.question.as_deref().unwrap_or(""));
+            let j = judge(&cfg, &request, &q);
+            out.lock().unwrap().push((r.case.clone(), j.ok()));
+        });
+    });
+    let out = out.into_inner().unwrap();
+    let scores: Vec<u8> = out.iter().filter_map(|(_, j)| j.as_ref().map(|j| j.score)).collect();
+    let mut f = std::fs::File::create(dir.join(format!("rejudge-{label}.jsonl"))).map_err(|e| e.to_string())?;
+    for (case, j) in &out { let _ = writeln!(f, "{}", serde_json::json!({"case": case, "judge": j})); }
+    let mean = scores.iter().map(|&x| x as f64).sum::<f64>() / scores.len().max(1) as f64;
+    println!("{}: {} passed of {}, re-judged by {label}: mean {:.2}, 4+ {}/{}, unanswered {}",
+        dir.display(), todo.len(), results.len(), mean, scores.iter().filter(|&&x| x >= 4).count(), results.len(), out.len() - scores.len());
+    Ok(())
+}
+
 /// The `DAD_EVAL` entry point.
 pub fn run_from_env() -> Result<(), String> {
     let env = |k: &str| crate::env_var(k).ok();
