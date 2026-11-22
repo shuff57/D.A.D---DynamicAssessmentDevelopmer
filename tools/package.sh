@@ -54,8 +54,6 @@ if [ "$OS" = Darwin ]; then
   <key>NSHighResolutionCapable</key><true/>
 </dict></plist>
 PLIST
-  # Ad-hoc signature: Apple Silicon refuses unsigned code. Real signing and notarization: docs/dad/SIGNING.md.
-  codesign --force --deep -s - "$APP"
   LICENSES="$APP/Contents/Resources"
 else
   cp "$BIN" "$OUT/$NAME/DAD"
@@ -79,6 +77,12 @@ Keep all your data next to the app (USB stick, locked-down computer): create an 
 
 The app is MIT-licensed; the IMathAS question checker it runs is GPL-2.0-only (see the licenses).
 TXT
+
+if [ "$OS" = Darwin ]; then
+  # Seal the complete bundle, including licenses. Developer ID signing: docs/dad/SIGNING.md.
+  codesign --force -s - "$APP"
+  codesign --verify --deep --strict "$APP"
+fi
 
 cd "$OUT"
 if [ "$OS" = Darwin ]; then
