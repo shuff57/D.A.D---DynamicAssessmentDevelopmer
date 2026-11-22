@@ -1874,7 +1874,9 @@ mod overlay {
         let _ = b.set_attribute("type", "button");
         let _ = b.set_attribute("style", &format!(
             "font:600 15px 'Source Sans 3',system-ui,sans-serif;padding:8px 18px;border-radius:10px;cursor:pointer;border:1px solid {};background:{};color:{}",
-            if primary { "#2d5e45" } else { "#cbbfa8" }, if primary { "#2d5e45" } else { "#fffdf8" }, if primary { "#fff" } else { "#241f16" }));
+            if primary { "#234839" } else { "var(--dad-edge,#9c8672)" },
+            if primary { "#234839" } else { "var(--dad-card,#fffdf8)" },
+            if primary { "#fff5df" } else { "var(--dad-ink,#234839)" }));
         let click = Closure::<dyn FnMut()>::new(move || {
             ACTION.store(code, Ordering::Relaxed);
             close();
@@ -1895,9 +1897,9 @@ mod overlay {
         let _ = panel.set_attribute("role", "dialog");
         let _ = panel.set_attribute("aria-modal", "true");
         let _ = panel.set_attribute("aria-label", "Sandbox: try the question as a student");
-        let _ = panel.set_attribute("style", "position:fixed;inset:0;z-index:30;display:flex;flex-direction:column;background:#f7f4ed");
+        let _ = panel.set_attribute("style", "position:fixed;inset:0;z-index:30;display:flex;flex-direction:column;background:var(--dad-desk,#fff5df)");
         let Ok(bar) = doc.create_element("div") else { return };
-        let _ = bar.set_attribute("style", "display:flex;flex-wrap:wrap;gap:10px;align-items:center;padding:12px 20px;border-bottom:1px solid #d8cfbf;background:#fffdf8;font:15px 'Source Sans 3',system-ui,sans-serif;color:#241f16");
+        let _ = bar.set_attribute("style", "display:flex;flex-wrap:wrap;gap:10px;align-items:center;padding:12px 20px;border-bottom:1px solid var(--dad-edge,#9c8672);background:var(--dad-card,#fffdf8);font:15px 'Source Sans 3',system-ui,sans-serif;color:var(--dad-ink,#234839)");
         let Ok(title) = doc.create_element("div") else { return };
         let _ = title.set_attribute("style", "margin-right:auto;min-width:0");
         title.set_inner_html(if can_approve {

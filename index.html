@@ -3,9 +3,9 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>verSHion</title>
-  <link data-trunk rel="icon" href="assets/icons/favicon.ico" sizes="48x48" />
-  <link data-trunk rel="icon" href="assets/icons/favicon.svg" type="image/svg+xml" />
+  <title>D.A.D · Dynamic Assessment Developer</title>
+  <link data-trunk rel="icon" href="assets/icons/favicon.ico" sizes="16x16 32x32 48x48" />
+  <link data-trunk rel="icon" href="assets/icons/favicon.svg" type="image/svg+xml" sizes="any" />
   <link data-trunk rel="copy-file" href="assets/icons/apple-touch-icon.png" />
   <link rel="apple-touch-icon" href="apple-touch-icon.png" />
   <link data-trunk rel="copy-file" href="assets/icons/site.webmanifest" />
@@ -13,8 +13,8 @@
   <link data-trunk rel="copy-file" href="assets/icons/icon-512.png" />
   <link data-trunk rel="copy-file" href="assets/icons/icon-maskable-512.png" />
   <link rel="manifest" href="site.webmanifest" />
-  <meta name="theme-color" content="#2F5D46" />
-  <link data-trunk rel="copy-file" href="assets/loading-logo.svg" />
+  <meta name="theme-color" content="#234839" />
+  <link data-trunk rel="copy-file" href="assets/dad-logo.svg" />
   <link data-trunk rel="copy-dir" href="assets/help" data-target-path="help" />
   <!-- The contact page (the shared Left Hand Dev form), served at /contact/ beside the app. -->
   <link data-trunk rel="copy-dir" href="server/web/contact" data-target-path="contact" />
@@ -58,18 +58,29 @@
   <link rel="preload" href="pdf-fonts/FoxitDingbats.pfb" as="fetch" crossorigin />
   <link rel="preload" href="pdf-fonts/FoxitSymbol.pfb" as="fetch" crossorigin />
   <style>
-    :root { color-scheme: light dark; }
+    :root {
+      color-scheme: light dark;
+      --dad-desk: #fff5df;
+      --dad-card: #fffdf8;
+      --dad-ink: #234839;
+      --dad-edge: #9c8672;
+    }
     /* egui-web's hidden text-input element (the keyboard/IME bridge) sits at the text caret, 1px
        wide, and shows a sliver of the last typed character there; keep its text invisible */
     body > input { color: transparent !important; background: transparent !important; }
     html, body { margin: 0; height: 100%; overflow: hidden; }
     body {
-      background: #f7f4ed;
-      color: #2b211c;
+      background: var(--dad-desk);
+      color: var(--dad-ink);
       font-family: "Source Sans 3", system-ui, -apple-system, "Segoe UI", sans-serif;
     }
     @media (prefers-color-scheme: dark) {
-      body { background: #211c18; color: #ece4dc; }
+      :root {
+        --dad-desk: #211c18;
+        --dad-card: #2b2520;
+        --dad-ink: #fff5df;
+        --dad-edge: #85725f;
+      }
     }
     #vershion_canvas { display: block; width: 100vw; height: 100vh; }
     #vershion_loading {
@@ -78,13 +89,10 @@
       background: inherit; transition: opacity .35s ease;
     }
     #vershion_loading img {
-      width: min(52vw, 340px); height: auto;
+      width: min(88vw, 390px); height: auto;
       max-height: 60vh;
     }
     #vershion_loading p { margin: 12px 24px; max-width: 46ch; line-height: 1.45; }
-    @media (prefers-reduced-motion: reduce) {
-      #vershion_loading img { animation: none !important; }
-    }
   </style>
   <!-- Umami (self-hosted, cookieless) visit counts; counts only on the live host. -->
   <script defer src="https://dash.rashio.app/insight.js" data-website-id="12bebe62-f0c0-4d2e-8cee-8d1119f56554" data-domains="vershion.lefthanddev.com"></script>
@@ -92,8 +100,8 @@
 <body>
   <div id="vershion_loading">
     <div>
-      <img src="loading-logo.svg" alt="Loading verSHion" />
-      <noscript><p>verSHion needs JavaScript and WebGL2.</p></noscript>
+      <img src="dad-logo.svg" alt="Loading D.A.D · Dynamic Assessment Developer" />
+      <noscript><p>D.A.D needs JavaScript and WebGL2.</p></noscript>
     </div>
   </div>
   <canvas id="vershion_canvas"></canvas>

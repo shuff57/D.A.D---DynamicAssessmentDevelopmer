@@ -62,24 +62,29 @@ pub struct Palette {
     pub grid_line: Color32,
 }
 
+const DAD_FOREST: Color32 = Color32::from_rgb(0x23, 0x48, 0x39);
+const DAD_CREAM: Color32 = Color32::from_rgb(0xff, 0xf5, 0xdf);
+const DAD_GOLD: Color32 = Color32::from_rgb(0xb1, 0x84, 0x2e);
+const DAD_SAGE: Color32 = Color32::from_rgb(0xa8, 0xb9, 0xa9);
+
 pub const fn light_palette() -> Palette {
     Palette {
-        cream: Color32::from_rgb(0xf7, 0xf4, 0xed),
-        rail: Color32::from_rgb(0x33, 0x2a, 0x24),
+        cream: DAD_CREAM,
+        rail: DAD_FOREST,
         card: Color32::from_rgb(0xff, 0xfd, 0xf8),
         field: Color32::from_rgb(0xf3, 0xee, 0xe3),
         border: Color32::from_rgb(0xe0, 0xd3, 0xc2),
         rule: Color32::from_rgb(0xbd, 0xa9, 0x95),
-        ink: Color32::from_rgb(0x33, 0x2a, 0x24),
+        ink: DAD_FOREST,
         text: Color32::from_rgb(0x5e, 0x4c, 0x40),
         muted: Color32::from_rgb(0x7a, 0x63, 0x50),
-        accent: Color32::from_rgb(0x2f, 0x61, 0x44),
-        accent_hover: Color32::from_rgb(0x3b, 0x74, 0x53),
+        accent: DAD_FOREST,
+        accent_hover: Color32::from_rgb(0x31, 0x5c, 0x49),
         accent_faded: Color32::from_rgb(0xdf, 0xe9, 0xd4),
-        on_accent: Color32::from_rgb(0xf7, 0xfb, 0xf3),
-        highlighter: Color32::from_rgb(0xf3, 0xdc, 0x6a),
+        on_accent: DAD_CREAM,
+        highlighter: DAD_GOLD,
         hover_bg: Color32::from_rgb(0xef, 0xe8, 0xdb),
-        green: Color32::from_rgb(0x2f, 0x61, 0x44),
+        green: DAD_FOREST,
         red: Color32::from_rgb(0xa3, 0x3b, 0x2e),
         table: Color32::from_rgb(0xe8, 0xdf, 0xce),
         grid_line: Color32::from_rgba_premultiplied(3, 2, 2, 14),
@@ -89,21 +94,21 @@ pub const fn light_palette() -> Palette {
 pub const fn dark_palette() -> Palette {
     Palette {
         cream: Color32::from_rgb(0x21, 0x1c, 0x18),
-        rail: Color32::from_rgb(0x14, 0x10, 0x0d),
+        rail: DAD_FOREST,
         card: Color32::from_rgb(0x2b, 0x25, 0x20),
         field: Color32::from_rgb(0x21, 0x1c, 0x18),
         border: Color32::from_rgb(0x4b, 0x3f, 0x35),
         rule: Color32::from_rgb(0x6d, 0x5c, 0x4b),
-        ink: Color32::from_rgb(0xf2, 0xe8, 0xdd),
+        ink: DAD_CREAM,
         text: Color32::from_rgb(0xd3, 0xc2, 0xb2),
         muted: Color32::from_rgb(0xa9, 0x93, 0x7e),
-        accent: Color32::from_rgb(0x9d, 0xcb, 0xa0),
-        accent_hover: Color32::from_rgb(0xb3, 0xdc, 0xb5),
-        accent_faded: Color32::from_rgb(0x2d, 0x3b, 0x2c),
+        accent: DAD_SAGE,
+        accent_hover: Color32::from_rgb(0xc1, 0xce, 0xbb),
+        accent_faded: Color32::from_rgb(0x2c, 0x3e, 0x34),
         on_accent: Color32::from_rgb(0x0e, 0x20, 0x12),
-        highlighter: Color32::from_rgb(0xe9, 0xcf, 0x55),
+        highlighter: DAD_GOLD,
         hover_bg: Color32::from_rgb(0x38, 0x30, 0x28),
-        green: Color32::from_rgb(0x9d, 0xcb, 0xa0),
+        green: DAD_SAGE,
         red: Color32::from_rgb(0xe0, 0x82, 0x6e),
         table: Color32::from_rgb(0x16, 0x12, 0x10),
         grid_line: Color32::from_rgba_premultiplied(2, 2, 2, 11),
@@ -438,7 +443,7 @@ pub fn edge() -> Color32 {
     }
 }
 /// The question-type hues of a bank's type key and type-mix bar, in `bankui::mix_index` order:
-/// multiple choice (the theme green), true/false (ochre), multipart (slate blue), matching
+/// multiple choice (green), true/false (ochre), multipart (slate blue), matching
 /// (plum), fill in the blank (teal), short answer (a warm neutral). One set for the key's swatches
 /// and the bar's segments, so a swatch names its segment. Each is 3:1 or more on `card` (light
 /// 3.1-13.2 on #fffdf8, dark 3.1-8.3 on #2b2520); every pair is at least 14.9 (light) / 13.3
@@ -476,9 +481,9 @@ pub fn highlighter() -> Color32 { pal().highlighter }
 pub fn table() -> Color32 { pal().table }
 pub fn grid_line() -> Color32 { pal().grid_line }
 /// Dark ink for text painted on the highlighter (same in both modes).
-pub fn on_highlighter() -> Color32 { Color32::from_rgb(0x33, 0x2a, 0x24) }
+pub fn on_highlighter() -> Color32 { Color32::from_rgb(0x19, 0x15, 0x10) }
 /// Dock label color (AA on the rail in both modes).
-pub fn dock_text() -> Color32 { Color32::from_rgb(0xe9, 0xdf, 0xd2) }
+pub fn dock_text() -> Color32 { DAD_CREAM }
 pub fn green() -> Color32 { pal().green }
 pub fn red() -> Color32 { pal().red }
 pub fn bad() -> Color32 { pal().red }
