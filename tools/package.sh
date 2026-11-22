@@ -3,7 +3,7 @@
 #   Linux:  dist/desktop/DAD-<version>-linux-<arch>.tar.gz  (DAD + engine/ in one folder)
 #   macOS:  dist/desktop/DAD-<version>-macos-<arch>.zip     (DAD.app; engine in Contents/Resources)
 # The question checker's files ship beside the app; PHP is fetched once on first use (see
-# src/mom/localengine.rs). Put a file named `portable` next to DAD to keep all data in DAD-data/.
+# src/mom/localengine.rs). Put a file named `portable` next to DAD or DAD.app to keep data in DAD-data/.
 # usage: tools/package.sh [rust-target-triple]     (default: this machine)
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -73,7 +73,7 @@ them as a student, and adds them to MyOpenMath for you.
 Start: $( [ "$OS" = Darwin ] && echo "open DAD.app (the first time: right-click it, choose Open, then Open)" || echo "run ./DAD" )
 Nothing to install. The first question check downloads the checker's PHP once (about 12 MB).
 Keep all your data next to the app (USB stick, locked-down computer): create an empty file named
-"portable" next to $( [ "$OS" = Darwin ] && echo "DAD.app's executable (DAD.app/Contents/MacOS)" || echo "DAD" ).
+"portable" next to $( [ "$OS" = Darwin ] && echo "DAD.app" || echo "DAD" ).
 
 The app is MIT-licensed; the IMathAS question checker it runs is GPL-2.0-only (see the licenses).
 TXT

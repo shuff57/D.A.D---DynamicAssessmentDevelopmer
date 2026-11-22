@@ -41,6 +41,18 @@ jobs:
         # mold: .cargo/config.toml links Linux x86_64 with it
       - name: Package
         run: tools/package.sh ${{ matrix.target }}
+      - name: Smoke-test the macOS archive in portable mode
+        if: runner.os == 'macOS'
+        run: |
+          sandbox=$(mktemp -d)
+          ditto -x -k dist/desktop/*.zip "$sandbox"
+          apps=("$sandbox"/*/DAD.app)
+          app="${apps[0]}"
+          app_dir=$(dirname "$app")
+          touch "$app_dir/portable"
+          XDG_DATA_HOME="$sandbox/data" VERSHION_SEED=1 "$app/Contents/MacOS/DAD"
+          test -s "$app_dir/DAD-data/banks.json"
+          codesign --verify --deep --strict "$app"
       - uses: actions/upload-artifact@v4
         with:
           name: DAD-${{ matrix.target }}

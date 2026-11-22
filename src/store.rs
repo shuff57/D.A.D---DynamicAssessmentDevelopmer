@@ -23,13 +23,23 @@ fn store_dir_from_env() -> PathBuf {
     data_base().join("vershion")
 }
 
-/// Portable mode (desktop): a file named `portable` beside the app keeps everything in `DAD-data`
-/// beside it, so the app runs from a USB stick or a folder on a machine where it can't install.
+/// A `portable` file beside the app keeps its data in a sibling `DAD-data` directory.
 fn portable_dir() -> Option<PathBuf> {
     #[cfg(not(target_arch = "wasm32"))]
     {
         let exe = std::env::current_exe().ok()?;
         let dir = exe.parent()?;
+        #[cfg(target_os = "macos")]
+        let dir = {
+            let bundle = dir.parent().and_then(std::path::Path::parent);
+            match bundle.filter(|bundle| {
+                bundle.extension().is_some_and(|extension| extension == "app")
+                    && dir == bundle.join("Contents/MacOS")
+            }) {
+                Some(bundle) => bundle.parent()?,
+                None => dir,
+            }
+        };
         if dir.join("portable").is_file() {
             return Some(dir.join("DAD-data"));
         }
