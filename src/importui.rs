@@ -189,6 +189,10 @@ fn dup_key(q: &crate::model::Question) -> String {
 /// Plain text of a .docx: paragraphs become lines, empty paragraphs keep the blank
 /// lines the Blackboard grammar uses between questions.
 fn docx_text(bytes: &[u8]) -> Result<String, String> {
+    Ok(docx_plain_text(&docx_body(bytes)?))
+}
+
+pub(crate) fn docx_body(bytes: &[u8]) -> Result<String, String> {
     use std::io::Read;
     let mut z = zip::ZipArchive::new(std::io::Cursor::new(bytes))
         .map_err(|_| "that Word file couldn't be opened (is it a .docx?)".to_string())?;
@@ -197,6 +201,10 @@ fn docx_text(bytes: &[u8]) -> Result<String, String> {
         .map_err(|_| "that Word file has no document body".to_string())?
         .read_to_string(&mut xml)
         .map_err(|e| e.to_string())?;
+    Ok(xml)
+}
+
+pub(crate) fn docx_plain_text(xml: &str) -> String {
     let xml = xml
         .replace("</w:p>", "\n")
         .replace("<w:br/>", "\n")
@@ -211,12 +219,12 @@ fn docx_text(bytes: &[u8]) -> Result<String, String> {
             _ => {}
         }
     }
-    Ok(out
+    out
         .replace("&lt;", "<")
         .replace("&gt;", ">")
         .replace("&quot;", "\"")
         .replace("&apos;", "'")
-        .replace("&amp;", "&"))
+        .replace("&amp;", "&")
 }
 
 fn text_kind(name: &str, ext: &str, text: &str) -> &'static str {
@@ -642,15 +650,6 @@ impl crate::App {
         edit_dialog(self, ctx, &mut st);
         ST.with(|s| *s.borrow_mut() = st);
     }
-}
-
-/// Stages a file handed over by a host (officecraft drag/drop, browser picker) and opens Imports.
-pub fn open_external(app: &mut crate::App, name: &str, bytes: Vec<u8>) {
-    let mut st = ST.with(|s| std::mem::take(&mut *s.borrow_mut()));
-    st.inited = true;
-    add_bytes(app, &mut st, name, bytes, "file");
-    ST.with(|s| *s.borrow_mut() = st);
-    app.screen = crate::Screen::Imports;
 }
 
 // ----- the bank's Import modal (the same import, in place over the bank) -----

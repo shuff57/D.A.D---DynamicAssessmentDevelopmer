@@ -20,6 +20,7 @@ impl Desktop {
 
 impl eframe::App for Desktop {
     fn on_exit(&mut self) {
+        vershion::mom::desktop_browser::stop();
         // The question checker this app started (macOS and Windows have no parent-death signal).
         vershion::mom::localengine::stop();
     }
@@ -500,7 +501,7 @@ fn main() -> Result<(), eframe::Error> {
         .unwrap_or([1180.0, 780.0]);
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
-            .with_title("verSHion")
+            .with_title("D.A.D")
             .with_decorations(true)
             .with_inner_size(size)
             .with_min_inner_size([760.0, 520.0]),

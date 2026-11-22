@@ -71,6 +71,14 @@ pub fn find_executable() -> Option<PathBuf> {
 impl Chrome {
     /// Starts Chrome on `profile` (created if missing). `headless`: no window (the server browser).
     pub fn launch(profile: &Path, headless: bool) -> Result<Chrome, String> {
+        Self::launch_with_options(profile, headless, false)
+    }
+
+    pub(crate) fn launch_student_preview(profile: &Path) -> Result<Chrome, String> {
+        Self::launch_with_options(profile, true, true)
+    }
+
+    fn launch_with_options(profile: &Path, headless: bool, student_preview: bool) -> Result<Chrome, String> {
         let exe = find_executable().ok_or("Chrome or Edge isn't installed on this computer. Install Google Chrome, then try again.")?;
         std::fs::create_dir_all(profile).map_err(|e| format!("Could not make the browser folder: {e}"))?;
         let port_file = profile.join("DevToolsActivePort");
@@ -91,6 +99,10 @@ impl Chrome {
             .stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::null());
         if headless {
             cmd.arg("--headless=new");
+        }
+        if student_preview && cfg!(target_os = "linux") {
+            // The local student player never signs in. Don't ask for the desktop wallet.
+            cmd.arg("--password-store=basic");
         }
         let mut child = cmd.spawn().map_err(|e| format!("Could not start {}: {e}", exe.display()))?;
         let start = Instant::now();

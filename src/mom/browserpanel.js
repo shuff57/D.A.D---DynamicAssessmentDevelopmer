@@ -1,6 +1,6 @@
 // The MyOpenMath helper panel (web app): a live view of the helper's browser (src/mom/browserd.rs)
 // that the teacher can watch and take over, with the course and assessment pickers and the Add
-// button. window.dadBrowser.open({server, token, question, name, save, onSave(save)}).
+// buttons. window.dadBrowser.open({server, token, question, name}).
 (function () {
   if (window.dadBrowser) return;
   var ID = 'dad_mom_helper';
@@ -39,11 +39,14 @@
     var bar2 = el('div', { class: 'bar' });
     var course = el('select', { 'aria-label': 'Course' }); course.appendChild(el('option', { value: '' }, 'Course: loading…'));
     var assess = el('select', { 'aria-label': 'Assessment' }); assess.appendChild(el('option', { value: '' }, 'Assessment'));
-    var saveLab = el('label', {}); var save = el('input', { type: 'checkbox' }); save.checked = !!o.save;
-    saveLab.appendChild(save); saveLab.appendChild(document.createTextNode(' Save it automatically'));
-    var add = el('button', { type: 'button', class: 'primary' }, 'Add This Question'); add.disabled = true;
+    var preview = el('button', { type: 'button' }, 'Preview in MyOpenMath');
+    var add = el('button', { type: 'button', class: 'primary' }, 'Publish to selected assessment');
+    preview.disabled = add.disabled = true;
+    var working = false;
+    var attempted = new Set();
+    var pendingAttachment = new Set();
     var result = el('span', { class: 'grow' });
-    [course, assess, saveLab, add, result].forEach(function (x) { bar2.appendChild(x); });
+    [course, assess, preview, add, result].forEach(function (x) { bar2.appendChild(x); });
     var view = el('div', { class: 'view' });
     var canvas = el('canvas', { tabindex: '0', 'aria-label': 'The MyOpenMath page' });
     var keys = el('textarea', { class: 'keys', 'aria-hidden': 'true', autocomplete: 'off', autocapitalize: 'off', spellcheck: 'false' });
@@ -66,17 +69,27 @@
       sel.appendChild(el('option', { value: '' }, list.length ? label : label + ' (none found)'));
       list.forEach(function (x) { sel.appendChild(el('option', { value: String(x.id) }, x.name)); });
     }
-    function ready() { add.disabled = !(course.value && assess.value); }
+    function targetKey() { return course.value + ':' + assess.value; }
+    function ready() {
+      course.disabled = assess.disabled = working;
+      preview.disabled = working || !(course.value && assess.value);
+      add.disabled = preview.disabled || attempted.has(targetKey());
+      add.textContent = pendingAttachment.has(targetKey()) ? 'Retry attachment' : 'Publish to selected assessment';
+    }
 
     ctl.onclick = function () { send({ type: controller === 'you' ? 'release' : 'take' }); };
     closeBtn.onclick = close;
     course.onchange = function () { fill(assess, [], 'Assessment'); assess.firstChild.textContent = 'Assessment: loading…'; ready(); if (course.value) send({ type: 'assessments', cid: +course.value }); };
     assess.onchange = ready;
-    save.onchange = function () { if (o.onSave) o.onSave(save.checked); };
-    add.onclick = function () {
+    function openEditor(publish) {
       result.textContent = ''; result.className = 'grow';
-      send({ type: 'add', cid: +course.value, aid: +assess.value, question: o.question, save: save.checked });
-    };
+      if (publish) attempted.add(targetKey());
+      working = true;
+      ready();
+      send({ type: 'add', cid: +course.value, aid: +assess.value, question: o.question, save: publish });
+    }
+    preview.onclick = function () { openEditor(false); };
+    add.onclick = function () { openEditor(true); };
 
     // The screen's real pixels per CSS pixel: the page is rendered and drawn at this density, so
     // text stays sharp on high-density screens.
@@ -117,7 +130,7 @@
       var m = JSON.parse(ev.data);
       if (m.type === 'control') setControl(m.controller);
       else if (m.type === 'status') { status.textContent = m.line; status.className = 'status grow'; }
-      else if (m.type === 'error') { status.textContent = m.message; status.className = 'bad grow'; }
+      else if (m.type === 'error') { working = false; ready(); status.textContent = m.message; status.className = 'bad grow'; }
       else if (m.type === 'courses') {
         fill(course, m.list, 'Pick a course');
         if (o.course && m.list.some(function (c) { return c.id === o.course; })) { course.value = String(o.course); course.onchange(); }
@@ -126,7 +139,18 @@
         if (o.assessment && m.list.some(function (a) { return a.id === o.assessment; })) assess.value = String(o.assessment);
         ready();
         if (o.onTarget) o.onTarget(+course.value, +assess.value || 0);
-      } else if (m.type === 'added') { result.textContent = (m.ok ? '✔ ' : '') + m.message; result.className = (m.ok ? 'good' : 'bad') + ' grow'; }
+      } else if (m.type === 'added') {
+        if (m.retryAttachment) {
+          attempted.delete(targetKey());
+          pendingAttachment.add(targetKey());
+        } else if (m.ok && attempted.has(targetKey())) {
+          pendingAttachment.delete(targetKey());
+        }
+        working = false;
+        ready();
+        result.textContent = (m.ok ? '✔ ' : '') + m.message;
+        result.className = (m.ok ? 'good' : 'bad') + ' grow';
+      }
     };
 
     // ---- the teacher's input, in page pixels ----

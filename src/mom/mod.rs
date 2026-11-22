@@ -7,6 +7,8 @@ pub mod browserd;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod chrome;
 #[cfg(not(target_arch = "wasm32"))]
+pub mod desktop_browser;
+#[cfg(not(target_arch = "wasm32"))]
 pub mod livecdp;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod localengine;
@@ -19,5 +21,8 @@ pub mod health;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod poster;
 pub mod reference;
+#[cfg(not(target_arch = "wasm32"))]
+pub(crate) mod student_text;
+pub mod worksheet;
 
 pub use format::MomQuestion;

@@ -7,7 +7,7 @@ use egui::{Align2, Color32, CornerRadius, Margin, RichText, Stroke, Ui, Vec2};
 use crate::{kit, pageshell, theme};
 
 /// The notice, worded once: the popup and the sign-in card both show it.
-pub const TEXT: &str = "verSHion is in alpha and under active development, so things may be slow, change, or break.";
+pub const TEXT: &str = "D.A.D is in alpha and under active development, so things may be slow, change, or break.";
 
 /// What the person did this frame.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -48,7 +48,7 @@ fn popup_modal(ctx: &egui::Context) -> Outcome {
             ui.set_width(440.0_f32.min(ctx.content_rect().width() - 80.0).max(240.0));
             kit::small_caps(ui, "Alpha");
             ui.add_space(2.0);
-            ui.label(theme::serif("verSHion is still being built").size(22.0));
+            ui.label(theme::serif("D.A.D is still being built").size(22.0));
             ui.add_space(8.0);
             ui.add(egui::Label::new(theme::text(TEXT)).wrap());
             ui.add_space(14.0);

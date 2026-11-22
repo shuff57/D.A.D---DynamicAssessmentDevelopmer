@@ -4,7 +4,7 @@
 //!    dropdowns and checkboxes (src/mom/form.rs turns them into the AI's request). While the AI
 //!    writes, progress is in plain words.
 //! 2. Try it: the question exactly as students see it (the engine's MyOpenMath page: full-window in
-//!    the browser build, the system browser on the desktop), then Looks Good, or a "change it"
+//!    the browser build or in D.A.D's native workspace), then approve it or use a "change it"
 //!    dropdown that rewrites it.
 //! 3. Add to MyOpenMath: numbered steps with one copy button per editor box, and the bookmarklet.
 //!
@@ -15,7 +15,11 @@ use crate::mom::author::{author_async_logged, post_engine, HttpEngine, ModelChat
 use crate::mom::engine::{SelftestResponse, DEFAULT_SEEDS};
 use crate::mom::form::{self, Answer, Change, Difficulty, Form, Rounding, Topic, AI_CHOOSES, COURSES, MAX_PARTS};
 use crate::mom::MomQuestion;
+use crate::mom::worksheet;
+#[cfg(not(target_arch = "wasm32"))]
+use crate::mom::student_text::{StudentAction, StudentText};
 use crate::pageshell;
+use crate::platform::PickedFile;
 use crate::theme;
 use egui::{RichText, Ui};
 use serde::{Deserialize, Serialize};
@@ -33,6 +37,16 @@ const ADVANCED: &str = "mom/advanced.json";
 const AI_PICKED: &str = "mom/ai_picked.json";
 const MAX_TRIES: usize = 4;
 
+pub fn export_my_questions() -> Result<(), String> {
+    let mut library: Library = crate::store::load_json(LIBRARY).unwrap_or_default();
+    library.worksheet = None;
+    if let Some(path) = crate::platform::save_path("dad-my-questions.json", "D.A.D questions", &["json"]) {
+        let data = serde_json::to_vec_pretty(&library).map_err(|error| error.to_string())?;
+        crate::platform::write(&path, &data).map_err(|error| error.to_string())?;
+    }
+    Ok(())
+}
+
 /// One saved question.
 #[derive(Serialize, Deserialize, Clone, Debug, Default)]
 pub struct Saved {
@@ -44,6 +58,12 @@ pub struct Saved {
     pub passed: bool,
     #[serde(default)]
     pub problems: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub untested: Vec<usize>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub worksheet_source: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    worksheet_origin: Option<WorksheetOrigin>,
     /// Approved after a review in the sandbox.
     #[serde(default)]
     pub reviewed: bool,
@@ -55,6 +75,8 @@ pub struct Saved {
 struct Library {
     #[serde(default)]
     questions: Vec<Saved>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    worksheet: Option<WorksheetBatch>,
 }
 
 /// The question on the right.
@@ -66,18 +88,28 @@ struct Current {
     passed: Option<bool>,
     problems: Vec<String>,
     untested: Vec<usize>,
+    worksheet_source: Option<String>,
     /// The saved entry this came from or was saved as.
     saved_id: Option<String>,
-    /// The teacher has had the sandbox open for this version of the question.
-    sandbox_seen: bool,
+    /// The app opened the student player for this version.
+    preview_opened: bool,
+    /// The teacher confirmed this version in the student player.
+    preview_confirmed: bool,
     /// The teacher tried it in the sandbox and approved it; copying into MyOpenMath is locked until then.
     reviewed: bool,
 }
 
 enum Outcome {
     Authored { q: Option<MomQuestion>, passed: bool, problems: Vec<String>, untested: Vec<usize>, error: Option<String> },
+    WorksheetRead { questions: Vec<worksheet::SourceQuestion>, notes: Vec<String>, retry_files: Vec<PickedFile> },
+    WorksheetItem(WorksheetOrigin, Result<Saved, WorksheetFailure>),
+    WorksheetFinished,
     Tested(Result<SelftestResponse, String>, /* then save */ bool),
     Preview(Result<String, String>),
+    #[cfg(not(target_arch = "wasm32"))]
+    StudentBrowser(Result<String, String>),
+    #[cfg(not(target_arch = "wasm32"))]
+    StudentText(Result<StudentText, String>),
     TestedAll(Vec<(String, Result<SelftestResponse, String>)>),
     /// The helper browser is signed in to MyOpenMath: the teacher's courses.
     #[cfg(not(target_arch = "wasm32"))]
@@ -85,13 +117,14 @@ enum Outcome {
     #[cfg(not(target_arch = "wasm32"))]
     Assessments(u64, Result<Vec<crate::mom::poster::Assessment>, String>),
     #[cfg(not(target_arch = "wasm32"))]
-    Posted(Result<crate::mom::poster::Added, String>),
+    Posted { result: Result<crate::mom::poster::Added, String>, preview: bool },
 }
 
 #[derive(Default)]
 struct Job {
     busy: bool,
     what: &'static str,
+    pause_after_current: bool,
     log: Vec<String>,
     /// Finished results not yet taken by the screen. A list, so a job starting on the frame another
     /// finished cannot drop the first one's result.
@@ -100,6 +133,34 @@ struct Job {
 
 #[derive(PartialEq, Clone, Copy, Default)]
 enum Step { #[default] Describe, Try, Copy }
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+struct WorksheetOrigin {
+    batch: String,
+    number: usize,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    original: Option<worksheet::OriginalPage>,
+}
+
+#[derive(Clone, Serialize, Deserialize)]
+struct WorksheetProblem {
+    source: worksheet::SourceQuestion,
+    origin: WorksheetOrigin,
+}
+
+#[derive(Serialize, Deserialize)]
+struct WorksheetFailure {
+    problem: WorksheetProblem,
+    error: String,
+}
+
+#[derive(Serialize, Deserialize)]
+struct WorksheetBatch {
+    id: String,
+    pending: Vec<WorksheetProblem>,
+    notes: Vec<String>,
+    failures: Vec<WorksheetFailure>,
+}
 
 #[derive(Default)]
 struct State {
@@ -112,6 +173,10 @@ struct State {
     note: Option<String>,
     current: Option<Current>,
     step: Step,
+    worksheet_mode: bool,
+    worksheet_files: Vec<PickedFile>,
+    worksheet_save_error: Option<String>,
+    scroll_to_question: bool,
     form: Form,
     change: Change,
     change_other: String,
@@ -120,11 +185,22 @@ struct State {
     preview_html: Option<String>,
     preview_for: String,
     library: Library,
+    jump_library: bool,
     /// What happened to the saved questions (saved, tested), shown in their card.
     lib_note: Option<String>,
     confirm_delete: Option<String>,
     #[cfg(not(target_arch = "wasm32"))]
     poster: autoadd::Poster,
+    #[cfg(not(target_arch = "wasm32"))]
+    browser: crate::mom::desktop_browser::Panel,
+    #[cfg(not(target_arch = "wasm32"))]
+    focus_student_review: bool,
+    #[cfg(not(target_arch = "wasm32"))]
+    student_text_mode: bool,
+    #[cfg(not(target_arch = "wasm32"))]
+    student_url: Option<String>,
+    #[cfg(not(target_arch = "wasm32"))]
+    student_text: Option<StudentText>,
     /// The "Your AI" card is open for choosing.
     ai_open: bool,
     ai_key: String,
@@ -142,11 +218,36 @@ thread_local! {
     static ST: RefCell<State> = RefCell::new(State::default());
 }
 
+pub(crate) fn browser_workspace_open() -> bool {
+    #[cfg(not(target_arch = "wasm32"))]
+    { ST.with(|state| state.borrow().browser.surface().is_some()) }
+    #[cfg(target_arch = "wasm32")]
+    { false }
+}
+
 /// Called every frame from the screen router; hides the browser build's preview when another
 /// screen is showing.
 pub fn leave() {
     #[cfg(target_arch = "wasm32")]
     overlay::hide();
+    ST.with(|state| {
+        let mut state = state.borrow_mut();
+        if state.inited { collect(&mut state); }
+        #[cfg(not(target_arch = "wasm32"))]
+        if state.browser.surface().is_some() { state.browser.close(); }
+    });
+}
+
+/// Stage a worksheet delivered by the host's open-file handler.
+pub fn open_worksheet(name: &str, bytes: Vec<u8>) {
+    ST.with(|state| {
+        let mut state = state.borrow_mut();
+        #[cfg(not(target_arch = "wasm32"))]
+        state.browser.close();
+        state.worksheet_files.push(PickedFile { name: name.into(), bytes });
+        state.worksheet_mode = true;
+        if !busy(&state) { state.step = Step::Describe; }
+    });
 }
 
 impl crate::App {
@@ -157,6 +258,7 @@ impl crate::App {
             st.engine = crate::store::load_json::<String>("mom/engine.json").unwrap_or_else(|| DEFAULT_ENGINE.to_string());
             if st.engine == crate::mom::author::BUNDLED_ENGINE { crate::mom::author::warm_bundled_engine(); }
             st.library = crate::store::load_json(LIBRARY).unwrap_or_default();
+            st.worksheet_mode |= st.library.worksheet.is_some();
             st.form = crate::store::load_json(FORM).unwrap_or_default();
             st.form.fix();
             st.advanced = crate::store::load_json(ADVANCED).unwrap_or(false);
@@ -170,7 +272,7 @@ impl crate::App {
                 st.step = match crate::env_var("DAD_MOM_TAB").as_deref() { Ok("copy" | "copy-approved") => Step::Copy, _ => Step::Try };
                 if crate::env_var("DAD_MOM_TAB").as_deref() == Ok("code") { st.advanced = true; }
                 if crate::env_var("DAD_MOM_TAB").as_deref() == Ok("copy-approved") {
-                    if let Some(c) = st.current.as_mut() { c.reviewed = true; c.sandbox_seen = true; }
+                    if let Some(c) = st.current.as_mut() { c.reviewed = true; c.preview_opened = true; }
                 }
                 start_test(&mut st, ctx, false);
             }
@@ -179,7 +281,18 @@ impl crate::App {
         let cfg = crate::ai::AiCfg::from(&self.settings);
         // Asked once: until the teacher picks an AI (or keeps the one set up), the card stays open.
         let chosen = crate::store::load_json::<bool>(AI_PICKED).unwrap_or(false);
-        crate::screens::shell_frame(self, ctx, true, |_app, ui| page(ui, ctx, &mut st, &cfg, chosen));
+        #[cfg(not(target_arch = "wasm32"))]
+        let browser_open = st.browser.surface().is_some();
+        #[cfg(target_arch = "wasm32")]
+        let browser_open = false;
+        crate::screens::shell_frame(self, ctx, !browser_open, |_app, ui| {
+            #[cfg(not(target_arch = "wasm32"))]
+            if let Some(surface) = st.browser.surface() {
+                browser_workspace(ui, &mut st, surface);
+                return;
+            }
+            page(ui, ctx, &mut st, &cfg, chosen);
+        });
         if let Some(p) = st.ai_pick.take() {
             self.settings.ai_provider = p.provider.to_string();
             self.settings.ai_model = p.model;
@@ -216,7 +329,10 @@ fn take(st: &mut State, outcome: Outcome) {
         #[cfg(not(target_arch = "wasm32"))]
         Outcome::Assessments(cid, r) => autoadd::assessments_in(st, cid, r),
         #[cfg(not(target_arch = "wasm32"))]
-        Outcome::Posted(r) => autoadd::posted(st, r),
+        Outcome::Posted { result, preview } => {
+            if preview && result.is_err() { st.browser.close(); }
+            autoadd::posted(st, result);
+        }
         Outcome::Authored { q, passed, problems, untested, error } => {
             st.error = error;
             if let Some(mut q) = q {
@@ -226,11 +342,31 @@ fn take(st: &mut State, outcome: Outcome) {
                 }
                 // A rewrite keeps the question's place in My Questions.
                 let saved_id = st.current.as_ref().and_then(|c| c.saved_id.clone());
-                st.current = Some(Current { q, request: st.request.clone(), passed: Some(passed), problems, untested, saved_id, ..Default::default() });
+                let worksheet_source = st.current.as_ref().and_then(|c| c.worksheet_source.clone());
+                st.current = Some(Current { q, request: st.request.clone(), passed: Some(passed), problems, untested, saved_id, worksheet_source, ..Default::default() });
                 st.step = Step::Try;
                 st.preview_html = None;
                 st.note = None;
             }
+        }
+        Outcome::WorksheetRead { questions, mut notes, retry_files } => {
+            let id = crate::model::new_id();
+            let pending: Vec<_> = questions.into_iter().enumerate().map(|(index, mut source)| WorksheetProblem {
+                origin: WorksheetOrigin { batch: id.clone(), number: index + 1, original: source.original.take() },
+                source,
+            }).collect();
+            if pending.is_empty() && notes.is_empty() {
+                notes.push("No problems were found in this worksheet.".into());
+            }
+            st.library.worksheet = Some(WorksheetBatch { id, pending, notes, failures: Vec::new() });
+            st.worksheet_files.extend(retry_files);
+            save_worksheet(st);
+        }
+        Outcome::WorksheetItem(origin, item) => {
+            if record_worksheet_item(&mut st.library, origin, item) { save_worksheet(st); }
+        }
+        Outcome::WorksheetFinished => {
+            st.scroll_to_question = true;
         }
         Outcome::Tested(r, then_save) => match r {
             Ok(rep) => {
@@ -244,6 +380,22 @@ fn take(st: &mut State, outcome: Outcome) {
             }
             Err(e) => st.error = Some(e),
         },
+        #[cfg(not(target_arch = "wasm32"))]
+        Outcome::StudentBrowser(result) => match result {
+            Ok(url) => {
+                if st.browser.surface() == Some(crate::mom::desktop_browser::Surface::Student) {
+                    st.student_url = Some(url);
+                    if let Some(current) = st.current.as_mut() { current.preview_opened = true; }
+                }
+            }
+            Err(error) => st.error = Some(error),
+        },
+        #[cfg(not(target_arch = "wasm32"))]
+        Outcome::StudentText(result) => match result {
+            Ok(text) if st.student_text_mode => st.student_text = Some(text),
+            Ok(_) => {}
+            Err(error) => st.error = Some(error),
+        },
         Outcome::Preview(r) => match r {
             Ok(html) => st.preview_html = Some(html),
             Err(e) => st.error = Some(e),
@@ -255,6 +407,7 @@ fn take(st: &mut State, outcome: Outcome) {
                     if s.passed != rep.pass { changed += 1; }
                     s.passed = rep.pass;
                     s.problems = rep.problems();
+                    s.untested = rep.untested_parts;
                 }
             }
             let failing = st.library.questions.iter().filter(|s| !s.passed).count();
@@ -284,6 +437,7 @@ fn start(st: &mut State, what: &'static str) -> Arc<Mutex<Job>> {
     if let Ok(mut j) = st.job.lock() {
         j.busy = true;
         j.what = what;
+        j.pause_after_current = false;
         j.log.clear();
     }
     st.error = None;
@@ -319,6 +473,89 @@ fn start_write(st: &mut State, ctx: &egui::Context, cfg: &crate::ai::AiCfg, requ
     });
 }
 
+fn save_worksheet(st: &mut State) {
+    st.worksheet_save_error = crate::store::save_json(LIBRARY, &st.library).err();
+}
+
+fn record_worksheet_item(library: &mut Library, origin: WorksheetOrigin, item: Result<Saved, WorksheetFailure>) -> bool {
+    let Some(batch) = library.worksheet.as_mut().filter(|batch| batch.id == origin.batch) else { return false };
+    let before = batch.pending.len() + batch.failures.len();
+    batch.pending.retain(|problem| problem.origin.number != origin.number);
+    batch.failures.retain(|failure| failure.problem.origin.number != origin.number);
+    if before == batch.pending.len() + batch.failures.len() { return false; }
+    match item {
+        Ok(draft) => library.questions.insert(0, draft),
+        Err(failure) => {
+            let index = batch.failures.partition_point(|entry| entry.problem.origin.number < origin.number);
+            batch.failures.insert(index, failure);
+        }
+    }
+    true
+}
+
+fn read_worksheet(st: &mut State, ctx: &egui::Context, cfg: &crate::ai::AiCfg) {
+    let files = std::mem::take(&mut st.worksheet_files);
+    st.current = None;
+    st.preview_html = None;
+    st.log.clear();
+    let job = start(st, "Reading worksheet");
+    let (cfg, ctx) = (cfg.clone(), ctx.clone());
+    run_bg(async move {
+        let (questions, notes) = worksheet::read(&files, &cfg, |line| {
+            if let Ok(mut j) = job.lock() { j.log.push(line); }
+            ctx.request_repaint();
+        }).await;
+        let retry_files = if questions.is_empty() { files } else { Vec::new() };
+        finish(&job, &ctx, Outcome::WorksheetRead { questions, notes, retry_files });
+    });
+}
+
+fn convert_worksheet(st: &mut State, ctx: &egui::Context, cfg: &crate::ai::AiCfg, questions: Vec<WorksheetProblem>) {
+    st.log.clear();
+    let job = start(st, "Converting worksheet");
+    let (engine, cfg, ctx) = (st.engine.clone(), cfg.clone(), ctx.clone());
+    run_bg(async move {
+        let progress = |line| {
+            if let Ok(mut j) = job.lock() { j.log.push(line); }
+            ctx.request_repaint();
+        };
+        let total = questions.len();
+        let mut chat = ModelChat { cfg: &cfg, tools: false };
+        let mut engine = HttpEngine { base: engine };
+        for (index, question) in questions.into_iter().enumerate() {
+            if job.lock().is_ok_and(|job| job.pause_after_current) { break; }
+            progress(format!("Converting and checking question {} of {total}…", index + 1));
+            let request = question.source.request();
+            let run = author_async_logged(&request, &mut chat, &mut engine, MAX_TRIES, |_| {}).await;
+            let origin = question.origin.clone();
+            let item = if let Some(mut q) = run.question {
+                if q.name.trim().is_empty() { q.name = format!("Worksheet problem {}", origin.number); }
+                let mut problems = run.problems;
+                problems.extend(run.error);
+                Ok(Saved {
+                    id: crate::model::new_id(),
+                    request,
+                    src: q.emit(),
+                    passed: run.passed,
+                    problems,
+                    untested: run.report.map_or_else(Vec::new, |report| report.untested_parts),
+                    worksheet_source: Some(question.source.location),
+                    worksheet_origin: Some(origin.clone()),
+                    reviewed: false,
+                    saved_at: timestamp(),
+                })
+            } else {
+                let error = run.error.or_else(|| run.problems.into_iter().next())
+                    .unwrap_or_else(|| "The AI did not produce a MyOpenMath question.".into());
+                Err(WorksheetFailure { problem: question, error })
+            };
+            if let Ok(mut job) = job.lock() { job.outcomes.push(Outcome::WorksheetItem(origin, item)); }
+            ctx.request_repaint();
+        }
+        finish(&job, &ctx, Outcome::WorksheetFinished);
+    });
+}
+
 fn start_test(st: &mut State, ctx: &egui::Context, then_save: bool) {
     let Some(c) = &st.current else { return };
     let src = c.q.emit();
@@ -334,6 +571,7 @@ fn start_preview(st: &mut State, ctx: &egui::Context) {
     let Some(c) = &st.current else { return };
     let src = c.q.emit();
     let name = if c.q.name.trim().is_empty() { "Practice question".to_string() } else { c.q.name.clone() };
+    st.preview_html = None;
     st.preview_for = src.clone();
     let job = start(st, "Drawing the preview");
     let (engine, ctx) = (st.engine.clone(), ctx.clone());
@@ -366,17 +604,25 @@ fn start_test_all(st: &mut State, ctx: &egui::Context) {
     });
 }
 
+fn timestamp() -> u64 {
+    web_time::SystemTime::now().duration_since(web_time::UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0)
+}
+
 fn save_current(st: &mut State) {
     let Some(c) = st.current.as_mut() else { return };
-    let now = web_time::SystemTime::now().duration_since(web_time::UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0);
+    let worksheet_origin = st.library.questions.iter().find(|saved| Some(&saved.id) == c.saved_id.as_ref())
+        .and_then(|saved| saved.worksheet_origin.clone());
     let entry = Saved {
         id: c.saved_id.clone().unwrap_or_else(crate::model::new_id),
         request: c.request.clone(),
         src: c.q.emit(),
         passed: c.passed == Some(true),
         problems: c.problems.clone(),
+        untested: c.untested.clone(),
+        worksheet_source: c.worksheet_source.clone(),
+        worksheet_origin,
         reviewed: c.reviewed,
-        saved_at: now,
+        saved_at: timestamp(),
     };
     c.saved_id = Some(entry.id.clone());
     match st.library.questions.iter_mut().find(|s| s.id == entry.id) {
@@ -419,12 +665,24 @@ fn dropdown(ui: &mut Ui, id: &str, labels: &[&str], cur: &mut usize, width: f32)
 }
 
 fn page(ui: &mut Ui, ctx: &egui::Context, st: &mut State, cfg: &crate::ai::AiCfg, chosen: bool) {
-    pageshell::title(ui, "", "Write a Question",
-        "Pick what you need. The AI writes it and checks it, you try it as a student, then it goes into MyOpenMath.");
+    pageshell::title(ui, "", "MyOpenMath Questions",
+        "Create questions or convert a worksheet, then try the questions before adding them to MyOpenMath.");
     ui.add_space(8.0);
+    if st.step == Step::Describe {
+        ui.add_enabled_ui(!busy(st), |ui| {
+            ui.horizontal_wrapped(|ui| {
+                ui.selectable_value(&mut st.worksheet_mode, false, "Create a question");
+                ui.selectable_value(&mut st.worksheet_mode, true, "Convert a worksheet");
+            });
+        });
+        ui.add_space(8.0);
+    }
     steps(ui, st);
     ui.add_space(12.0);
-    let wide = ui.available_width() >= 1040.0;
+    let wide = ui.available_width() >= 900.0;
+    if !wide && ui.link("My Questions").clicked() {
+        st.jump_library = true;
+    }
     if wide {
         let side_w = 320.0;
         ui.horizontal_top(|ui| {
@@ -451,7 +709,7 @@ fn steps(ui: &mut Ui, st: &mut State) {
     let has_q = st.current.is_some();
     let reviewed = st.current.as_ref().is_some_and(|c| c.reviewed);
     ui.horizontal_wrapped(|ui| {
-        for (i, (step, name, open)) in [(Step::Describe, "Describe it", true), (Step::Try, "Try it", has_q), (Step::Copy, "Add to MyOpenMath", reviewed)].into_iter().enumerate() {
+        for (i, (step, name, open)) in [(Step::Describe, if st.worksheet_mode { "Upload" } else { "Describe it" }, true), (Step::Try, "Try it", has_q), (Step::Copy, "Add to MyOpenMath", reviewed)].into_iter().enumerate() {
             if i > 0 { ui.label(theme::muted("›").size(18.0)); }
             let label = format!("{}   {name}", i + 1);
             let r = ui.add_enabled_ui(open && !busy(st), |ui| step_pill(ui, &label, st.step == step)).inner;
@@ -461,6 +719,7 @@ fn steps(ui: &mut Ui, st: &mut State) {
             ui.add_space(12.0);
             if pageshell::outline(ui, "Start a New Question").on_hover_text("Your choices below stay picked").clicked() {
                 st.step = Step::Describe;
+                st.worksheet_mode = false;
                 st.current = None;
                 st.error = None;
                 st.preview_html = None;
@@ -484,13 +743,245 @@ fn main(ui: &mut Ui, ctx: &egui::Context, st: &mut State, cfg: &crate::ai::AiCfg
         writing(ui, st);
     } else {
         match st.step {
-            Step::Describe => { leave(); ai_card(ui, st, cfg, chosen); ui.add_space(12.0); describe(ui, ctx, st, cfg) }
+            Step::Describe => {
+                leave();
+                if !chosen {
+                    ai_card(ui, st, cfg, chosen);
+                    ui.add_space(12.0);
+                }
+                if st.worksheet_mode { worksheet_form(ui, ctx, st, cfg); } else { describe(ui, ctx, st, cfg); }
+                if chosen {
+                    ui.add_space(12.0);
+                    ai_card(ui, st, cfg, chosen);
+                }
+            }
             Step::Try => try_it(ui, ctx, st, cfg),
             Step::Copy => { leave(); copy_step(ui, ctx, st) }
         }
     }
     ui.add_space(12.0);
     advanced(ui, ctx, st, cfg);
+}
+
+fn worksheet_form(ui: &mut Ui, ctx: &egui::Context, st: &mut State, cfg: &crate::ai::AiCfg) {
+    st.worksheet_files.extend(crate::platform::take_picked());
+    let working = busy(st);
+    let can_pick = st.library.worksheet.as_ref().is_none_or(|batch| batch.pending.is_empty() && batch.failures.is_empty());
+    let mut save = false;
+    let mut convert = None;
+    pageshell::card(ui, |ui| {
+        pageshell::heading(ui, "Upload a math or science worksheet");
+        ui.add(egui::Label::new(theme::muted("PDF, Word, text, or photos. Upload Word worksheets with equations or diagrams as PDFs.").size(13.0)).wrap());
+        ui.add(egui::Label::new(theme::muted("D.A.D keeps a local copy of the pages it reads so you can compare them with the drafts.").size(13.0)).wrap());
+        ui.add_space(8.0);
+        if working {
+            ui.horizontal(|ui| {
+                ui.spinner();
+                ui.label(theme::text(st.log.last().map(String::as_str).unwrap_or("Opening worksheet…")));
+            });
+            if let Ok(mut job) = st.job.lock() && job.what == "Converting worksheet" {
+                if job.pause_after_current {
+                    ui.label("Pausing after this problem…");
+                } else if pageshell::outline(ui, "Pause after this problem").clicked() {
+                    job.pause_after_current = true;
+                }
+            }
+            return;
+        }
+        if can_pick && ui.button("Choose worksheet files").clicked() {
+            if let Some(paths) = crate::platform::pick_files("Math or science worksheets", worksheet::EXTENSIONS) {
+                for path in paths {
+                    let name = path.file_name().unwrap_or_default().to_string_lossy().into_owned();
+                    match crate::platform::read(&path) {
+                        Ok(bytes) => st.worksheet_files.push(PickedFile { name, bytes }),
+                        Err(error) => st.error = Some(format!("Could not open {name}: {error}")),
+                    }
+                }
+            }
+        }
+        for file in &st.worksheet_files {
+            ui.label(theme::text(&file.name));
+        }
+        if can_pick && !st.worksheet_files.is_empty() {
+            ui.horizontal_wrapped(|ui| {
+                if pageshell::primary(ui, "Read worksheet").clicked() {
+                    read_worksheet(st, ctx, cfg);
+                }
+                if ui.link("Clear files").clicked() { st.worksheet_files.clear(); }
+            });
+        }
+        if let Some(batch) = st.library.worksheet.as_mut() {
+            let count = batch.pending.iter().filter(|problem| !problem.source.text().is_empty()).count().min(20);
+            if !batch.pending.is_empty() {
+                ui.label(theme::strong(format!("{} worksheet problems left to convert", batch.pending.len())));
+                ui.horizontal_wrapped(|ui| {
+                    if pageshell::primary_on(ui, &format!("Create {count} MyOpenMath drafts"), count > 0).clicked() {
+                        convert = Some(count);
+                    }
+                    if ui.link("Discard remaining problems").clicked() {
+                        batch.pending.clear();
+                        batch.notes.clear();
+                        save = true;
+                    }
+                });
+                if count == 0 { ui.label("Enter the text of at least one problem to create a draft."); }
+                egui::CollapsingHeader::new("Check extracted problems")
+                    .id_salt("pending_worksheet_problems").show(ui, |ui| {
+                        for problem in &mut batch.pending {
+                            let title = format!("Problem {} · {}", problem.origin.number, problem.source.location);
+                            egui::CollapsingHeader::new(title).id_salt((&batch.id, problem.origin.number)).show(ui, |ui| {
+                                if let Some(original) = &problem.origin.original {
+                                    egui::CollapsingHeader::new("Original worksheet page").show(ui, |ui| original.draw(ui, 240.0));
+                                }
+                                let label = ui.label("Extracted problem");
+                                let edit = ui.add(egui::TextEdit::multiline(&mut problem.source.text)
+                                    .desired_width(f32::INFINITY).desired_rows(3)).labelled_by(label.id);
+                                save |= edit.changed();
+                            });
+                        }
+                    });
+            }
+            for note in &batch.notes { ui.add(egui::Label::new(theme::muted(note).size(13.0)).wrap()); }
+        }
+        if let Some(error) = &st.error {
+            ui.add(egui::Label::new(RichText::new(error).color(theme::red())).wrap());
+        }
+        if let Some(error) = &st.worksheet_save_error {
+            ui.add(egui::Label::new(RichText::new(format!("Couldn't save worksheet progress: {error}")).color(theme::red())).wrap());
+            save |= pageshell::outline(ui, "Retry saving progress").clicked();
+        }
+    });
+    if working { return; }
+    if save { save_worksheet(st); }
+    if let Some(count) = convert && let Some(batch) = &st.library.worksheet {
+        let questions = batch.pending.iter().filter(|problem| !problem.source.text().is_empty())
+            .take(count).cloned().collect::<Vec<_>>();
+        if !questions.is_empty() {
+            convert_worksheet(st, ctx, cfg, questions);
+            return;
+        }
+    }
+
+    let Some(batch) = &st.library.worksheet else { return };
+    let mut retry = None;
+    let mut discard = None;
+    if !batch.failures.is_empty() {
+        ui.add_space(12.0);
+        pageshell::card(ui, |ui| {
+            pageshell::heading(ui, "Problems without a draft");
+            for (index, failure) in batch.failures.iter().enumerate() {
+                ui.push_id(failure.problem.origin.number, |ui| {
+                    ui.add(egui::Label::new(theme::strong(format!("Problem {} · {}", failure.problem.origin.number, failure.problem.source.location))).wrap());
+                    ui.add(egui::Label::new(theme::text(failure.problem.source.text())).wrap());
+                    ui.add(egui::Label::new(theme::muted(&failure.error)).wrap());
+                    ui.horizontal_wrapped(|ui| {
+                        let retry_button = pageshell::outline(ui, "Retry conversion");
+                        retry_button.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::Button, true,
+                            format!("Retry conversion for problem {}", failure.problem.origin.number)));
+                        if retry_button.clicked() { retry = Some(index); }
+                        if ui.link("Skip problem").clicked() { discard = Some(index); }
+                    });
+                    ui.separator();
+                });
+            }
+        });
+    }
+    if let Some(index) = retry {
+        let problem = batch.failures[index].problem.clone();
+        convert_worksheet(st, ctx, cfg, vec![problem]);
+        return;
+    }
+    if let Some(index) = discard {
+        if let Some(batch) = st.library.worksheet.as_mut() { batch.failures.remove(index); }
+        save_worksheet(st);
+    }
+
+    if let Some(batch) = &st.library.worksheet {
+        let drafts = worksheet_drafts(&st.library, &batch.id);
+        if !drafts.is_empty() {
+            let mut open = None;
+            ui.add_space(12.0);
+            pageshell::card(ui, |ui| {
+                pageshell::heading(ui, "Review worksheet drafts");
+                let approved = drafts.iter().filter(|(_, draft)| draft.reviewed).count();
+                ui.label(theme::muted(format!("{approved} of {} drafts approved", drafts.len())));
+                if let Some((_, next)) = drafts.iter().find(|(_, draft)| !draft.reviewed)
+                    && pageshell::primary(ui, "Continue reviewing").clicked()
+                {
+                    open = Some((*next).clone());
+                }
+                egui::CollapsingHeader::new("All worksheet drafts").show(ui, |ui| for (number, draft) in &drafts {
+                    ui.push_id(&draft.id, |ui| {
+                        let title = MomQuestion::parse(&draft.src).name;
+                        let response = ui.link(format!("Problem {number} · {title}"));
+                        if response.clicked() { open = Some((*draft).clone()); }
+                        ui.label(theme::muted(saved_status(draft)).size(13.0));
+                    });
+                });
+            });
+            if let Some(saved) = open { open_worksheet_draft(st, saved); }
+        }
+    }
+}
+
+fn worksheet_drafts<'a>(library: &'a Library, batch: &str) -> Vec<(usize, &'a Saved)> {
+    let mut drafts: Vec<_> = library.questions.iter().filter_map(|draft| {
+        let origin = draft.worksheet_origin.as_ref()?;
+        (origin.batch == batch).then_some((origin.number, draft))
+    }).collect();
+    drafts.sort_by_key(|(number, _)| *number);
+    drafts
+}
+
+fn open_worksheet_draft(st: &mut State, saved: Saved) {
+    open_saved(st, saved);
+    st.step = Step::Try;
+}
+
+fn worksheet_navigation(ui: &mut Ui, st: &mut State) -> bool {
+    let Some(id) = st.current.as_ref().and_then(|current| current.saved_id.as_deref()) else { return false };
+    let Some(origin) = st.library.questions.iter().find(|saved| saved.id == id)
+        .and_then(|saved| saved.worksheet_origin.as_ref()) else { return false };
+    let drafts = worksheet_drafts(&st.library, &origin.batch);
+    let Some(position) = drafts.iter().position(|(_, draft)| draft.id == id) else { return false };
+    let mut open = None;
+    let mut back = false;
+    ui.horizontal_wrapped(|ui| {
+        ui.label(theme::strong(format!("Worksheet problem {} · draft {} of {}", origin.number, position + 1, drafts.len())));
+        if let Some(previous) = position.checked_sub(1).and_then(|index| drafts.get(index))
+            && pageshell::outline(ui, "Previous draft").clicked()
+        {
+            open = Some(previous.1.clone());
+        }
+        if let Some(next) = drafts.get(position + 1)
+            && pageshell::outline(ui, "Next draft").clicked()
+        {
+            open = Some(next.1.clone());
+        }
+        if st.library.worksheet.as_ref().is_some_and(|batch| batch.id == origin.batch) {
+            back = ui.link("Back to worksheet").clicked();
+        }
+    });
+    ui.add_space(8.0);
+    if let Some(saved) = open {
+        open_worksheet_draft(st, saved);
+        ui.scroll_to_cursor(Some(egui::Align::Min));
+        ui.ctx().request_repaint();
+        return true;
+    }
+    if back {
+        st.worksheet_mode = true;
+        st.step = Step::Describe;
+        ui.scroll_to_cursor(Some(egui::Align::Min));
+        ui.ctx().request_repaint();
+    }
+    back
+}
+
+fn saved_status(saved: &Saved) -> &'static str {
+    if !saved.passed { "Needs fixing" }
+    else if saved.reviewed { "Approved" }
+    else { "Needs review" }
 }
 
 /// The AI as a teacher would name it.
@@ -683,6 +1174,7 @@ fn describe(ui: &mut Ui, ctx: &egui::Context, st: &mut State, cfg: &crate::ai::A
         ui.add_space(16.0);
         let missing = f.missing();
         if pageshell::primary_on(ui, "Write My Question", missing.is_none()).clicked() && missing.is_none() {
+            st.current = None;
             st.request = st.form.request();
             let _ = crate::store::save_json(FORM, &st.form);
             let request = st.request.clone();
@@ -728,6 +1220,8 @@ fn writing(ui: &mut Ui, st: &State) {
 }
 
 fn try_it(ui: &mut Ui, ctx: &egui::Context, st: &mut State, cfg: &crate::ai::AiCfg) {
+    if std::mem::take(&mut st.scroll_to_question) { ui.scroll_to_cursor(Some(egui::Align::Min)); }
+    if worksheet_navigation(ui, st) { return; }
     let Some(c) = st.current.as_ref() else { st.step = Step::Describe; return };
     let working = busy(st);
     let src = c.q.emit();
@@ -737,15 +1231,32 @@ fn try_it(ui: &mut Ui, ctx: &egui::Context, st: &mut State, cfg: &crate::ai::AiC
     }
     #[cfg(target_arch = "wasm32")]
     match overlay::take_action() {
-        Some(overlay::Action::Approve) => approve(st),
         Some(overlay::Action::Close) | None => {}
     }
     pageshell::card(ui, |ui| {
         let c = st.current.as_ref().unwrap();
         ui.add(egui::Label::new(theme::serif(if c.q.name.is_empty() { "Your question" } else { &c.q.name }).size(20.0)).wrap());
         ui.add_space(6.0);
+        if let Some(location) = &c.worksheet_source {
+            ui.add(egui::Label::new(theme::strong(format!("Worksheet transcription · {location}"))).wrap());
+            show_worksheet_source(ui, c);
+            if let Some(original) = current_original(st) {
+                egui::CollapsingHeader::new("Original worksheet page")
+                    .id_salt("review_original").show(ui, |ui| original.draw(ui, 240.0));
+            }
+            ui.separator();
+        }
         match c.passed {
-            Some(true) => { ui.label(RichText::new("✔ It works: we checked it with 3 different sets of numbers.").color(theme::green()).size(14.0)); }
+            Some(true) => {
+                let verdict = if !c.untested.is_empty() {
+                    "Automated checks passed for the parts the checker supports. Review the remaining parts in the student preview."
+                } else if c.worksheet_source.is_some() {
+                    "✔ Passed the MyOpenMath checker. Compare it with the worksheet before approving."
+                } else {
+                    "✔ It works: we checked it with 3 different sets of numbers."
+                };
+                ui.add(egui::Label::new(RichText::new(verdict).color(theme::green()).size(14.0)).wrap());
+            }
             Some(false) => {
                 ui.add(egui::Label::new(RichText::new("✖ The AI couldn't get this one fully working.").color(theme::red()).size(15.0)).wrap());
                 ui.label(theme::muted("Write it again (it often works the second time), or go back and change your choices.").size(13.0));
@@ -761,6 +1272,14 @@ fn try_it(ui: &mut Ui, ctx: &egui::Context, st: &mut State, cfg: &crate::ai::AiC
                 egui::CollapsingHeader::new(theme::muted("Show details").size(12.0)).id_salt("mom_problems").show(ui, |ui| {
                     for p in c.problems.iter().take(6) { ui.add(egui::Label::new(theme::muted(format!("• {p}")).size(12.0)).wrap()); }
                 });
+                ui.add_space(8.0);
+                if !working {
+                    let label = if stale { "Load student preview" } else { "Inspect student preview" };
+                    if pageshell::outline(ui, label).clicked() {
+                        if stale { start_preview(st, ctx); } else { open_sandbox(st, ctx, false); }
+                    }
+                }
+                error_box(ui, st);
                 return;
             }
             None if working => { ui.horizontal(|ui| { ui.spinner(); ui.label(theme::muted("Checking it…")); }); }
@@ -768,24 +1287,44 @@ fn try_it(ui: &mut Ui, ctx: &egui::Context, st: &mut State, cfg: &crate::ai::AiC
         }
         let c = st.current.as_ref().unwrap();
         if !c.untested.is_empty() {
-            ui.label(theme::muted(format!("Part {} is a written or upload answer: check that one yourself.",
+            ui.label(theme::muted(format!("Check part {} manually in the student preview.",
                 c.untested.iter().map(|p| ((b'a' + *p as u8) as char).to_string()).collect::<Vec<_>>().join(", "))).size(13.0));
         }
 
         ui.add_space(14.0);
         ui.label(theme::strong("Try it as a student").size(15.0));
-        ui.add(egui::Label::new(theme::muted("It opens exactly as your students will see it in MyOpenMath. Answer it and press Submit: the worked solution appears under the question. Then try \"Try a similar question\" once or twice to see new numbers.").size(13.0)).wrap());
+        let preview_help = if c.worksheet_source.is_some() {
+            "Open the student preview, answer the question, and compare the wording, values, and worked solution with your worksheet."
+        } else {
+            "Answer the question and select Submit Question. Open the Written Example to check the solution, or try a similar question."
+        };
+        ui.add(egui::Label::new(theme::muted(preview_help).size(13.0)).wrap());
         if st.current.as_ref().is_some_and(|c| c.q.detailed_solution_field().is_empty()) {
             ui.add(egui::Label::new(RichText::new("This one has no worked solution. Pick \"Make the worked solution clearer\" below and press Rewrite It to add one.").color(theme::red()).size(13.0)).wrap());
         }
         ui.add_space(6.0);
-        let ready = st.preview_html.is_some();
-        if ui.add_enabled_ui(ready, |ui| pageshell::primary(ui, if ready { "Try It as a Student" } else { "Getting it ready…" })).inner.clicked() {
-            open_sandbox(st, ctx);
+        let ready = !stale && !working && st.current.as_ref().is_some_and(|c| c.passed == Some(true));
+        if !working && stale && st.error.is_some() && st.current.as_ref().is_some_and(|c| c.passed == Some(true)) {
+            if pageshell::outline(ui, "Retry student preview").clicked() {
+                start_preview(st, ctx);
+            }
+        } else {
+            ui.add_enabled_ui(ready, |ui| ui.horizontal_wrapped(|ui| {
+                let preview = pageshell::primary(ui, if ready { "Try It as a Student" } else { "Getting it ready…" });
+                #[cfg(not(target_arch = "wasm32"))]
+                if ready && std::mem::take(&mut st.focus_student_review) { preview.request_focus(); }
+                if preview.clicked() { open_sandbox(st, ctx, false); }
+                #[cfg(not(target_arch = "wasm32"))]
+                if pageshell::outline(ui, "Try with text controls")
+                    .on_hover_text("Open the student preview as native text and form controls").clicked()
+                {
+                    open_sandbox(st, ctx, true);
+                }
+            }));
         }
 
         ui.add_space(14.0);
-        let (seen, reviewed) = st.current.as_ref().map(|c| (c.sandbox_seen, c.reviewed)).unwrap_or_default();
+        let (seen, reviewed) = st.current.as_ref().map(|c| (c.preview_opened, c.reviewed)).unwrap_or_default();
         if reviewed {
             ui.horizontal(|ui| {
                 ui.label(RichText::new("✔ Approved and saved").color(theme::green()));
@@ -794,10 +1333,14 @@ fn try_it(ui: &mut Ui, ctx: &egui::Context, st: &mut State, cfg: &crate::ai::AiC
         } else {
             ui.label(theme::strong("Happy with it?").size(15.0));
             ui.add_space(4.0);
-            if pageshell::primary_on(ui, "Looks Good", seen).on_hover_text("Saves it to My Questions and shows how to add it to MyOpenMath").clicked() && seen {
+            if seen && let Some(c) = st.current.as_mut() {
+                ui.checkbox(&mut c.preview_confirmed, "I checked how this question looks and scores in the student preview");
+            }
+            let confirmed = st.current.as_ref().is_some_and(|c| c.preview_confirmed);
+            if pageshell::primary_on(ui, "Looks Good", confirmed).clicked() && confirmed {
                 approve(st);
             }
-            if !seen { crate::kit::gated_reason(ui, "Try it as a student first."); }
+            if !seen { crate::kit::gated_reason(ui, "Open the student preview first."); }
         }
 
         ui.add_space(14.0);
@@ -821,48 +1364,197 @@ fn try_it(ui: &mut Ui, ctx: &egui::Context, st: &mut State, cfg: &crate::ai::AiC
         }
         error_box(ui, st);
 
-        #[cfg(not(target_arch = "wasm32"))]
-        if let Some(html) = &st.preview_html {
-            ui.add_space(14.0);
-            ui.label(theme::strong("Quick look (the full version opens in your browser)").size(13.0));
-            let question = sandbox_question_html(html).unwrap_or_default();
-            ui.add(egui::Label::new(RichText::new(plain(&question)).size(14.0)).wrap());
-        }
     });
 }
 
-fn open_sandbox(st: &mut State, ctx: &egui::Context) {
+fn show_worksheet_source(ui: &mut Ui, current: &Current) {
+    if let Some((_, source)) = current.request.split_once("\n\nSource worksheet problem:\n") {
+        egui::ScrollArea::vertical().id_salt("worksheet_source_text").max_height(125.0).show(ui, |ui| {
+            ui.add(egui::Label::new(theme::text(source)).wrap());
+        });
+    }
+}
+
+fn current_original(st: &State) -> Option<&worksheet::OriginalPage> {
+    let id = st.current.as_ref()?.saved_id.as_ref()?;
+    st.library.questions.iter().find(|draft| &draft.id == id)?
+        .worksheet_origin.as_ref()?.original.as_ref()
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+fn browser_workspace(ui: &mut Ui, st: &mut State, surface: crate::mom::desktop_browser::Surface) {
+    use crate::mom::desktop_browser::Surface;
+    let student = surface == Surface::Student;
+    let working = busy(st);
+    if student && st.student_text_mode && st.student_url.is_some() && st.student_text.is_none()
+        && !working && st.error.is_none()
+    {
+        load_student_text(st, ui.ctx(), None);
+    }
+    let working = busy(st);
+    let disconnected = student && st.student_url.is_some() && crate::mom::desktop_browser::disconnected(surface);
+    let player_visible = !disconnected && if st.student_text_mode { st.student_text.is_some() } else { st.browser.has_page() };
+    let can_approve = student && !working && player_visible && st.error.is_none()
+        && st.current.as_ref().is_some_and(|c| c.preview_opened && c.passed == Some(true));
+    let escape = ui.input_mut(|input| input.consume_key(egui::Modifiers::NONE, egui::Key::Escape));
+    let approve_key = can_approve && ui.input_mut(|input| input.consume_key(egui::Modifiers::COMMAND, egui::Key::Enter));
+    let mut back = false;
+    let mut approved = false;
+    let mut reload = false;
+    let mut toggle_view = student && st.student_url.is_some() && !working
+        && ui.input_mut(|input| input.consume_key(egui::Modifiers::ALT, egui::Key::T));
+    ui.horizontal_wrapped(|ui| {
+        back = pageshell::outline(ui, if student { "Back to review" } else { "Back to transfer" }).clicked();
+        ui.label(theme::serif(surface.title()).size(22.0));
+        if student {
+            let label = if st.student_text_mode { "Browser view" } else { "Text controls" };
+            toggle_view |= ui.add_enabled_ui(!working && st.student_url.is_some(), |ui| pageshell::outline(ui, label))
+                .inner.on_hover_text("Switch preview view with Alt+T").clicked();
+            if st.current.as_ref().is_some_and(|current| current.passed == Some(true)) {
+                approved = pageshell::primary_on(ui, "Approve and continue", can_approve)
+                    .on_hover_text("Confirm that you checked the question in the student preview").clicked() && can_approve;
+            }
+            if !working && (disconnected || (st.error.is_some() && (!st.student_text_mode || st.student_url.is_none()))) {
+                reload = pageshell::outline(ui, "Reload student preview").clicked();
+            }
+        }
+    });
+    if reload {
+        open_sandbox(st, ui.ctx(), st.student_text_mode);
+        return;
+    }
+    if escape || back || approved || approve_key {
+        st.browser.close();
+        if approved || approve_key {
+            if let Some(c) = st.current.as_mut() { c.preview_confirmed = true; }
+            approve(st);
+        } else if student {
+            st.focus_student_review = true;
+        }
+        ui.ctx().request_repaint();
+        return;
+    }
+    if toggle_view {
+        let edits = st.student_text.take().filter(|_| st.student_text_mode).map(|text| text.sync());
+        st.student_text_mode = !st.student_text_mode;
+        st.error = None;
+        if let Some(edits) = edits { load_student_text(st, ui.ctx(), Some(edits)); }
+        ui.ctx().request_repaint();
+        return;
+    }
+    if let Some(c) = &st.current {
+        ui.add(egui::Label::new(theme::text(&c.q.name)).wrap());
+    }
+    if student {
+        let guidance = if st.current.as_ref().is_some_and(|current| current.passed == Some(true)) {
+            "Check the answer and worked solution before approving. Esc to return. Ctrl/⌘+Enter to approve."
+        } else {
+            "Inspect the question and worked solution. Esc returns to review."
+        };
+        ui.label(theme::muted(guidance));
+        if let Some(current) = &st.current && let Some(location) = &current.worksheet_source {
+            egui::CollapsingHeader::new(format!("Compare worksheet transcription · {location}"))
+                .id_salt("workspace_worksheet_source").show(ui, |ui| show_worksheet_source(ui, current));
+            if let Some(original) = current_original(st) {
+                egui::CollapsingHeader::new("Original worksheet page")
+                    .id_salt("workspace_worksheet_original").show(ui, |ui| original.draw(ui, 175.0));
+            }
+        }
+    } else if let Some(destination) = st.poster.destination() {
+        ui.add(egui::Label::new(theme::muted(destination)).wrap());
+    }
+    let status = if working {
+        st.log.last().map(String::as_str)
+    } else if student {
+        st.error.as_deref()
+    } else {
+        st.poster.message()
+    };
+    ui.separator();
+    if disconnected {
+        ui.label("The student browser closed. Reload the preview to start a new attempt.");
+        return;
+    }
+    if student && st.student_text_mode {
+        ui.ctx().request_repaint_after(std::time::Duration::from_secs(1));
+        if let Some(status) = status { ui.label(theme::muted(status)); }
+        if st.error.is_some() {
+            if pageshell::outline(ui, "Refresh text controls").clicked() { load_student_text(st, ui.ctx(), None); }
+        } else if let Some(text) = st.student_text.as_mut() {
+            if let Some(action) = text.draw(ui, working) { load_student_text(st, ui.ctx(), Some(action)); }
+        } else if working {
+            ui.spinner();
+            ui.label(theme::muted("Loading student text…"));
+        }
+        return;
+    }
+    st.browser.show(ui, working, status);
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+fn load_student_text(st: &mut State, ctx: &egui::Context, action: Option<StudentAction>) {
+    use crate::mom::desktop_browser::{self, Surface};
+    let Some(url) = st.student_url.clone() else { return };
+    st.log.clear();
+    let job = start(st, "Reading student preview");
+    let ctx = ctx.clone();
+    run_bg(async move {
+        let result = desktop_browser::tab(Surface::Student, f64::from(ctx.pixels_per_point()))
+            .and_then(|tab| StudentText::read(&tab, &url, action));
+        finish(&job, &ctx, Outcome::StudentText(result));
+    });
+}
+
+fn open_sandbox(st: &mut State, ctx: &egui::Context, text_mode: bool) {
     #[cfg(target_arch = "wasm32")]
     {
+        let _ = text_mode;
         let can_approve = st.current.as_ref().is_some_and(|c| c.passed == Some(true));
         overlay::open(st.preview_html.as_deref().unwrap_or(""), can_approve, ctx);
-        if let Some(c) = st.current.as_mut() { c.sandbox_seen = true; }
+        if let Some(c) = st.current.as_mut() { c.preview_opened = true; }
     }
     #[cfg(not(target_arch = "wasm32"))]
     {
-        let _ = ctx;
-        let path = crate::store::store_dir().join("mom").join("preview.html");
-        let html = st.preview_html.clone().unwrap_or_default();
-        match crate::platform::write(&path, html.as_bytes()) {
-            Ok(()) => {
-                crate::platform::open_path(&path);
-                if let Some(c) = st.current.as_mut() { c.sandbox_seen = true; }
-            }
-            Err(e) => st.error = Some(format!("Could not write the preview: {e}")),
-        }
+        use crate::mom::desktop_browser::{self, Surface};
+        let Some(html) = st.preview_html.clone() else { return };
+        st.student_text_mode = text_mode;
+        st.student_text = None;
+        st.student_url = None;
+        st.log.clear();
+        st.browser.open(Surface::Student);
+        let job = start(st, "Opening student preview");
+        let ctx = ctx.clone();
+        run_bg(async move {
+            let result = (|| {
+                let path = crate::store::store_dir().join("mom").join("preview.html");
+                crate::platform::write(&path, html.as_bytes()).map_err(|error| format!("Could not write the preview: {error}"))?;
+                let full = std::fs::canonicalize(path).map_err(|error| error.to_string())?;
+                let url = url::Url::from_file_path(full).map_err(|_| "Could not open the student preview file.")?;
+                let tab = desktop_browser::tab(Surface::Student, f64::from(ctx.pixels_per_point()))?;
+                tab.navigate(url.as_str())?;
+                if !tab.wait_for("document.querySelector('#questionwrap0 > .question') || [...document.querySelectorAll('#app button')].some(b => b.innerText.trim() === 'Start' && b.getClientRects().length)", std::time::Duration::from_secs(10))? {
+                    return Err("The student player did not load. Return to review and try again.".into());
+                }
+                Ok(url.to_string())
+            })();
+            finish(&job, &ctx, Outcome::StudentBrowser(result));
+        });
     }
 }
 
 /// The teacher tried it and likes it: save it and show how to add it to MyOpenMath.
 fn approve(st: &mut State) {
     let Some(c) = st.current.as_mut() else { return };
-    if c.passed != Some(true) { return; }
+    if c.passed != Some(true) || !c.preview_opened || !c.preview_confirmed { return; }
     c.reviewed = true;
     save_current(st);
     st.step = Step::Copy;
+    st.scroll_to_question = true;
 }
 
 fn copy_step(ui: &mut Ui, ctx: &egui::Context, st: &mut State) {
+    if std::mem::take(&mut st.scroll_to_question) { ui.scroll_to_cursor(Some(egui::Align::Min)); }
+    if worksheet_navigation(ui, st) { return; }
     let Some(c) = st.current.as_ref() else { st.step = Step::Describe; return };
     if !c.reviewed {
         pageshell::card(ui, |ui| {
@@ -949,13 +1641,38 @@ fn copy_step(ui: &mut Ui, ctx: &egui::Context, st: &mut State) {
     });
 }
 
+fn open_saved(st: &mut State, saved: Saved) {
+    #[cfg(not(target_arch = "wasm32"))]
+    { st.poster.clear_result(); }
+    st.worksheet_mode = saved.worksheet_source.is_some();
+    st.current = Some(Current {
+        q: MomQuestion::parse(&saved.src),
+        request: saved.request.clone(),
+        passed: Some(saved.passed),
+        problems: saved.problems,
+        untested: saved.untested,
+        worksheet_source: saved.worksheet_source,
+        saved_id: Some(saved.id),
+        preview_opened: saved.reviewed,
+        preview_confirmed: saved.reviewed,
+        reviewed: saved.reviewed,
+    });
+    st.request = saved.request;
+    st.preview_html = None;
+    st.error = None;
+    st.note = None;
+    st.scroll_to_question = true;
+    st.step = if saved.reviewed { Step::Copy } else { Step::Try };
+}
+
 /// My Questions: everything saved, with a plain status and Open / Delete.
 fn side(ui: &mut Ui, ctx: &egui::Context, st: &mut State) {
     pageshell::card(ui, |ui| {
+        if std::mem::take(&mut st.jump_library) { ui.scroll_to_cursor(Some(egui::Align::Min)); }
         pageshell::heading(ui, "My Questions");
         ui.add_space(4.0);
         if st.library.questions.is_empty() {
-            ui.label(theme::muted("Questions you approve are saved here so you can add them again later.").size(13.0));
+            ui.label(theme::muted("Converted drafts and approved questions appear here.").size(13.0));
         }
         let mut open: Option<Saved> = None;
         let mut delete: Option<String> = None;
@@ -964,13 +1681,16 @@ fn side(ui: &mut Ui, ctx: &egui::Context, st: &mut State) {
             let name = if q.name.is_empty() { "Untitled question".to_string() } else { q.name.clone() };
             ui.add_space(6.0);
             ui.add(egui::Label::new(theme::text(&name).size(14.0)).wrap());
-            ui.horizontal(|ui| {
+            if let Some(source) = &s.worksheet_source {
+                ui.add(egui::Label::new(theme::muted(source).size(12.0)).wrap());
+            }
+            ui.add_enabled_ui(!busy(st), |ui| ui.horizontal(|ui| {
                 let (status, fill, fg) = if !s.passed {
-                    ("Needs fixing", theme::error_wash(), theme::red())
+                    (saved_status(s), theme::error_wash(), theme::red())
                 } else if s.reviewed {
-                    ("Ready", theme::accent_faded(), theme::accent_col())
+                    (saved_status(s), theme::accent_faded(), theme::accent_col())
                 } else {
-                    ("Not tried yet", theme::highlighter(), theme::on_highlighter())
+                    (saved_status(s), theme::highlighter(), theme::on_highlighter())
                 };
                 crate::kit::pill(ui, status, fill, fg);
                 if ui.link("Open").clicked() { open = Some(s.clone()); }
@@ -980,16 +1700,10 @@ fn side(ui: &mut Ui, ctx: &egui::Context, st: &mut State) {
                 } else if ui.link(RichText::new("Delete").color(theme::muted_col())).clicked() {
                     st.confirm_delete = Some(s.id.clone());
                 }
-            });
+            }));
         }
         if let Some(s) = open {
-            let q = MomQuestion::parse(&s.src);
-            st.current = Some(Current { q, request: s.request.clone(), passed: Some(s.passed), problems: s.problems.clone(), untested: vec![], saved_id: Some(s.id.clone()), sandbox_seen: s.reviewed, reviewed: s.reviewed });
-            st.request = s.request;
-            st.preview_html = None;
-            st.error = None;
-            st.note = None;
-            st.step = if s.reviewed { Step::Copy } else { Step::Try };
+            open_saved(st, s);
         }
         if let Some(id) = delete {
             st.library.questions.retain(|s| s.id != id);
@@ -1073,16 +1787,6 @@ fn advanced(ui: &mut Ui, ctx: &egui::Context, st: &mut State, cfg: &crate::ai::A
     });
 }
 
-/// The question's own HTML inside the sandbox page, which hands it to IMathAS's `showandinit(0, {...})`.
-/// (Desktop quick look; the browser build shows the page itself.)
-#[cfg_attr(target_arch = "wasm32", allow(dead_code))]
-fn sandbox_question_html(page: &str) -> Option<String> {
-    let rest = &page[page.find("showandinit(")? ..];
-    let rest = &rest[rest.find(',')? + 1..];
-    let v: serde_json::Value = serde_json::Deserializer::from_str(rest).into_iter().next()?.ok()?;
-    v.get("html").and_then(|h| h.as_str()).map(str::to_string)
-}
-
 /// Where the sandbox page loads MyOpenMath's scripts and styles from: the web app's own copy when the
 /// engine is built in, else the engine server, which serves them.
 fn sandbox_static(engine: &str) -> String {
@@ -1094,25 +1798,6 @@ fn sandbox_static(engine: &str) -> String {
         return format!("{dir}engine/imathas");
     }
     engine.trim_end_matches('/').to_string()
-}
-
-/// Question text without its HTML (and without style or script blocks), for the desktop's quick look.
-#[cfg_attr(target_arch = "wasm32", allow(dead_code))]
-fn plain(html: &str) -> String {
-    let mut html = html.to_string();
-    for (open, close) in [("<style", "</style>"), ("<script", "</script>")] {
-        while let Some(a) = html.find(open) {
-            let b = html[a..].find(close).map(|b| a + b + close.len()).unwrap_or(html.len());
-            html.replace_range(a..b, " ");
-        }
-    }
-    let html = html.as_str();
-    let mut out = String::new();
-    let mut tag = false;
-    for ch in html.chars() {
-        match ch { '<' => tag = true, '>' => { tag = false; out.push(' ') } _ if !tag => out.push(ch), _ => {} }
-    }
-    out.split_whitespace().collect::<Vec<_>>().join(" ").replace("&nbsp;", " ")
 }
 
 fn code_tab(ui: &mut Ui, ctx: &egui::Context, st: &mut State, working: bool) {
@@ -1143,7 +1828,7 @@ fn code_tab(ui: &mut Ui, ctx: &egui::Context, st: &mut State, working: bool) {
         if !c.q.solution.is_empty() { field(ui, "Detailed Solution", &mut c.q.solution, 4, false); }
     });
     if changed {
-        if let Some(c) = st.current.as_mut() { c.passed = None; c.problems.clear(); c.reviewed = false; c.sandbox_seen = false; }
+        if let Some(c) = st.current.as_mut() { c.passed = None; c.problems.clear(); c.reviewed = false; c.preview_opened = false; c.preview_confirmed = false; }
     }
 }
 
@@ -1177,10 +1862,10 @@ mod overlay {
         static BLOB: RefCell<Option<String>> = const { RefCell::new(None) };
     }
 
-    pub enum Action { Approve, Close }
+    pub enum Action { Close }
 
     pub fn take_action() -> Option<Action> {
-        match ACTION.swap(0, Ordering::Relaxed) { 1 => Some(Action::Approve), 2 => Some(Action::Close), _ => None }
+        match ACTION.swap(0, Ordering::Relaxed) { 2 => Some(Action::Close), _ => None }
     }
 
     fn button(doc: &web_sys::Document, text: &str, primary: bool, code: u8) -> Option<web_sys::Element> {
@@ -1222,9 +1907,6 @@ mod overlay {
         });
         let _ = bar.append_child(&title);
         if let Some(b) = button(&doc, "Back", false, 2) { let _ = bar.append_child(&b); }
-        if can_approve {
-            if let Some(b) = button(&doc, "Looks Good", true, 1) { let _ = bar.append_child(&b); }
-        }
         let Ok(frame) = doc.create_element("iframe") else { return };
         let Ok(frame) = frame.dyn_into::<web_sys::HtmlIFrameElement>() else { return };
         let _ = frame.set_attribute("title", "The question as a student sees it");
@@ -1264,6 +1946,50 @@ mod tests {
     use super::*;
 
     #[test]
+    fn worksheet_progress_can_resume_without_duplicating_completed_drafts() {
+        let problem = |number| WorksheetProblem {
+            source: worksheet::SourceQuestion { location: "Worksheet.txt".into(), text: "Find x.".into(), original: None },
+            origin: WorksheetOrigin { batch: "active".into(), number, original: None },
+        };
+        let mut library = Library {
+            worksheet: Some(WorksheetBatch {
+                id: "active".into(), pending: vec![problem(1), problem(2), problem(3)],
+                notes: Vec::new(), failures: Vec::new(),
+            }),
+            ..Default::default()
+        };
+        assert!(record_worksheet_item(&mut library, problem(1).origin, Ok(Saved { id: "first".into(), ..Default::default() })));
+        assert!(record_worksheet_item(&mut library, problem(2).origin, Err(WorksheetFailure { problem: problem(2), error: "Time out.".into() })));
+        let bytes = serde_json::to_vec(&library).unwrap();
+        let mut library: Library = serde_json::from_slice(&bytes).unwrap();
+        assert_eq!(library.worksheet.as_ref().unwrap().pending[0].origin.number, 3);
+        assert!(!record_worksheet_item(&mut library, problem(1).origin, Ok(Saved::default())));
+        assert!(record_worksheet_item(&mut library, problem(2).origin, Ok(Saved { id: "second".into(), ..Default::default() })));
+        assert_eq!(library.questions.len(), 2);
+        assert!(library.worksheet.unwrap().failures.is_empty());
+    }
+
+    #[test]
+    fn worksheet_review_keeps_original_order_after_retries_and_reopen() {
+        let make_draft = |id: &str, batch: &str, number| Saved {
+            id: id.into(),
+            worksheet_origin: Some(WorksheetOrigin { batch: batch.into(), number, original: None }),
+            ..Default::default()
+        };
+        let library = Library { worksheet: None, questions: vec![
+            make_draft("retried", "worksheet", 2),
+            make_draft("next", "worksheet", 3),
+            make_draft("different", "another worksheet", 1),
+            make_draft("first", "worksheet", 1),
+            Saved { id: "older draft".into(), ..Default::default() },
+        ] };
+        let library: Library = serde_json::from_slice(&serde_json::to_vec(&library).unwrap()).unwrap();
+        let order: Vec<_> = worksheet_drafts(&library, "worksheet").into_iter()
+            .map(|(number, draft)| (number, draft.id.as_str())).collect();
+        assert_eq!(order, [(1, "first"), (2, "retried"), (3, "next")]);
+    }
+
+    #[test]
     fn slug_makes_a_file_name() {
         assert_eq!(slug("Slope between two points — two-part!"), "slope-between-two-points-two-part");
         assert_eq!(slug("  "), "question");
@@ -1280,37 +2006,39 @@ mod tests {
     }
 
     #[test]
-    fn the_question_is_read_out_of_the_sandbox_page() {
-        let page = r#"<script>$(function() { showandinit(0,{"html":"<p>What is 2?</p>","jsparams":{}}); });</script>"#;
-        assert_eq!(sandbox_question_html(page).as_deref(), Some("<p>What is 2?</p>"));
-        assert_eq!(sandbox_question_html("<p>nothing</p>"), None);
-    }
-
-    #[test]
-    fn plain_drops_tags() {
-        assert_eq!(plain("<p>What is <b>`$a`</b>?</p> $answerbox"), "What is `$a` ? $answerbox");
+    fn opening_the_student_player_does_not_approve_a_question() {
+        let mut st = State {
+            current: Some(Current {
+                passed: Some(true), preview_opened: true, ..Default::default()
+            }),
+            ..Default::default()
+        };
+        approve(&mut st);
+        assert!(!st.current.unwrap().reviewed);
+        assert!(st.library.questions.is_empty());
     }
 }
 
-/// "Add it to MyOpenMath for me" (desktop): D.A.D opens MyOpenMath in its own Chrome window, with a
-/// profile of its own so the sign-in is remembered, and fills (and optionally saves) the question in
-/// the assessment the teacher picks. Sign-in is the teacher's, in that window, unless they saved a
-/// MyOpenMath password in the keychain, which D.A.D then types into the sign-in form itself.
+/// Desktop MyOpenMath transfer, driven in D.A.D’s browser panel.
 #[cfg(not(target_arch = "wasm32"))]
 mod autoadd {
     use super::*;
-    use crate::mom::chrome::{Chrome, Tab};
-    use crate::mom::poster::{self, Added, Assessment, Course};
+    use crate::mom::desktop_browser::{self, Surface};
+    use crate::mom::livecdp::LiveTab;
+    use crate::mom::poster::{self, Added, Assessment, Course, PublishState};
     use std::time::Duration;
 
     const PREFS: &str = "mom/poster.json";
 
-    /// The helper browser, kept open between adds.
-    static BROWSER: Mutex<Option<Chrome>> = Mutex::new(None);
-
     #[derive(Serialize, Deserialize, Default, Clone)]
     #[serde(default)]
-    struct Prefs { course: Option<u64>, assessment: Option<u64>, auto_save: bool }
+    struct Prefs { course: Option<u64>, assessment: Option<u64> }
+
+    fn publication_path(st: &State, cid: u64, aid: u64) -> Option<String> {
+        let id = st.current.as_ref()?.saved_id.as_deref()?;
+        if id.is_empty() || !id.bytes().all(|byte| byte.is_ascii_alphanumeric()) { return None; }
+        Some(format!("mom/publications/{id}-{cid}-{aid}.json"))
+    }
 
     #[derive(Default)]
     pub struct Poster {
@@ -1319,19 +2047,29 @@ mod autoadd {
         courses: Vec<Course>,
         assessments: Vec<Assessment>,
         assessments_for: Option<u64>,
+        assessments_error: Option<String>,
         result: Option<Result<String, String>>,
         user: String,
         pass: String,
         has_login: Option<bool>,
     }
 
-    fn tab() -> Result<Tab, String> {
-        let mut b = BROWSER.lock().map_err(|_| "browser lock")?;
-        if !b.as_mut().is_some_and(|c| c.alive()) {
-            let profile = crate::store::store_dir().join("mom").join("browser");
-            *b = Some(Chrome::launch(&profile, false)?);
+    impl Poster {
+        pub(super) fn clear_result(&mut self) { self.result = None; }
+
+        pub(super) fn message(&self) -> Option<&str> {
+            self.result.as_ref().map(|result| match result { Ok(message) | Err(message) => message.as_str() })
         }
-        b.as_ref().unwrap().tab()
+
+        pub(super) fn destination(&self) -> Option<String> {
+            let course = self.courses.iter().find(|course| Some(course.id) == self.prefs.course)?;
+            let assessment = self.assessments.iter().find(|assessment| Some(assessment.id) == self.prefs.assessment)?;
+            Some(format!("{} · {}", course.name, assessment.name))
+        }
+    }
+
+    fn tab(ctx: &egui::Context) -> Result<LiveTab, String> {
+        desktop_browser::tab(Surface::Transfer, f64::from(ctx.pixels_per_point()))
     }
 
     fn log(job: &Arc<Mutex<Job>>, ctx: &egui::Context, line: &str) {
@@ -1340,7 +2078,7 @@ mod autoadd {
     }
 
     /// Signed in, by the saved password or by the teacher in the window (waits up to 10 minutes).
-    fn ensure_signed_in(t: &mut Tab, job: &Arc<Mutex<Job>>, ctx: &egui::Context) -> Result<(), String> {
+    fn ensure_signed_in(t: &mut LiveTab, job: &Arc<Mutex<Job>>, ctx: &egui::Context) -> Result<(), String> {
         log(job, ctx, "Opening MyOpenMath…");
         if poster::signed_in(t)? { return Ok(()); }
         if let Some((u, p)) = poster::saved_login() {
@@ -1348,49 +2086,72 @@ mod autoadd {
             if poster::sign_in_with(t, &u, &p)? { return Ok(()); }
             log(job, ctx, "The saved login didn't work.");
         }
-        t.show();
-        log(job, ctx, "Please sign in to MyOpenMath in the Chrome window that opened. D.A.D continues as soon as you're in.");
-        if poster::wait_signed_in(t, Duration::from_secs(600))? { Ok(()) } else { Err("Nobody signed in to MyOpenMath, so nothing was added.".into()) }
+        desktop_browser::set_manual_sign_in(true);
+        log(job, ctx, "Sign in to MyOpenMath in the browser panel. D.A.D continues when you are signed in.");
+        let result = (|| {
+            let started = std::time::Instant::now();
+            while desktop_browser::transfer_open() && desktop_browser::manual_sign_in()
+                && started.elapsed() < Duration::from_secs(600)
+            {
+                if poster::wait_signed_in(t, Duration::from_secs(1))? {
+                    return if desktop_browser::manual_sign_in() { Ok(()) } else { Err("Sign-in canceled.".into()) };
+                }
+            }
+            if desktop_browser::transfer_open() && desktop_browser::manual_sign_in() {
+                Err("Sign-in timed out. Connect to MyOpenMath to try again.".into())
+            } else {
+                Err("Sign-in canceled.".into())
+            }
+        })();
+        desktop_browser::set_manual_sign_in(false);
+        result
     }
 
     fn start_connect(st: &mut State, ctx: &egui::Context) {
         st.log.clear();
         st.poster.result = None;
+        st.browser.open(Surface::Transfer);
         let job = start(st, "MyOpenMath");
         let ctx = ctx.clone();
         run_bg(async move {
-            let r = tab().and_then(|mut t| { ensure_signed_in(&mut t, &job, &ctx)?; log(&job, &ctx, "Reading your courses…"); poster::courses(&mut t) });
+            let r = tab(&ctx).and_then(|mut t| { ensure_signed_in(&mut t, &job, &ctx)?; log(&job, &ctx, "Reading your courses…"); poster::courses(&mut t) });
             finish(&job, &ctx, Outcome::Courses(r));
         });
     }
 
     fn start_assessments(st: &mut State, ctx: &egui::Context, cid: u64) {
+        st.poster.assessments_error = None;
         st.log.clear();
         let job = start(st, "MyOpenMath");
         let ctx = ctx.clone();
         run_bg(async move {
             log(&job, &ctx, "Reading the assessments…");
-            let r = tab().and_then(|mut t| poster::assessments(&mut t, cid));
+            let r = tab(&ctx).and_then(|mut t| poster::assessments(&mut t, cid));
             finish(&job, &ctx, Outcome::Assessments(cid, r));
         });
     }
 
-    fn start_add(st: &mut State, ctx: &egui::Context, cid: u64, aid: u64) {
+    fn start_add(st: &mut State, ctx: &egui::Context, cid: u64, aid: u64, publish: bool) {
         let Some(q) = st.current.as_ref().map(|c| c.q.clone()) else { return };
+        let path = publication_path(st, cid, aid);
+        if publish && path.is_none() { return; }
         st.log.clear();
         st.poster.result = None;
-        let save = st.poster.prefs.auto_save;
+        st.browser.open(Surface::Transfer);
         let job = start(st, "MyOpenMath");
         let ctx = ctx.clone();
         run_bg(async move {
-            let r = tab().and_then(|mut t| {
+            let r = tab(&ctx).and_then(|mut t| {
                 ensure_signed_in(&mut t, &job, &ctx)?;
                 let (j, c) = (job.clone(), ctx.clone());
-                let r = poster::add_question(&mut t, cid, aid, &q, save, &mut |l| log(&j, &c, l));
-                if r.is_ok() { t.show(); }
-                r
+                let mut progress = |l: &str| log(&j, &c, l);
+                if let Some(path) = path.as_deref().filter(|_| publish) {
+                    poster::publish_question(&mut t, cid, aid, &q, path, &mut progress)
+                } else {
+                    poster::preview_question(&mut t, cid, aid, &q, &mut progress)
+                }
             });
-            finish(&job, &ctx, Outcome::Posted(r));
+            finish(&job, &ctx, Outcome::Posted { result: r, preview: !publish });
         });
     }
 
@@ -1405,18 +2166,18 @@ mod autoadd {
     }
 
     pub fn assessments_in(st: &mut State, cid: u64, r: Result<Vec<Assessment>, String>) {
+        if st.poster.prefs.course != Some(cid) { return; }
         match r {
             Ok(a) => { st.poster.assessments = a; st.poster.assessments_for = Some(cid); }
-            Err(e) => st.poster.result = Some(Err(e)),
+            Err(e) => { st.poster.assessments_error = Some(e); }
         }
     }
 
     pub fn posted(st: &mut State, r: Result<Added, String>) {
-        let name = st.poster.prefs.assessment
-            .and_then(|a| st.poster.assessments.iter().find(|x| x.id == a)).map(|a| a.name.clone()).unwrap_or_default();
         st.poster.result = Some(match r {
-            Ok(Added::Saved) => Ok(format!("Done. It's saved in \"{name}\" on MyOpenMath.")),
-            Ok(Added::Filled) => Ok("It's filled in. Check it in the Chrome window, then press Save there.".into()),
+            Ok(Added::Saved(p)) => Ok(format!("Verified question {} in MyOpenMath assessment {}.", p.question, p.assessment)),
+            Ok(Added::SavedToSet(p, error)) => Err(format!("Question {} is in your MyOpenMath question set. Attachment is unconfirmed. {error}", p.question)),
+            Ok(Added::Filled) => Ok("Save is disabled in this preview. Return to transfer to publish to the selected assessment.".into()),
             Err(e) => Err(e),
         });
     }
@@ -1429,10 +2190,12 @@ mod autoadd {
         let working = busy(st);
         let mine = st.job.lock().map(|j| j.what == "MyOpenMath").unwrap_or(false);
         pageshell::card(ui, |ui| {
+            // Keep the destination controls visible against the card in both themes.
+            ui.style_mut().visuals.widgets.inactive.bg_stroke = egui::Stroke::new(1.0, theme::edge());
             pageshell::heading(ui, "Add it to MyOpenMath for me");
             ui.add_space(4.0);
             if st.poster.courses.is_empty() {
-                ui.add(egui::Label::new(theme::muted("D.A.D opens MyOpenMath in its own Chrome window and puts the question into the assessment you pick. The first time, sign in to MyOpenMath in that window; it remembers you after that.").size(13.0)).wrap());
+                ui.add(egui::Label::new(theme::muted("Connect to MyOpenMath in D.A.D. Pick a course and assessment to preview or publish the question.").size(13.0)).wrap());
                 ui.add_space(8.0);
                 if ui.add_enabled_ui(!working, |ui| pageshell::primary(ui, "Connect to MyOpenMath")).inner.clicked() {
                     start_connect(st, ctx);
@@ -1446,10 +2209,12 @@ mod autoadd {
                 egui::ComboBox::from_id_salt("mom_post_course").selected_text(shown).width(340.0).height(520.0).show_ui(ui, |ui| {
                     for (i, n) in names.iter().enumerate() { ui.selectable_value(&mut k, i, *n); }
                 });
-                if k != before && k != usize::MAX {
+                if !working && k != before && k != usize::MAX {
                     st.poster.prefs.course = Some(st.poster.courses[k].id);
                     st.poster.prefs.assessment = None;
                     st.poster.assessments.clear();
+                    st.poster.assessments_error = None;
+                    st.poster.result = None;
                     let _ = crate::store::save_json(PREFS, &st.poster.prefs);
                 }
                 if let Some(cid) = st.poster.prefs.course {
@@ -1458,7 +2223,12 @@ mod autoadd {
                         start_assessments(st, ctx, cid);
                     }
                     field_label(ui, "Assessment");
-                    if st.poster.assessments.is_empty() {
+                    if let Some(error) = &st.poster.assessments_error {
+                        ui.add(egui::Label::new(theme::muted(format!("Could not load assessments. {error}"))).wrap());
+                        if !working && pageshell::outline(ui, "Retry loading assessments").clicked() {
+                            start_assessments(st, ctx, cid);
+                        }
+                    } else if st.poster.assessments.is_empty() {
                         ui.label(theme::muted(if working { "Reading the assessments…" } else { "This course has no assessments yet. Make one in MyOpenMath first." }).size(13.0));
                     } else {
                         let names: Vec<&str> = st.poster.assessments.iter().map(|a| a.name.as_str()).collect();
@@ -1468,28 +2238,56 @@ mod autoadd {
                         egui::ComboBox::from_id_salt("mom_post_assess").selected_text(shown).width(340.0).height(520.0).show_ui(ui, |ui| {
                             for (i, n) in names.iter().enumerate() { ui.selectable_value(&mut k, i, *n); }
                         });
-                        if k != before && k != usize::MAX {
+                        if !working && k != before && k != usize::MAX {
                             st.poster.prefs.assessment = Some(st.poster.assessments[k].id);
+                            st.poster.result = None;
                             let _ = crate::store::save_json(PREFS, &st.poster.prefs);
                         }
                     }
                 }
                 ui.add_space(8.0);
-                if ui.checkbox(&mut st.poster.prefs.auto_save, "Save it automatically (otherwise it stops so you can check it and press Save)").changed() {
-                    let _ = crate::store::save_json(PREFS, &st.poster.prefs);
+                let target = st.poster.prefs.course.zip(st.poster.prefs.assessment).filter(|(cid, aid)| {
+                    st.poster.courses.iter().any(|course| course.id == *cid)
+                        && st.poster.assessments_for == Some(*cid)
+                        && st.poster.assessments.iter().any(|assessment| assessment.id == *aid)
+                });
+                if let Some((cid, aid)) = target {
+                    let receipt = publication_path(st, cid, aid);
+                    let publication = receipt.as_ref().and_then(|path| crate::store::load_json::<PublishState>(path));
+                    ui.add_enabled_ui(!working, |ui| {
+                        ui.horizontal_wrapped(|ui| {
+                            if pageshell::outline(ui, "Preview in MyOpenMath").clicked() { start_add(st, ctx, cid, aid, false); }
+                            match publication {
+                                None | Some(PublishState::ReadyToSave) => {
+                                    if pageshell::primary_on(ui, "Publish to selected assessment", receipt.is_some()).clicked() {
+                                        start_add(st, ctx, cid, aid, true);
+                                    }
+                                }
+                                Some(PublishState::SavedToSet(_)) => {
+                                    if pageshell::primary(ui, "Retry attachment").clicked() { start_add(st, ctx, cid, aid, true); }
+                                }
+                                Some(PublishState::Attached(p)) => {
+                                    ui.label(theme::strong(format!("Published · question {}", p.question)));
+                                }
+                                Some(PublishState::AwaitingConfirmation) => {
+                                    ui.label(theme::muted("Save unconfirmed. Check your MyOpenMath question set."));
+                                }
+                            }
+                        });
+                    });
+                    if receipt.is_none() {
+                        crate::kit::gated_reason(ui, "Publishing requires a saved, approved question.");
+                    }
+                } else {
+                    crate::kit::gated_reason(ui, "Pick a course and an assessment first.");
                 }
-                ui.add_space(8.0);
-                let target = st.poster.prefs.course.zip(st.poster.prefs.assessment);
-                if pageshell::primary_on(ui, "Add It Now", target.is_some() && !working).clicked() {
-                    if let (Some((cid, aid)), false) = (target, working) { start_add(st, ctx, cid, aid); }
-                }
-                if target.is_none() { crate::kit::gated_reason(ui, "Pick a course and an assessment first."); }
             }
-            if mine || working && !st.log.is_empty() {
+            if mine && ui.link("Show MyOpenMath browser").clicked() { st.browser.open(Surface::Transfer); }
+            if working && mine && !st.log.is_empty() {
                 ui.add_space(8.0);
                 for line in st.log.iter().rev().take(3).collect::<Vec<_>>().into_iter().rev() {
                     ui.horizontal(|ui| {
-                        if working && mine { ui.spinner(); }
+                        ui.spinner();
                         ui.add(egui::Label::new(theme::text(line).size(13.0)).wrap());
                     });
                 }
@@ -1500,6 +2298,14 @@ mod autoadd {
                 None => {}
             }
             ui.add_space(8.0);
+            login_box(ui, st);
+        });
+    }
+
+    pub(super) fn connection(ui: &mut Ui, st: &mut State) {
+        pageshell::card(ui, |ui| {
+            pageshell::heading(ui, "MyOpenMath connection");
+            ui.add(egui::Label::new(theme::muted("Save your instructor login here, or sign in through the browser panel when adding a question.").size(13.0)).wrap());
             login_box(ui, st);
         });
     }
@@ -1537,6 +2343,11 @@ mod autoadd {
     }
 }
 
+#[cfg(not(target_arch = "wasm32"))]
+pub fn connection_settings(ui: &mut Ui) {
+    ST.with(|state| autoadd::connection(ui, &mut state.borrow_mut()));
+}
+
 /// "Add it to MyOpenMath for me" in the web app: the helper server's browser (src/mom/browserd.rs),
 /// in a full-window panel the teacher watches and can take over (src/mom/browserpanel.js).
 #[cfg(target_arch = "wasm32")]
@@ -1549,10 +2360,10 @@ mod webhelper {
 
     #[derive(Serialize, Deserialize, Clone)]
     #[serde(default)]
-    pub struct Prefs { server: String, token: String, course: Option<u64>, assessment: Option<u64>, auto_save: bool }
+    pub struct Prefs { server: String, token: String, course: Option<u64>, assessment: Option<u64> }
 
     impl Default for Prefs {
-        fn default() -> Prefs { Prefs { server: "ws://127.0.0.1:8793".into(), token: String::new(), course: None, assessment: None, auto_save: false } }
+        fn default() -> Prefs { Prefs { server: "ws://127.0.0.1:8793".into(), token: String::new(), course: None, assessment: None } }
     }
 
     thread_local! { static PREFS_NOW: RefCell<Option<Prefs>> = const { RefCell::new(None) }; }
@@ -1582,10 +2393,8 @@ mod webhelper {
         set("token", p.token.clone().into())?;
         set("question", src.into())?;
         set("name", name.into())?;
-        set("save", p.auto_save.into())?;
         if let Some(c) = p.course { set("course", (c as f64).into())?; }
         if let Some(a) = p.assessment { set("assessment", (a as f64).into())?; }
-        set("onSave", Closure::<dyn FnMut(bool)>::new(|b: bool| update(|p| p.auto_save = b)).into_js_value())?;
         set("onTarget", Closure::<dyn FnMut(f64, f64)>::new(|c: f64, a: f64| update(|p| {
             p.course = Some(c as u64);
             if a > 0.0 { p.assessment = Some(a as u64); }

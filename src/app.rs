@@ -171,7 +171,8 @@ impl App {
 
     /// Opens a file already in memory (browser drop/picker, officecraft `deliver`).
     pub fn open_import_bytes(&mut self, name: &str, bytes: Vec<u8>) {
-        crate::importui::open_external(self, name, bytes);
+        crate::momui::open_worksheet(name, bytes);
+        self.screen = Screen::Mom;
     }
 
     pub fn new_from(ctx: &egui::Context) -> Self {
@@ -180,13 +181,10 @@ impl App {
         if settings.ai_provider.trim().is_empty() {
             settings.ai_provider = "cloud".to_string();
         }
-        if settings.ai_model.trim().is_empty() {
-            settings.ai_model = "gemma4:31b".to_string();
-        }
         theme::set_dark(settings.dark, Some(ctx));
         let app = App {
             store: Store::load(),
-            // D.A.D opens on its MyOpenMath writer; verSHion's welcome page is still reachable from Home.
+            // D.A.D opens on its MyOpenMath question workspace.
             screen: Screen::Mom,
             bank: None,
             exam: None,

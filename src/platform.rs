@@ -270,7 +270,7 @@ pub fn open_help_video(provider: &str) {
 /// Rasterizes every page of a PDF to PNG with the pure-Rust hayro renderer. Native falls back to
 /// `pdftoppm` for files hayro cannot render.
 pub fn render_pdf_pages(data: &[u8]) -> Result<Vec<Vec<u8>>, String> {
-    match render_with_hayro(data) {
+    match render_with_hayro(data, false) {
         Ok(pages) if !pages.is_empty() => Ok(pages),
         hayro_result => {
             #[cfg(not(target_arch = "wasm32"))]
@@ -288,7 +288,12 @@ pub fn render_pdf_pages(data: &[u8]) -> Result<Vec<Vec<u8>>, String> {
     }
 }
 
-fn render_with_hayro(data: &[u8]) -> Result<Vec<Vec<u8>>, String> {
+/// Worksheet conversion needs every page so it cannot silently truncate a source.
+pub(crate) fn render_worksheet_pages(data: &[u8]) -> Result<Vec<Vec<u8>>, String> {
+    render_with_hayro(data, true)
+}
+
+fn render_with_hayro(data: &[u8], require_all: bool) -> Result<Vec<Vec<u8>>, String> {
     use hayro::hayro_interpret::InterpreterSettings;
     use hayro::hayro_syntax::Pdf;
     use hayro::vello_cpu::color::palette::css::WHITE;
@@ -297,6 +302,9 @@ fn render_with_hayro(data: &[u8]) -> Result<Vec<Vec<u8>>, String> {
     const DPI: f32 = 150.0;
 
     let pdf = Pdf::new(data.to_vec()).map_err(|e| format!("{e:?}"))?;
+    if require_all && pdf.pages().len() > MAX_PDF_PAGES {
+        return Err(format!("Split this PDF into files of {MAX_PDF_PAGES} pages or fewer."));
+    }
     #[cfg(not(target_arch = "wasm32"))]
     let interpreter = InterpreterSettings::default();
     // The web build does not compile hayro's standard fonts in; it fetched the same files at

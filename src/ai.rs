@@ -2287,8 +2287,8 @@ mod tests {
 
 /// AI command-line tools on the teacher's own computer, used as the AI: Claude Code (`claude -p`)
 /// and Codex (`codex exec`). A teacher with a Claude or ChatGPT subscription needs no API key, and
-/// nothing runs on our servers. Each call is one non-interactive run with no tools (it only writes
-/// text), no saved session, in an empty folder so it cannot read anyone's files.
+/// nothing runs on our servers. Each call is non-interactive, with no saved session, in a private
+/// scratch folder containing only request attachments and the CLI's reply file.
 #[cfg(not(target_arch = "wasm32"))]
 pub mod cli {
     use super::{AiCfg, Turn};
@@ -2340,12 +2340,13 @@ pub mod cli {
     }
 
     pub fn chat(cfg: &AiCfg, turns: &[Turn]) -> Result<String, String> {
-        if turns.iter().any(|t| !t.images.is_empty()) {
-            return Err("The AI on this computer can't read pictures here. Pick another AI in Settings for this.".into());
+        let images = turns.iter().flat_map(|t| &t.images);
+        if cfg.provider == "claude-cli" && images.clone().next().is_some() {
+            return Err("For PDFs or photos, choose Codex or a vision-capable AI in Your AI.".into());
         }
         let (system, prompt) = transcript(turns);
-        let dir = std::env::temp_dir().join("dad-ai");
-        let _ = std::fs::create_dir_all(&dir);
+        let dir = tempfile::Builder::new().prefix("dad-ai-").tempdir()
+            .map_err(|e| format!("Could not create a temporary AI workspace: {e}"))?;
         match cfg.provider.as_str() {
             "claude-cli" => {
                 let bin = find("claude").ok_or("Claude Code isn't installed on this computer.")?;
@@ -2353,7 +2354,7 @@ pub mod cli {
                 cmd.args(["-p", "--output-format", "json", "--tools", "", "--no-session-persistence", "--strict-mcp-config", "--disable-slash-commands"]);
                 if !system.is_empty() { cmd.args(["--system-prompt", &system]); }
                 if !cfg.model.trim().is_empty() { cmd.args(["--model", cfg.model.trim()]); }
-                let out = run(cmd, &dir, &prompt)?;
+                let out = run(cmd, dir.path(), &prompt)?;
                 let v: serde_json::Value = serde_json::from_str(out.trim())
                     .map_err(|_| format!("Claude Code gave an unexpected answer: {}", out.chars().take(200).collect::<String>()))?;
                 if v["is_error"] == true {
@@ -2363,16 +2364,20 @@ pub mod cli {
             }
             _ => {
                 let bin = find("codex").ok_or("Codex isn't installed on this computer.")?;
-                let last = dir.join(format!("codex-{}-{}.txt", std::process::id(), Instant::now().elapsed().as_nanos()));
+                let last = dir.path().join("reply.txt");
                 let mut cmd = Command::new(bin);
                 cmd.args(["exec", "--skip-git-repo-check", "--ephemeral", "-s", "read-only", "--color", "never", "-o"]).arg(&last);
                 if !cfg.model.trim().is_empty() { cmd.args(["-m", cfg.model.trim()]); }
-                cmd.arg("-");
+                for (index, image) in images.enumerate() {
+                    let name = format!("worksheet-{}.png", index + 1);
+                    std::fs::write(dir.path().join(&name), image)
+                        .map_err(|e| format!("Could not attach the worksheet image: {e}"))?;
+                    cmd.args(["--image", &name]);
+                }
+                cmd.args(["--", "-"]);
                 let full = if system.is_empty() { prompt } else { format!("{system}\n\n{prompt}") };
-                run(cmd, &dir, &full)?;
-                let text = std::fs::read_to_string(&last).map_err(|_| "Codex gave no answer.".to_string())?;
-                let _ = std::fs::remove_file(&last);
-                Ok(text)
+                run(cmd, dir.path(), &full)?;
+                std::fs::read_to_string(&last).map_err(|_| "Codex gave no answer.".to_string())
             }
         }
     }
@@ -2381,23 +2386,33 @@ pub mod cli {
     fn run(mut cmd: Command, dir: &std::path::Path, input: &str) -> Result<String, String> {
         cmd.current_dir(dir).stdin(Stdio::piped()).stdout(Stdio::piped()).stderr(Stdio::piped());
         let mut child = cmd.spawn().map_err(|e| format!("Could not start the AI tool: {e}"))?;
+        fn drain(mut stream: impl std::io::Read + Send + 'static) -> std::thread::JoinHandle<Vec<u8>> {
+            std::thread::spawn(move || {
+                let mut bytes = Vec::new();
+                let _ = stream.read_to_end(&mut bytes);
+                bytes
+            })
+        }
+        let stdout = drain(child.stdout.take().expect("piped stdout"));
+        let stderr = drain(child.stderr.take().expect("piped stderr"));
         if let Some(mut stdin) = child.stdin.take() {
             let input = input.to_string();
             std::thread::spawn(move || { let _ = stdin.write_all(input.as_bytes()); });
         }
         let start = Instant::now();
-        loop {
-            if let Some(_status) = child.try_wait().map_err(|e| e.to_string())? { break; }
+        let status = loop {
+            if let Some(status) = child.try_wait().map_err(|e| e.to_string())? { break status; }
             if start.elapsed() > TIMEOUT {
                 let _ = child.kill();
+                let _ = child.wait();
                 return Err("The AI on this computer took too long to answer.".into());
             }
             std::thread::sleep(Duration::from_millis(100));
-        }
-        let out = child.wait_with_output().map_err(|e| e.to_string())?;
-        let stdout = String::from_utf8_lossy(&out.stdout).to_string();
-        if !out.status.success() && stdout.trim().is_empty() {
-            let err = String::from_utf8_lossy(&out.stderr);
+        };
+        let stdout = String::from_utf8_lossy(&stdout.join().unwrap_or_default()).into_owned();
+        let stderr = stderr.join().unwrap_or_default();
+        if !status.success() && stdout.trim().is_empty() {
+            let err = String::from_utf8_lossy(&stderr);
             let line = err.lines().rev().find(|l| !l.trim().is_empty()).unwrap_or("it stopped with an error");
             if err.contains("login") || err.contains("auth") || err.contains("API key") {
                 return Err(format!("The AI tool isn't signed in. Open a terminal and run it once to sign in. ({line})"));

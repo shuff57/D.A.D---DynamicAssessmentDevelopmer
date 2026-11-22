@@ -858,7 +858,9 @@ impl crate::App {
         self.draw_restore_confirm(ctx);
         self.draw_toasts(ctx);
         // Last, so the popup and the corner button sit over whatever screen is open.
-        self.draw_alpha_notice(ctx);
+        if !crate::momui::browser_workspace_open() {
+            self.draw_alpha_notice(ctx);
+        }
     }
 
     // ---------- shared mutations (pub: other screens reuse) ----------
@@ -1008,19 +1010,10 @@ impl crate::App {
         }
         let who = self.account.model.me.as_ref().map(|m| (initials_of(&m.display_name, &m.email), m.email.clone()));
         let screens = [
-            crate::Screen::Home,
             crate::Screen::Mom,
-            crate::Screen::Banks,
-            crate::Screen::Exams,
-            crate::Screen::Grade,
-            crate::Screen::Imports,
-            crate::Screen::Figures,
-            crate::Screen::Shared,
             crate::Screen::Settings,
         ];
         let active = screens.clone().map(|target| match (&self.screen, &target) {
-            (crate::Screen::BankEdit(_), crate::Screen::Banks) => true,
-            (crate::Screen::ExamEdit(_), crate::Screen::Exams) => true,
             (crate::Screen::Account, crate::Screen::Settings) => true,
             (cur, t) => std::mem::discriminant(cur) == std::mem::discriminant(t),
         });
@@ -1038,18 +1031,11 @@ impl crate::App {
 }
 
 /// The dock's nav items, in order: icon and visible label (also the accessible name).
-const DOCK_NAV: [(NavIcon, &str); 9] = [
-    (NavIcon::Home, "Home"),
-    (NavIcon::Pencil, "Write"),
-    (NavIcon::Banks, "Banks"),
-    (NavIcon::Exams, "Exams"),
-    (NavIcon::Grade, "Grade"),
-    (NavIcon::Import, "Import"),
-    (NavIcon::Figures, "Figures"),
-    (NavIcon::Shared, "Shared"),
+const DOCK_NAV: [(NavIcon, &str); 2] = [
+    (NavIcon::Pencil, "Questions"),
     // One item for the account and the settings: signed in, it wears the person's initials,
     // a filled disc as Google does; signed out, the plain person icon.
-    (NavIcon::Account, "Account"),
+    (NavIcon::Account, "Settings"),
 ];
 
 /// What the dock drew and what was pressed this frame.
@@ -1065,7 +1051,7 @@ struct DockOut {
 /// The dock as a left panel of `root`: the [`DOCK_NAV`] items (`active` marks the current page),
 /// then at its floor the Report item (narrow, when `wants_report` and there is room) and the
 /// light/dark button (`dark` is the current mode).
-fn draw_dock(root: &mut egui::Ui, active: [bool; 9], who: Option<&(String, String)>, wants_report: bool, dark: bool) -> DockOut {
+fn draw_dock(root: &mut egui::Ui, active: [bool; DOCK_NAV.len()], who: Option<&(String, String)>, wants_report: bool, dark: bool) -> DockOut {
     // V4 dock: an 88 pt rounded rail inside a 10 pt app gutter; below ~900 pt a 72 pt rail
     // (still labelled, at a smaller size) whose gap to the page is 8 instead of 16, so the page
     // keeps the x and width it had beside the old 64 pt rail.
@@ -2328,7 +2314,7 @@ impl crate::App {
                 ui.set_max_width(ui.available_width().min(1160.0));
                 ui.horizontal(|ui| {
                     ui.vertical(|ui| {
-                        pageshell::title(ui, "Home  /  Account", "Account", "Your account, backups and AI settings. Your work is saved on this machine; keep a copy by exporting it.");
+                        pageshell::title(ui, "", "D.A.D Settings", "Manage your MyOpenMath connection and the AI that writes or converts your questions.");
                     });
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                         // A quiet help action, the tertiary tier: as a full outlined button it
@@ -2340,37 +2326,19 @@ impl crate::App {
                 });
                 ui.add_space(18.0);
 
+                #[cfg(not(target_arch = "wasm32"))]
+                {
+                    crate::momui::connection_settings(ui);
+                    ui.add_space(12.0);
+                }
+
                 let items = [
-                    pageshell::NavItem { icon: crate::handicons::PERSON, label: "Account" },
-                    pageshell::NavItem { icon: crate::handicons::DOWNLOAD, label: "Backup & storage" },
+                    pageshell::NavItem { icon: crate::handicons::PERSON, label: "D.A.D account" },
+                    pageshell::NavItem { icon: crate::handicons::DOWNLOAD, label: "Question storage" },
                     pageshell::NavItem { icon: crate::handicons::SPARKLE, label: "AI conversion" },
                     pageshell::NavItem { icon: crate::handicons::HELP, label: "Help & community" },
                 ];
-                // A full-width closing row keeps local storage separate from section navigation.
-                let (n_banks, n_exams) = (app.store.banks.len(), app.store.exams.len());
-                let n_q: usize = app.store.banks.iter().map(|b| b.questions.len()).sum();
-                let mut backup = false;
-                let aside = |ui: &mut egui::Ui| {
-                    let plural = |n: usize, one: &str| format!("{n} {one}{}", if n == 1 { "" } else { "s" });
-                    let counts = [plural(n_banks, "bank"), plural(n_exams, "exam"), plural(n_q, "question")];
-                    let w = ui.available_width();
-                    kit::card().inner_margin(Margin::symmetric(20, 14)).show(ui, |ui| {
-                        ui.set_width(w - 42.0);
-                        ui.horizontal(|ui| {
-                            ui.vertical(|ui| {
-                                ui.label(theme::strong("On this machine").size(14.0));
-                                ui.label(theme::muted(counts.join(" · ")).size(13.0));
-                            });
-                            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                                let label = format!("{}  Download backup", egui_phosphor::regular::FILE_ARROW_DOWN);
-                                backup = pageshell::outline(ui, &label).clicked();
-                            });
-                        });
-                    });
-                };
-                // On the account page the always-available local backup comes first and the optional
-                // sharing setup follows it.
-                pageshell::sections_aside(ui, "settings", &items, &[SETTINGS_ACCOUNT], aside, |ui, section| {
+                pageshell::sections_aside(ui, "settings", &items, &[SETTINGS_ACCOUNT], |_| {}, |ui, section| {
                 // fields and menus share the buttons' 12 px corners
                 let w = &mut ui.visuals_mut().widgets;
                 for state in [&mut w.inactive, &mut w.hovered, &mut w.active] {
@@ -2436,89 +2404,18 @@ impl crate::App {
                 });
                 }
                 1 => {
-                // --- Back up / restore ---
                 pageshell::card(ui, |ui| {
-                    pageshell::heading(ui, "Back up");
-                    ui.add_space(4.0);
-                    ui.label(theme::muted(
-                        "Zips up every bank, exam, import, export, setting and picture into one file.",
-                    ));
-                    ui.add_space(2.0);
-                    ui.label(
-                        theme::muted(
-                            "Restoring replaces everything in verSHion with that file's contents, so keep the backup somewhere else too.",
-                        )
-                        .size(crate::kit::ty::META),
-                    );
-                    ui.add_space(10.0);
-                    ui.horizontal(|ui| {
-                        if pageshell::primary(ui, "Download backup").clicked() {
-                            app.backup_now();
-                        }
-                        if pageshell::outline(ui, "Restore from backup…").clicked() {
-                            app.start_restore();
-                        }
-                    });
-                });
-                ui.add_space(12.0);
-
-                // --- Storage location ---
-                pageshell::card(ui, |ui| {
-                    pageshell::heading(ui, "Where your work is stored");
-                    ui.add_space(6.0);
-                    ui.add(
-                        egui::Label::new(
-                            RichText::new(store::backend_label())
-                                .color(theme::text_col())
-                                .size(crate::kit::ty::META)
-                                .family(egui::FontFamily::Monospace),
-                        )
-                        .wrap(),
-                    );
-                    ui.add_space(6.0);
-                    let n_banks = app.store.banks.len();
-                    let n_exams = app.store.exams.len();
-                    let n_q: usize = app.store.banks.iter().map(|b| b.questions.len()).sum();
-                    ui.label(
-                        theme::muted(format!(
-                            "{n_banks} bank{} · {n_exams} exam{} · {n_q} question{} on this computer",
-                            if n_banks == 1 { "" } else { "s" },
-                            if n_exams == 1 { "" } else { "s" },
-                            if n_q == 1 { "" } else { "s" },
-                        ))
-                        .size(crate::kit::ty::META),
-                    );
-                    ui.add_space(8.0);
-                    if pageshell::outline(ui, "Open folder").clicked() {
-                        let _ = crate::platform::open_path(&store::store_dir());
+                    pageshell::heading(ui, "My Questions storage");
+                    ui.add(egui::Label::new(theme::muted("Worksheet drafts and completed questions are stored in My Questions. The desktop app also keeps publication receipts so an interrupted attachment can resume.")).wrap());
+                    ui.add(egui::Label::new(theme::muted(store::backend_label()).monospace()).wrap());
+                    if pageshell::outline(ui, "Export My Questions").clicked()
+                        && let Err(error) = crate::momui::export_my_questions()
+                    {
+                        app.toast_err(format!("Could not export My Questions: {error}"));
                     }
-                });
-                ui.add_space(12.0);
-
-                // --- What is in that folder ---
-                pageshell::card(ui, |ui| {
-                    pageshell::heading(ui, "What is in that folder");
-                    ui.add_space(6.0);
-                    for (name, what) in [
-                        ("banks.json", "every question bank, with its topics and points"),
-                        ("exams.json", "every exam, its paper style and its page order"),
-                        ("settings.json", "the theme, the window size and your view choices"),
-                        ("exports", "each PDF and DOCX you have downloaded, with its date"),
-                        ("figures", "the pictures and figure sheets you have made"),
-                    ] {
-                        ui.horizontal_wrapped(|ui| {
-                            ui.add(
-                                egui::Label::new(
-                                    RichText::new(name)
-                                        .size(crate::kit::ty::META)
-                                        .family(egui::FontFamily::Monospace)
-                                        .color(theme::text_col()),
-                                ),
-                            );
-                            ui.add(
-                                egui::Label::new(theme::muted(format!("— {what}")).size(crate::kit::ty::META)).wrap(),
-                            );
-                        });
+                    #[cfg(not(target_arch = "wasm32"))]
+                    if pageshell::outline(ui, "Open data folder").clicked() {
+                        crate::platform::open_path(&store::store_dir());
                     }
                 });
                 }
@@ -2528,8 +2425,7 @@ impl crate::App {
                     pageshell::heading(ui, "AI conversion");
                     ui.add_space(4.0);
                     ui.label(theme::muted(
-                        "Used when a test is converted for you. Runs where you point it, by \
-                         default entirely on your machine.",
+                        "D.A.D uses this AI to write MyOpenMath questions and read uploaded worksheets.",
                     ));
                     ui.add_space(10.0);
                     let before = app.settings.clone();
@@ -2623,9 +2519,6 @@ impl crate::App {
                 }
                 }
                 });
-                if backup {
-                    app.backup_now();
-                }
                 // A short section ends two-thirds down and leaves a floor of empty grid paper; the
                 // critics named that on settings and account more than anything else. A quiet rule
                 // holds the bottom of the viewport instead.
@@ -3769,8 +3662,7 @@ mod tests {
                         return;
                     }
                     let mut root = root_ui(ui.ctx());
-                    let mut active = [false; 9];
-                    active[8] = true;
+                    let active = [false, true];
                     let out = draw_dock(&mut root, active, None, true, false);
                     let page_x = egui::CentralPanel::default().frame(Frame::NONE).show(&mut root, |ui| ui.max_rect().left()).inner;
                     *rail = (out.rail, root.max_rect().width() < 900.0, page_x);

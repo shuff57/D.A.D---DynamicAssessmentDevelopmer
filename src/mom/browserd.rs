@@ -294,13 +294,24 @@ fn run_job(session: &Arc<Session>, v: &Value) -> Result<(), String> {
         }
         _ => {
             let (cid, aid) = (v["cid"].as_u64().ok_or("Which course?")?, v["aid"].as_u64().ok_or("Which assessment?")?);
-            let q: MomQuestion = MomQuestion::parse(v["question"].as_str().ok_or("No question was sent")?);
+            let src = v["question"].as_str().ok_or("No question was sent")?;
+            let q = MomQuestion::parse(src);
             let save = v["save"].as_bool().unwrap_or(false);
             let s = session.clone();
-            let r = poster::add_question(&mut page, cid, aid, &q, save, &mut |l| s.status(l));
+            let mut log = |line: &str| s.status(line);
+            let r = if save {
+                use sha2::{Digest, Sha256};
+                let profile = session.profile.file_name().and_then(|name| name.to_str()).ok_or("Missing browser profile")?;
+                let digest = Sha256::digest(src.as_bytes());
+                let key = format!("mom/server-publications/{profile}/{cid}-{aid}-{digest:x}.json");
+                poster::publish_question(&mut page, cid, aid, &q, &key, &mut log)
+            } else {
+                poster::add_question(&mut page, cid, aid, &q, false, &mut log)
+            };
             session.say(match r {
-                Ok(Added::Saved) => json!({"type": "added", "ok": true, "message": "Done. It's saved in the assessment on MyOpenMath."}),
-                Ok(Added::Filled) => json!({"type": "added", "ok": true, "message": "It's filled in. Take control, check it, and press Save."}),
+                Ok(Added::Saved(p)) => json!({"type": "added", "ok": true, "message": format!("Verified question {} in MyOpenMath assessment {}.", p.question, p.assessment)}),
+                Ok(Added::SavedToSet(p, error)) => json!({"type": "added", "ok": false, "retryAttachment": true, "message": format!("Question {} was saved to your question set. Attachment is unconfirmed. {error}", p.question)}),
+                Ok(Added::Filled) => json!({"type": "added", "ok": true, "message": "The editor is filled. Nothing was saved or added."}),
                 Err(e) => json!({"type": "added", "ok": false, "message": e}),
             });
         }

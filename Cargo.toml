@@ -77,6 +77,7 @@ egui_kittest = "0.36"
 hayro = { version = "0.8", default-features = false, features = ["embed-fonts"] }
 eframe ={ version = "0.36", default-features = false, features = ["default_fonts", "wgpu", "accesskit", "wayland", "x11", "links"] }
 rfd = "0.17"
+tempfile = "3"
 ureq = { version = "3", features = ["platform-verifier"] }
 # Driving a local Chrome over the DevTools protocol (src/mom/chrome.rs): adding questions to MyOpenMath.
 tungstenite = "0.27"

@@ -67,6 +67,10 @@ impl LiveTab {
 
     pub fn alive(&self) -> bool { self.shared.alive.load(Ordering::Relaxed) }
 
+    pub fn same_connection(&self, other: &Self) -> bool {
+        Arc::ptr_eq(&self.shared, &other.shared)
+    }
+
     /// One command and its result.
     pub fn call(&self, method: &str, params: Value) -> Result<Value, String> {
         let id = self.next.fetch_add(1, Ordering::Relaxed);
@@ -160,7 +164,7 @@ impl LiveTab {
     /// A key that is not text: Enter, Backspace, Tab, arrows, Escape, Delete, Home, End.
     pub fn key(&self, key: &str, down: bool, modifiers: u32) {
         let (code, vk) = match key {
-            "Enter" => ("Enter", 13), "Backspace" => ("Backspace", 8), "Tab" => ("Tab", 9), "Escape" => ("Escape", 27),
+            "Space" => ("Space", 32), "Enter" => ("Enter", 13), "Backspace" => ("Backspace", 8), "Tab" => ("Tab", 9), "Escape" => ("Escape", 27),
             "Delete" => ("Delete", 46), "ArrowLeft" => ("ArrowLeft", 37), "ArrowUp" => ("ArrowUp", 38),
             "ArrowRight" => ("ArrowRight", 39), "ArrowDown" => ("ArrowDown", 40), "Home" => ("Home", 36), "End" => ("End", 35),
             "PageUp" => ("PageUp", 33), "PageDown" => ("PageDown", 34),
@@ -170,6 +174,7 @@ impl LiveTab {
         let mut p = json!({"type": if down { "rawKeyDown" } else { "keyUp" }, "key": key, "windowsVirtualKeyCode": vk, "modifiers": modifiers});
         if !code.is_empty() { p["code"] = json!(code); }
         if down && key == "Enter" { p["text"] = json!("\r"); p["type"] = json!("keyDown"); }
+        if key == "Space" { p["key"] = json!(" "); }
         self.fire("Input.dispatchKeyEvent", p);
     }
 }
