@@ -19,6 +19,7 @@ thread_local! {
     static PICKED: std::cell::RefCell<Vec<PickedFile>> = const { std::cell::RefCell::new(Vec::new()) };
     /// Single-file picks (attach a picture); a separate queue so they never become imports.
     static PICKED_SINGLE: std::cell::RefCell<Vec<PickedFile>> = const { std::cell::RefCell::new(Vec::new()) };
+    static PICKED_QUESTION_IMAGE: std::cell::RefCell<Vec<PickedFile>> = const { std::cell::RefCell::new(Vec::new()) };
     static REPAINT: std::cell::RefCell<Option<egui::Context>> = const { std::cell::RefCell::new(None) };
 }
 
@@ -56,7 +57,7 @@ pub fn pick_files(filter: &str, exts: &[&str]) -> Option<Vec<PathBuf>> {
 /// No synchronous picker in a browser: the input opens and results arrive through [`take_picked`].
 #[cfg(target_arch = "wasm32")]
 pub fn pick_files(_filter: &str, exts: &[&str]) -> Option<Vec<PathBuf>> {
-    open_input(true, exts, false);
+    open_input(true, exts, &PICKED);
     None
 }
 
@@ -67,12 +68,16 @@ pub fn pick_file(filter: &str, exts: &[&str]) -> Option<PathBuf> {
 
 #[cfg(target_arch = "wasm32")]
 pub fn pick_file(_filter: &str, exts: &[&str]) -> Option<PathBuf> {
-    open_input(false, exts, true);
+    open_input(false, exts, &PICKED_SINGLE);
     None
 }
 
 #[cfg(target_arch = "wasm32")]
-fn open_input(multiple: bool, exts: &[&str], single: bool) {
+fn open_input(
+    multiple: bool,
+    exts: &[&str],
+    destination: &'static std::thread::LocalKey<std::cell::RefCell<Vec<PickedFile>>>,
+) {
     use wasm_bindgen::JsCast as _;
     let Some(document) = web_sys::window().and_then(|w| w.document()) else { return };
     let Ok(el) = document.create_element("input") else { return };
@@ -99,11 +104,7 @@ fn open_input(multiple: bool, exts: &[&str], single: bool) {
                 if let Ok(value) = wasm_bindgen_futures::JsFuture::from(promise).await {
                     let bytes = js_sys::Uint8Array::new(&value).to_vec();
                     let picked = PickedFile { name: file.name(), bytes };
-                    if single {
-                        PICKED_SINGLE.with(|q| q.borrow_mut().push(picked));
-                    } else {
-                        PICKED.with(|q| q.borrow_mut().push(picked));
-                    }
+                    destination.with(|q| q.borrow_mut().push(picked));
                     wake();
                 }
             });
@@ -112,6 +113,30 @@ fn open_input(multiple: bool, exts: &[&str], single: bool) {
     let _ = input.add_event_listener_with_callback("change", handler.as_ref().unchecked_ref());
     handler.forget();
     input.click();
+}
+
+/// Ask for a single image reference for the question author.
+pub(crate) fn pick_question_image() -> Result<Option<PickedFile>, String> {
+    let extensions = &["png", "jpg", "jpeg", "webp"];
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        let Some(path) = pick_file("Question reference image", extensions) else { return Ok(None) };
+        let bytes = read(&path).map_err(|error| format!("Could not open the picture. {error}"))?;
+        let name = path.file_name().unwrap_or_default().to_string_lossy().into_owned();
+        Ok(Some(PickedFile { name, bytes }))
+    }
+    #[cfg(target_arch = "wasm32")]
+    {
+        open_input(false, extensions, &PICKED_QUESTION_IMAGE);
+        Ok(None)
+    }
+}
+
+pub(crate) fn take_question_image() -> Option<PickedFile> {
+    #[cfg(target_arch = "wasm32")]
+    { PICKED_QUESTION_IMAGE.with(|queue| std::mem::take(&mut *queue.borrow_mut()).pop()) }
+    #[cfg(not(target_arch = "wasm32"))]
+    { None }
 }
 
 #[cfg(not(target_arch = "wasm32"))]

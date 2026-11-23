@@ -13,6 +13,7 @@ enum Item {
     Choice { id: usize, label: String, group: String, checked: bool },
     Select { id: usize, label: String, value: String, options: Vec<(String, String)> },
     Button { id: usize, label: String },
+    VideoLink { url: String },
 }
 
 pub struct StudentText {
@@ -81,6 +82,11 @@ impl StudentText {
                             let button = crate::pageshell::outline(ui, label);
                             button.widget_info(|| WidgetInfo::labeled(WidgetType::Button, !working, &*label));
                             if button.clicked() { action = Some(*id); }
+                        }
+                        Item::VideoLink { url } => {
+                            if let Ok(url) = super::question_help::video_url(url) {
+                                ui.hyperlink_to("Watch the help video", url.as_str());
+                            }
                         }
                     });
                 }

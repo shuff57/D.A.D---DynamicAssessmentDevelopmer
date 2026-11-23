@@ -171,7 +171,16 @@ impl App {
 
     /// Opens a file already in memory (browser drop/picker, officecraft `deliver`).
     pub fn open_import_bytes(&mut self, name: &str, bytes: Vec<u8>) {
-        crate::momui::open_worksheet(name, bytes);
+        if crate::momui::is_question_file(name, &bytes) {
+            crate::momui::open_question_file(name, bytes);
+        } else if name.rsplit_once('.').is_some_and(|(_, ext)| {
+            crate::mom::worksheet::EXTENSIONS.iter().any(|supported| ext.eq_ignore_ascii_case(supported))
+        }) {
+            crate::momui::open_worksheet(name, bytes);
+        } else {
+            self.toast_err(format!("D.A.D cannot import {name}. Choose a MyOpenMath question, D.A.D package, or worksheet."));
+            return;
+        }
         self.screen = Screen::Mom;
     }
 
@@ -386,6 +395,17 @@ impl App {
     /// Test hook: VERSHION_SCRIPT="click:x,y;text:abc;key:Enter;wait" injects one input step
     /// every 10 frames after a 60 frame warm-up. Coordinates are egui points.
     pub fn raw_input_hook(&mut self, ctx: &egui::Context, raw: &mut egui::RawInput) {
+        #[cfg(not(target_arch = "wasm32"))]
+        if matches!(self.screen, Screen::Mom) && !crate::momui::browser_workspace_open() {
+            for file in std::mem::take(&mut raw.dropped_files) {
+                let name = file.path().file_name().map(|name| name.to_string_lossy())
+                    .unwrap_or_else(|| "dropped file".into());
+                match file.bytes() {
+                    Ok(bytes) => self.open_import_bytes(&name, bytes),
+                    Err(error) => self.toast_err(format!("Couldn't read {name}: {error}")),
+                }
+            }
+        }
         if let Some((path, _)) = &self.qa_shot {
             for ev in &raw.events {
                 if let egui::Event::Screenshot { image, .. } = ev {

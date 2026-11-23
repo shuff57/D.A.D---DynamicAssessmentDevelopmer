@@ -47,23 +47,67 @@ pub enum Answer {
     Exact,
     Interval,
     Written,
+    Matching,
+    Text,
+    Complex,
+    CalculatedComplex,
+    Tuple,
+    CalculatedTuple,
+    Matrix,
+    CalculatedMatrix,
+    CalculatedInterval,
+    Drawing,
+    File,
+    ComplexTuple,
+    CalculatedComplexTuple,
+    AlgebraicTuple,
+    ComplexMatrix,
+    CalculatedComplexMatrix,
+    AlgebraicMatrix,
+    ChemicalEquation,
+    Molecule,
 }
 
 impl Answer {
-    pub const ALL: [Answer; 8] = [Answer::Number, Answer::Choice, Answer::SelectAll, Answer::Dropdown,
-        Answer::Expression, Answer::Exact, Answer::Interval, Answer::Written];
+    pub const ALL: [Answer; 27] = [
+        Self::Number, Self::Exact, Self::Expression, Self::Choice, Self::SelectAll, Self::Dropdown,
+        Self::Matching, Self::Interval, Self::CalculatedInterval, Self::Text, Self::Written,
+        Self::Complex, Self::CalculatedComplex, Self::Tuple, Self::CalculatedTuple, Self::Matrix,
+        Self::CalculatedMatrix, Self::Drawing, Self::File, Self::ComplexTuple, Self::CalculatedComplexTuple,
+        Self::AlgebraicTuple, Self::ComplexMatrix, Self::CalculatedComplexMatrix, Self::AlgebraicMatrix,
+        Self::ChemicalEquation, Self::Molecule,
+    ];
 
-    /// The label in the form.
-    pub fn label(self) -> &'static str {
+    /// The MyOpenMath code, student-facing format, and short explanation.
+    pub(crate) fn details(self) -> (&'static str, &'static str, &'static str) {
         match self {
-            Answer::Number => "A number",
-            Answer::Choice => "Multiple choice (pick one)",
-            Answer::SelectAll => "Select all that apply",
-            Answer::Dropdown => "Pick from a dropdown",
-            Answer::Expression => "An expression, like 3x + 2",
-            Answer::Exact => "An exact answer, like 3/4 or √2",
-            Answer::Interval => "An interval, like (2, 5]",
-            Answer::Written => "A written explanation (you grade it)",
+            Self::Number => ("number", "Number", "Enter an integer, decimal, or scientific notation. MyOpenMath grades within a tolerance."),
+            Self::Exact => ("calculated", "Calculated number", "Enter a number or calculation, such as 0.75, 3/4, or √2. An answer format can require a fraction."),
+            Self::Expression => ("numfunc", "Algebraic expression", "Enter an equivalent expression or function, such as x/2 or 0.5x when the format allows either."),
+            Self::Choice => ("choices", "Multiple choice", "Choose one correct option."),
+            Self::SelectAll => ("multans", "Multiple select", "Choose all correct options from the list."),
+            Self::Dropdown => ("choices", "Dropdown", "Choose one answer from an inline menu."),
+            Self::Matching => ("matching", "Matching", "Pair each item with its matching option."),
+            Self::Interval => ("interval", "Interval", "Enter an interval with numeric endpoints, such as (2, 5]."),
+            Self::CalculatedInterval => ("calcinterval", "Calculated interval", "Enter an interval with calculated endpoints, such as [1/2, √3]."),
+            Self::Text => ("string", "Fill in the blank", "Type a word or phrase in an inline blank. MyOpenMath checks the accepted text answers."),
+            Self::Written => ("essay", "Written response", "Write an explanation for the teacher to grade."),
+            Self::Complex => ("complex", "Complex number", "Enter a complex number, such as 2 + 3i."),
+            Self::CalculatedComplex => ("calccomplex", "Calculated complex number", "Enter a complex number with calculated components, such as 1/2 + √2i."),
+            Self::Tuple => ("ntuple", "Ordered tuple", "Enter an ordered list of numbers, such as (2, 5)."),
+            Self::CalculatedTuple => ("calcntuple", "Calculated tuple", "Enter an ordered list with entries such as fractions or radicals."),
+            Self::Matrix => ("matrix", "Matrix", "Enter numeric values in a matrix."),
+            Self::CalculatedMatrix => ("calcmatrix", "Calculated matrix", "Enter matrix entries that may contain calculations."),
+            Self::Drawing => ("draw", "Graphing or drawing", "Plot points, lines, or curves with the drawing tool. MyOpenMath grades the drawing."),
+            Self::File => ("file", "File upload", "Upload a file for the teacher to review."),
+            Self::ComplexTuple => ("complexntuple", "Complex tuple", "Enter an ordered list of complex numbers."),
+            Self::CalculatedComplexTuple => ("calccomplexntuple", "Calculated complex tuple", "Enter complex tuple entries using calculations."),
+            Self::AlgebraicTuple => ("algntuple", "Algebraic tuple", "Enter an ordered list of algebraic expressions."),
+            Self::ComplexMatrix => ("complexmatrix", "Complex matrix", "Enter a matrix of complex numbers."),
+            Self::CalculatedComplexMatrix => ("calccomplexmatrix", "Calculated complex matrix", "Enter complex matrix entries using calculations."),
+            Self::AlgebraicMatrix => ("algmatrix", "Algebraic matrix", "Enter a matrix of algebraic expressions."),
+            Self::ChemicalEquation => ("chemeqn", "Chemical equation", "Enter a chemical equation with formulas and coefficients."),
+            Self::Molecule => ("molecule", "Chemical molecule", "Draw a molecular structure in the molecule editor."),
         }
     }
 
@@ -76,9 +120,14 @@ impl Answer {
             Answer::SelectAll => format!("select all that apply, {n}, at least one right (IMathAS type multans)"),
             Answer::Dropdown => format!("a dropdown inside the sentence with {n} (IMathAS type choices shown as a select)"),
             Answer::Expression => "the student types an algebraic expression or equation (IMathAS type numfunc)".into(),
-            Answer::Exact => "the student types an exact value such as a fraction or a square root (IMathAS type calculated)".into(),
+            Answer::Exact => "the student types an exact value such as a fraction or a square root (IMathAS type calculated; accept equivalent decimals unless a specific format is requested)".into(),
             Answer::Interval => "the student types an interval (IMathAS type interval)".into(),
+            Answer::Text => "a fill-in-the-blank word or phrase using IMathAS type string with the answer box inline".into(),
             Answer::Written => "a written explanation the teacher grades by hand (IMathAS type essay)".into(),
+            other => {
+                let (code, _, description) = other.details();
+                format!("IMathAS type {code}. Student instructions: {description}")
+            }
         }
     }
 
@@ -136,6 +185,9 @@ fn rounding_spec(r: Option<Rounding>) -> &'static str {
 #[derive(Serialize, Deserialize, Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Topic { Ai, Listed(usize), Typed }
 
+#[derive(Serialize, Deserialize, Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub(crate) enum HelpStyle { #[default] DetailedSolution, WrittenHelp }
+
 /// Everything the form asks; every None (and `Topic::Ai`) is "let the AI choose". Saved between
 /// sessions, so a teacher's course and habits stay picked.
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
@@ -146,8 +198,10 @@ pub struct Form {
     pub topic_text: String,
     /// How many parts; None: the AI decides.
     pub part_count: Option<usize>,
+    pub part_range: Option<[usize; 2]>,
     /// One answer per part; with `part_count` None, one entry that applies to every part.
     pub answers: Vec<Option<Answer>>,
+    pub prefer_answer_types: bool,
     pub difficulty: Option<Difficulty>,
     pub rounding: Option<Rounding>,
     /// Options in multiple choice, select-all and dropdown parts.
@@ -156,12 +210,17 @@ pub struct Form {
     pub story: Option<bool>,
     pub random: bool,
     pub extra: String,
+    pub figure: Option<(String, String)>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) line_variant: Option<super::line_variant::LineVariant>,
+    pub(crate) help_style: HelpStyle,
 }
 
 impl Default for Form {
     fn default() -> Form {
-        Form { course: Some(0), topic: Topic::Ai, topic_text: String::new(), part_count: None, answers: vec![None],
-            difficulty: None, rounding: None, options: None, story: None, random: true, extra: String::new() }
+        Form { course: Some(0), topic: Topic::Ai, topic_text: String::new(), part_count: None, part_range: None, answers: vec![None], prefer_answer_types: false,
+            difficulty: None, rounding: None, options: None, story: None, random: true, extra: String::new(),
+            figure: None, line_variant: None, help_style: HelpStyle::default() }
     }
 }
 
@@ -185,8 +244,10 @@ impl Form {
     /// A short name for a question the AI left unnamed.
     pub fn short_name(&self) -> String {
         match (self.topic_name(), self.course_name()) {
-            (Some(t), Some(c)) => format!("{t} ({c})"),
-            (Some(t), None) => t,
+            (Some(t), course) => {
+                let topic: String = t.split_whitespace().collect::<Vec<_>>().join(" ").chars().take(80).collect();
+                course.map_or_else(|| topic.clone(), |course| format!("{topic} ({course})"))
+            }
             (None, Some(c)) => format!("{c} question"),
             (None, None) => "Math question".into(),
         }
@@ -199,8 +260,12 @@ impl Form {
             if i >= self.topics().len() { self.topic = Topic::Ai; }
         }
         if let Some(n) = self.part_count { self.part_count = Some(n.clamp(1, MAX_PARTS)); }
-        let want = self.part_count.unwrap_or(1);
-        let last = self.answers.last().copied().flatten();
+        if let Some([min, max]) = self.part_range.as_mut() {
+            *min = (*min).clamp(1, MAX_PARTS);
+            *max = (*max).clamp(*min, MAX_PARTS);
+        }
+        let want = self.part_range.map_or_else(|| self.part_count.unwrap_or(1), |[_, max]| max);
+        let last = if self.part_range.is_some() { None } else { self.answers.last().copied().flatten() };
         self.answers.resize(want, last);
         if self.options.is_some_and(|n| !(2..=6).contains(&n)) { self.options = None; }
     }
@@ -213,6 +278,35 @@ impl Form {
     /// What is still missing before the AI can write, in plain words; None when ready.
     pub fn missing(&self) -> Option<&'static str> {
         if self.topic == Topic::Typed && self.topic_text.trim().is_empty() { return Some("Type a topic first."); }
+        None
+    }
+
+    pub(crate) fn checks_answer_setup(&self) -> bool {
+        self.part_count.is_some() || self.part_range.is_some()
+            || (!self.prefer_answer_types && self.answers.iter().any(Option::is_some))
+    }
+
+    pub(crate) fn answer_setup_issue(&self, types: &[&str]) -> Option<String> {
+        let count = types.len();
+        if let Some([min, max]) = self.part_range {
+            if !(min..=max).contains(&count) {
+                return Some(format!("Write {min}–{max} parts. This draft has {count}."));
+            }
+        } else if let Some(expected) = self.part_count
+            && count != expected
+        {
+            return Some(format!("Write exactly {expected} part(s). This draft has {count}."));
+        }
+        if self.prefer_answer_types { return None; }
+        for (index, actual) in types.iter().enumerate() {
+            let slot = if self.part_count.is_none() && self.part_range.is_none() { 0 } else { index };
+            if let Some(answer) = self.answers.get(slot).copied().flatten() {
+                let (expected, _, _) = answer.details();
+                if *actual != expected {
+                    return Some(format!("Use MyOpenMath type {expected} for part {}. The draft uses {actual}.", index + 1));
+                }
+            }
+        }
         None
     }
 
@@ -229,7 +323,21 @@ impl Form {
             Some(d) => format!(" Difficulty: {}.", d.label().to_lowercase()),
             None => " Choose a difficulty that suits the topic.".into(),
         });
-        match self.part_count {
+        if self.answers.iter().any(Option::is_some) {
+            s.push_str(if self.prefer_answer_types {
+                " Treat the selected answer types below as preferences. Use another type if it better fits the question."
+            } else {
+                " Use the selected IMathAS answer types for all parts that specify one."
+            });
+        }
+        if let Some([min, max]) = self.part_range {
+            s.push_str(&format!(" Write between {min} and {max} parts inclusive. Parts beyond {min} are optional. If writing more than one part, use IMathAS multipart with an ordered $anstypes entry for every included part."));
+            for i in 0..max {
+                let a = self.answers.get(i).copied().flatten();
+                let optional = if i < min { "" } else { " if included" };
+                s.push_str(&format!(" Part ({}){optional}: {}.", (b'a' + i as u8) as char, answer_spec(a, self)));
+            }
+        } else { match self.part_count {
             None => {
                 s.push_str(" Choose how many parts it needs (one part is fine).");
                 s.push_str(&match self.answers.first().copied().flatten() {
@@ -246,7 +354,8 @@ impl Form {
                 }
             }
         }
-        if self.uses_rounding() && self.rounding.is_none() && self.part_count.is_none() && self.answers.first().copied().flatten().is_none() {
+        }
+        if self.uses_rounding() && self.rounding.is_none() && self.part_range.is_none() && self.part_count.is_none() && self.answers.first().copied().flatten().is_none() {
             s.push_str(" Number answers: if not whole, choose sensible rounding and say it in the question.");
         }
         s.push_str(match self.story {
@@ -259,9 +368,19 @@ impl Form {
         } else {
             " Use fixed numbers (every student sees the same question)."
         });
-        s.push_str(WORKED_SOLUTION);
+        s.push_str(match self.help_style {
+            HelpStyle::DetailedSolution => WORKED_SOLUTION,
+            HelpStyle::WrittenHelp => " Write a short conceptual hint in the Common Control variable $helptext. Explain how to get started without giving the answer or walking through this exact problem. Leave the Detailed Solution and ANSWER section empty. Do not invent links.",
+        });
+        let description = self.topic_text.trim();
+        if self.topic != Topic::Typed && !description.is_empty() {
+            s.push_str(&format!("\n\nQuestion description from the teacher: {description}"));
+        }
         let extra = self.extra.trim();
         if !extra.is_empty() { s.push_str(&format!("\n\nThe teacher adds: {extra}")); }
+        if let Some((title, spec)) = &self.figure {
+            s.push_str(&format!("\n\nUse the configured {title} in the question. Recreate it with supported MyOpenMath drawing or graph macros. Keep the figure's parameters, labels, and the values read from it fixed across versions. Any randomization should only affect independent values. Make the question depend on the figure, and describe it for students who cannot see it. Figure settings: {spec}"));
+        }
         s
     }
 }
@@ -294,6 +413,14 @@ pub fn type_menu_label(code: &str) -> &'static str {
         "calcmatrix" => "Calculated Matrix",
         "interval" => "Interval",
         "calcinterval" => "Calculated Interval",
+        "complexntuple" => "Complex N-Tuple",
+        "calccomplexntuple" => "Calculated Complex N-Tuple",
+        "algntuple" => "Algebraic N-Tuple",
+        "complexmatrix" => "Complex Matrix",
+        "calccomplexmatrix" => "Calculated Complex Matrix",
+        "algmatrix" => "Algebraic Matrix",
+        "chemeqn" => "Chemical Equation",
+        "molecule" => "Chemical Molecule",
         "multipart" => "Multipart",
         "conditional" => "Conditional",
         _ => "",
@@ -330,6 +457,15 @@ impl Change {
             Change::Other => other.trim().to_string(),
         }
     }
+}
+
+pub(crate) fn with_writing_preference(request: &str, preference: &str) -> String {
+    let request = request.trim();
+    let preference = preference.trim();
+    if preference.is_empty() {
+        return request.to_string();
+    }
+    format!("{request}\n\nSaved teaching preference (follow when compatible with this question and the teacher's latest request):\n{preference}")
 }
 
 /// The request for changing an existing question: the original request, the current question file,
@@ -409,6 +545,41 @@ mod tests {
         let r = f.request();
         assert!(r.contains("part (a) the student types an algebraic expression") && r.contains("part (b) an answer type you choose"), "{r}");
         assert!(f.uses_rounding() && f.uses_options());
+    }
+
+    #[test]
+    fn picked_type_can_be_required_or_preferred() {
+        let mut form = Form {
+            part_count: Some(1),
+            answers: vec![Some(Answer::Expression)],
+            ..Form::default()
+        };
+        assert!(form.request().contains("Use the selected IMathAS answer types"));
+        assert!(form.request().contains("IMathAS type numfunc"));
+        form.prefer_answer_types = true;
+        let request = form.request();
+        assert!(request.contains("as preferences"));
+        assert!(request.contains("IMathAS type numfunc"));
+    }
+
+    #[test]
+    fn part_range_supports_mixed_types_and_optional_parts() {
+        let mut form = Form {
+            part_range: Some([2, 3]),
+            answers: vec![Some(Answer::Text), Some(Answer::Drawing), Some(Answer::SelectAll)],
+            ..Form::default()
+        };
+        form.fix();
+        let request = form.request();
+        assert!(request.contains("between 2 and 3 parts"));
+        assert!(request.contains("Part (c) if included"));
+        assert!(form.answer_setup_issue(&["string", "draw"]).is_none());
+        assert!(form.answer_setup_issue(&["string", "draw", "multans"]).is_none());
+        assert!(form.answer_setup_issue(&["string"]).is_some());
+        assert!(form.answer_setup_issue(&["string", "number"]).is_some());
+        form.prefer_answer_types = true;
+        assert!(form.answer_setup_issue(&["string", "number"]).is_none());
+        assert!(form.answer_setup_issue(&["string"]).is_some());
     }
 
     #[test]

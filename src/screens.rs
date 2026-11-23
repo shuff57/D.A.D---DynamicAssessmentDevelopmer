@@ -1009,18 +1009,30 @@ impl crate::App {
             self.account.open_quiet();
         }
         let who = self.account.model.me.as_ref().map(|m| (initials_of(&m.display_name, &m.email), m.email.clone()));
-        let screens = [
-            crate::Screen::Mom,
-            crate::Screen::Settings,
-        ];
-        let active = screens.clone().map(|target| match (&self.screen, &target) {
-            (crate::Screen::Account, crate::Screen::Settings) => true,
-            (cur, t) => std::mem::discriminant(cur) == std::mem::discriminant(t),
-        });
+        use crate::momui::Destination;
+        use crate::Screen;
+        let destinations = [Destination::Questions, Destination::Import, Destination::Convert, Destination::Share];
+        let mut active = [false; DOCK_NAV.len()];
+        match self.screen {
+            Screen::Mom => {
+                let current = crate::momui::active_destination(root.ctx());
+                for (item, destination) in active.iter_mut().zip(destinations) { *item = destination == current; }
+            }
+            Screen::Figures => active[4] = true,
+            Screen::Settings | Screen::Account => active[5] = true,
+            _ => {}
+        }
         let wants_report = crate::alphanote::wants_dock(root.ctx());
         let out = draw_dock(root, active, who.as_ref(), wants_report, theme::is_dark());
         if let Some(i) = out.picked {
-            self.screen = screens[i].clone();
+            self.screen = match destinations.get(i) {
+                Some(destination) => {
+                    crate::momui::request_destination(root.ctx(), *destination);
+                    Screen::Mom
+                }
+                None if i == 4 => Screen::Figures,
+                None => Screen::Settings,
+            };
         }
         if out.theme_pressed {
             let ctx = root.ctx().clone();
@@ -1031,8 +1043,12 @@ impl crate::App {
 }
 
 /// The dock's nav items, in order: icon and visible label (also the accessible name).
-const DOCK_NAV: [(NavIcon, &str); 2] = [
+const DOCK_NAV: [(NavIcon, &str); 6] = [
     (NavIcon::Pencil, "Questions"),
+    (NavIcon::Import, "Import"),
+    (NavIcon::Exams, "Convert"),
+    (NavIcon::Shared, "Share"),
+    (NavIcon::Figures, "Figures"),
     // One item for the account and the settings: signed in, it wears the person's initials,
     // a filled disc as Google does; signed out, the plain person icon.
     (NavIcon::Account, "Settings"),
@@ -3662,7 +3678,7 @@ mod tests {
                         return;
                     }
                     let mut root = root_ui(ui.ctx());
-                    let active = [false, true];
+                    let active = [false; DOCK_NAV.len()];
                     let out = draw_dock(&mut root, active, None, true, false);
                     let page_x = egui::CentralPanel::default().frame(Frame::NONE).show(&mut root, |ui| ui.max_rect().left()).inner;
                     *rail = (out.rail, root.max_rect().width() < 900.0, page_x);

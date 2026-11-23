@@ -180,7 +180,7 @@ fn main() -> Result<(), eframe::Error> {
         if let Ok(m) = vershion::env_var("DAD_AI_MODEL") { settings.ai_model = m; }
         let mut cfg = ai::AiCfg::from(&settings);
         cfg.think = vershion::env_var("DAD_AI_THINK").ok();
-        let mut chat = vershion::mom::author::ModelChat { cfg: &cfg, tools: vershion::env_var("DAD_TOOLS").is_ok_and(|v| v == "1") };
+        let mut chat = vershion::mom::author::ModelChat { cfg: &cfg, tools: vershion::env_var("DAD_TOOLS").is_ok_and(|v| v == "1"), reference_image: None, video_help: None };
         let mut engine = vershion::mom::author::HttpEngine {
             base: vershion::env_var("DAD_ENGINE").unwrap_or_else(|_| "http://127.0.0.1:8791".into()),
         };
@@ -499,15 +499,18 @@ fn main() -> Result<(), eframe::Error> {
             Some([w.parse::<f32>().ok()?, h.parse::<f32>().ok()?])
         })
         .unwrap_or([1180.0, 780.0]);
+    let icon = eframe::icon_data::from_png_bytes(include_bytes!("../assets/icons/favicon-48x48.png"))
+        .expect("bundled D.A.D. icon is a valid PNG");
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
             .with_title("D.A.D")
+            .with_icon(icon)
             .with_decorations(true)
             .with_inner_size(size)
             .with_min_inner_size([760.0, 520.0]),
         ..Default::default()
     };
-    eframe::run_native("verSHion", options, Box::new(|cc| Ok(Box::new(Desktop::new(&cc.egui_ctx)))))
+    eframe::run_native("D.A.D", options, Box::new(|cc| Ok(Box::new(Desktop::new(&cc.egui_ctx)))))
 }
 fn import_pdf_headless(pdf: &str) {
     let bytes = std::fs::read(pdf).unwrap_or_else(|e| panic!("cannot read {pdf}: {e}"));

@@ -530,7 +530,7 @@ pub async fn list_models_async(cfg: &AiCfg) -> Result<Vec<String>, String> {
 }
 
 #[cfg(target_arch = "wasm32")]
-async fn get_json_async(url: &str, key: Option<&str>) -> Result<Value, String> {
+pub(crate) async fn get_json_async(url: &str, key: Option<&str>) -> Result<Value, String> {
     use wasm_bindgen::JsCast as _;
     let js = |e: wasm_bindgen::JsValue| format!("{e:?}");
     let headers = web_sys::Headers::new().map_err(js)?;
@@ -1546,7 +1546,7 @@ fn job_pages(job: &Value, total: usize) -> Vec<Result<String, String>> {
 
 /// One JSON GET, answered like [`post_json`].
 #[cfg(not(target_arch = "wasm32"))]
-fn get_json(url: &str, key: Option<&str>) -> Result<Value, String> {
+pub(crate) fn get_json(url: &str, key: Option<&str>) -> Result<Value, String> {
     let mut req = agent().get(url);
     if let Some(k) = key {
         req = req.header("Authorization", &format!("Bearer {k}"));

@@ -27,6 +27,18 @@ struct Page {
     image: Option<Vec<u8>>,
 }
 
+pub(crate) fn image_as_png(bytes: &[u8]) -> Result<Vec<u8>, String> {
+    let image = image::load_from_memory(bytes).map_err(|e| format!("Couldn't read the image: {e}"))?;
+    let image = if image.width().max(image.height()) > 3000 {
+        image.resize(3000, 3000, image::imageops::FilterType::Lanczos3)
+    } else {
+        image
+    };
+    let mut png = Cursor::new(Vec::new());
+    image.write_to(&mut png, image::ImageFormat::Png).map_err(|e| e.to_string())?;
+    Ok(png.into_inner())
+}
+
 fn pages(file: &PickedFile) -> Result<Vec<Page>, String> {
     let extension = file.name.rsplit_once('.').map(|(_, ext)| ext.to_ascii_lowercase());
     let text = match extension.as_deref() {
@@ -35,11 +47,7 @@ fn pages(file: &PickedFile) -> Result<Vec<Page>, String> {
                 .into_iter().map(|image| Page { text: String::new(), image: Some(image) }).collect());
         }
         Some("png" | "jpg" | "jpeg" | "webp") => {
-            let image = image::load_from_memory(&file.bytes).map_err(|e| format!("Couldn't read the image: {e}"))?;
-            let mut png = Cursor::new(Vec::new());
-            let image = if image.width().max(image.height()) > 3000 { image.resize(3000, 3000, image::imageops::FilterType::Lanczos3) } else { image };
-            image.write_to(&mut png, image::ImageFormat::Png).map_err(|e| e.to_string())?;
-            return Ok(vec![Page { text: String::new(), image: Some(png.into_inner()) }]);
+            return Ok(vec![Page { text: String::new(), image: Some(image_as_png(&file.bytes)?) }]);
         }
         Some("docx") => {
             let xml = crate::importui::docx_body(&file.bytes)?;

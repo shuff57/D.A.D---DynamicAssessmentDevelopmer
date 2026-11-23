@@ -364,7 +364,7 @@ pub fn run_from_env() -> Result<(), String> {
                     let cfg = m.cfg();
                     loop {
                         let Some(case) = queue.lock().unwrap().pop_front() else { break };
-                        let mut chat = ModelChat { cfg: &cfg, tools: m.tools };
+                        let mut chat = ModelChat { cfg: &cfg, tools: m.tools, reference_image: None, video_help: None };
                         let r = run_case(&case, &m.label, &mut chat, engine, loop_cfg, judge_cfg);
                         let mut n = finished.lock().unwrap();
                         *n += 1;

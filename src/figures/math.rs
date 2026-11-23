@@ -2192,6 +2192,29 @@ mod grid_b7;
 pub(crate) mod riemann;
 mod riemann_exact;
 mod riemann_sym;
+
+/// Recognize a single explicit line with integer coefficients for the MyOpenMath exporter.
+pub(crate) fn integer_line(equations: &str) -> Option<(i32, i32)> {
+    let (lhs, rhs) = equations.trim().split_once('=')?;
+    if lhs.trim() != "y" || rhs.len() > 128 {
+        return None;
+    }
+    let poly = riemann_sym::poly(&riemann_sym::parse(rhs)?)?;
+    if poly.iter().skip(2).any(|coefficient| !coefficient.is_zero()) {
+        return None;
+    }
+    let integer = |index: usize| match poly.get(index) {
+        Some(r) if r.d == 1 => i32::try_from(r.n).ok(),
+        Some(_) => None,
+        None => Some(0),
+    };
+    let (slope, intercept) = (integer(1)?, integer(0)?);
+    // The symbolic parser and the grid accept slightly different expressions around powers.
+    // Export only when the line agrees with what the grid actually draws.
+    [-2.0, -1.0, 0.0, 1.0, 2.0].into_iter().all(|x| {
+        eval(rhs, x).is_some_and(|actual| (actual - (f64::from(slope) * x + f64::from(intercept))).abs() < 1e-7)
+    }).then_some((slope, intercept))
+}
 pub(super) use grid_b7::{circle_room as grid_circle_room, label_ext as grid_label_ext};
 pub(super) use grid_b7::{float_text as grid_float_text, row_style_keys as grid_row_style_keys, typed_range as grid_typed_float, ROW_STYLE_KEYS as GRID_ROW_STYLE_KEYS};
 use flat::{angles_params, angles_render, kite_params, kite_render, parallelogram_params, parallelogram_render, rectangle_params, rectangle_render, regular_polygon_params, regular_polygon_render, trapezoid_params, trapezoid_render, triangle_params, triangle_render};

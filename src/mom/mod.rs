@@ -18,11 +18,13 @@ pub mod format;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod harness;
 pub mod health;
+pub(crate) mod line_variant;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod poster;
 pub mod reference;
 #[cfg(not(target_arch = "wasm32"))]
 pub(crate) mod student_text;
 pub mod worksheet;
+pub(crate) mod question_help;
 
 pub use format::MomQuestion;

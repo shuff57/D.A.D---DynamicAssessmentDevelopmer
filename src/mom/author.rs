@@ -27,6 +27,8 @@ pub trait AuthorChat {
     async fn chat(&mut self, turns: &[Turn]) -> Result<String, String>;
     /// Whether [`AuthorChat::chat_tools`] offers the reference as a native function tool.
     fn native_tools(&self) -> bool { false }
+    fn reference_image(&self) -> Option<&[u8]> { None }
+    fn prepare_question(&self, _: &mut MomQuestion) {}
     /// A reply that may call the reference's `lookup` tool ([`reference::lookup_tool`]).
     async fn chat_tools(&mut self, turns: &[Turn]) -> Result<ChatReply, String> {
         Ok(ChatReply { text: self.chat(turns).await?, calls: Vec::new() })
@@ -45,6 +47,8 @@ pub trait AuthorEngine {
 pub struct ModelChat<'a> {
     pub cfg: &'a AiCfg,
     pub tools: bool,
+    pub reference_image: Option<&'a [u8]>,
+    pub video_help: Option<url::Url>,
 }
 
 impl AuthorChat for ModelChat<'_> {
@@ -56,6 +60,12 @@ impl AuthorChat for ModelChat<'_> {
     }
 
     fn native_tools(&self) -> bool { self.tools }
+    fn reference_image(&self) -> Option<&[u8]> { self.reference_image }
+    fn prepare_question(&self, question: &mut MomQuestion) {
+        if let Some(video) = &self.video_help {
+            super::question_help::set_video(question, Some(video));
+        }
+    }
 
     async fn chat_tools(&mut self, turns: &[Turn]) -> Result<ChatReply, String> {
         if !self.tools {
@@ -399,7 +409,11 @@ async fn conversation<C: AuthorChat, E: AuthorEngine, K: AuthorCritic>(
     macro_rules! flush { () => { while logged < run.log.len() { on_log(&run.log[logged]); logged += 1; } } }
     on_log("writing the question…");
     let native = use_docs && chat.native_tools();
-    let mut turns = vec![Turn::new("system", system_prompt_for(use_docs, native)), Turn::new("user", ask.to_string())];
+    let mut first_request = Turn::new("user", ask.to_string());
+    if let Some(image) = chat.reference_image() {
+        first_request.images.push(image.to_vec());
+    }
+    let mut turns = vec![Turn::new("system", system_prompt_for(use_docs, native)), first_request];
     let mut format_retries = 0;
     let mut tool_rounds = 0;
     while run.tries < max_tries.max(1) {
@@ -458,7 +472,7 @@ async fn conversation<C: AuthorChat, E: AuthorEngine, K: AuthorCritic>(
             turns.push(Turn::new("user", format!("{}\n\n{more}", docs.join("\n\n"))));
             continue;
         }
-        let q = match parse_reply(&reply) {
+        let mut q = match parse_reply(&reply) {
             Ok(q) => q,
             Err(e) if format_retries < FORMAT_RETRIES => {
                 format_retries += 1;
@@ -474,6 +488,7 @@ async fn conversation<C: AuthorChat, E: AuthorEngine, K: AuthorCritic>(
                 return run;
             }
         };
+        chat.prepare_question(&mut q);
         run.tries += 1;
         let attempt = run.tries;
         if use_docs {
@@ -650,6 +665,20 @@ mod tests {
     fn a_never_set_variable_is_a_problem_even_when_the_engine_passes() {
         let q = MomQuestion { control: "$answer = 2".into(), qtext: "`$m x` $answerbox".into(), ..Default::default() };
         assert_eq!(static_problems(&q).len(), 1);
+    }
+
+    #[test]
+    fn reference_picture_is_attached_to_the_teacher_request() {
+        struct Picture;
+        impl AuthorChat for Picture {
+            async fn chat(&mut self, turns: &[Turn]) -> Result<String, String> {
+                assert_eq!(turns[1].text, "Write from the picture");
+                assert_eq!(turns[1].images, vec![vec![7, 8, 9]]);
+                Ok(GOOD.into())
+            }
+            fn reference_image(&self) -> Option<&[u8]> { Some(&[7, 8, 9]) }
+        }
+        assert!(author("Write from the picture", &mut Picture, &mut FakeEngine, 1).passed);
     }
 
     #[test]

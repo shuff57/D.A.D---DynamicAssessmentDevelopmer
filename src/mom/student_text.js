@@ -90,6 +90,15 @@ async (previewUrl, edits, action) => {
         if (['script', 'style', 'noscript', 'template'].includes(tag)) return;
         const css = getComputedStyle(node);
         if (css.display === 'none' || css.visibility === 'hidden') return;
+        if (node.matches('.dad-graph')) {
+            // Read the seed-matched description even before IMathAS finishes drawing the SVG.
+            const description = normalize(node.querySelector('.dad-graph-description')?.textContent);
+            if (description) {
+                flush();
+                items.push({ kind: 'text', text: description });
+                return;
+            }
+        }
         if (tag === 'mjx-container' || tag === 'math') {
             const math = tag === 'math' ? node : node.querySelector('math');
             const text = name(node) || node.querySelector('[data-semantic-speech]')?.getAttribute('data-semantic-speech')
@@ -113,6 +122,11 @@ async (previewUrl, edits, action) => {
             const dismiss = /^(ok|close)$/i.test(label) && node.closest('#dadsoln, [role=alertdialog][aria-modal=true]');
             const studentAction = /^(start|submit question|show detailed solution|hide detailed solution|get a similar question)$/i.test(label);
             const writtenExample = /^written example$/i.test(label) && node.getAttribute('href') === '#';
+            if (tag === 'a' && label === 'Watch the help video' && /^https?:$/.test(node.protocol)) {
+                flush();
+                items.push({ kind: 'video_link', url: node.href });
+                return;
+            }
             if (!node.disabled && (tag === 'button' && (dismiss || studentAction) || tag === 'a' && writtenExample)) {
                 add(node, { kind: 'button', label });
             }

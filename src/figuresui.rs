@@ -552,6 +552,7 @@ pub enum Act {
     Insert(Output),
     /// Pick a bank/question to attach to.
     Save(Output),
+    UseInMyOpenMath { title: String, spec: String },
     Toast(String, bool),
 }
 
@@ -1525,6 +1526,19 @@ impl Workspace {
                     act = match self.output() {
                         Ok(o) => Act::Insert(o),
                         Err(e) => Act::Toast(e, true),
+                    };
+                }
+            } else if generated {
+                if accent_btn(ui, "Use in MyOpenMath question").clicked()
+                    && let Some(index) = self.sel
+                    && let Some(spec) = self.spec_json()
+                {
+                    act = Act::UseInMyOpenMath { title: reg()[index].title.into(), spec };
+                }
+                if ghost(ui, "Save to bank question…").clicked() {
+                    act = match self.output() {
+                        Ok(out) => Act::Save(out),
+                        Err(error) => Act::Toast(error, true),
                     };
                 }
             } else if accent_btn(ui, "Save to question…").clicked() {
@@ -4853,14 +4867,14 @@ impl crate::App {
             } else if ws.sel.is_some() {
                 // an open figure: just the breadcrumb, so the canvas gets the height (the
                 // reference's canvas runs from under its slim top bar to the window bottom)
-                ui.label(RichText::new("Home  /  Figures").size(11.5).color(theme::muted_col()));
+                ui.label(RichText::new("Figures").size(11.5).color(theme::muted_col()));
                 ui.add_space(4.0);
             } else {
                 crate::kit::page_header(
                     ui,
-                    &["Home", "Figures"],
+                    &[],
                     "Figures",
-                    Some("Physics, biology, chemistry, math and computing diagrams you can tune, export, or attach to a question."),
+                    Some("Configure a diagram or graph and use its settings to write a MyOpenMath question."),
                 );
                 ui.add_space(12.0);
             }
@@ -4872,6 +4886,14 @@ impl crate::App {
             self.screen = crate::Screen::Home;
         }
         match act {
+            Act::UseInMyOpenMath { title, spec } => {
+                let ws = &self.figs.ws;
+                let line = ws.sel.filter(|&index| reg()[index].id == "coordinate-grid")
+                    .and_then(|_| crate::mom::line_variant::LineVariant::from_grid(&ws.params));
+                crate::momui::stage_figure(title, spec, line);
+                self.screen = crate::Screen::Mom;
+                ctx.request_repaint();
+            }
             Act::Save(out) => {
                 let bank = self.store.banks.first().map(|b| b.id.clone());
                 self.figs.save = Some(SaveDlg { out, bank, target: None });
