@@ -377,7 +377,7 @@ fn trust_modal(ctx: &egui::Context, m: &mut AccountModel) {
 
 fn title(page: Page) -> &'static str {
     match page {
-        Page::NotConfigured | Page::Server | Page::NotSetUp | Page::Opening => "Sharing account",
+        Page::NotConfigured | Page::Server | Page::NotSetUp | Page::Opening => "D.A.D account",
         Page::SignIn => "Sign in",
         Page::SignUp => "Create an account",
         Page::CheckEmail(_) => "Check your email",

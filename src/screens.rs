@@ -771,7 +771,15 @@ pub fn toast(app: &mut crate::App, text: impl Into<String>, is_error: bool) {
 // ---------- frame router ----------
 
 /// The Account section's place in Settings' section list.
-pub const SETTINGS_ACCOUNT: usize = 0;
+pub const SETTINGS_ACCOUNT: usize = 4;
+/// The AI section's place in Settings' section list (first).
+pub const SETTINGS_AI: usize = 0;
+/// The saved MyOpenMath login's place in Settings' section list.
+pub const SETTINGS_MOM: usize = 1;
+/// The question storage section's place in Settings' section list.
+pub const SETTINGS_STORAGE: usize = 2;
+/// The help section's place in Settings' section list.
+pub const SETTINGS_HELP: usize = 3;
 
 impl crate::App {
     /// Draws the whole pass: the AI poll, the active screen, then the shell
@@ -1011,7 +1019,7 @@ impl crate::App {
         let who = self.account.model.me.as_ref().map(|m| (initials_of(&m.display_name, &m.email), m.email.clone()));
         use crate::momui::Destination;
         use crate::Screen;
-        let destinations = [Destination::Questions, Destination::Import, Destination::Convert, Destination::Share];
+        let destinations = [Destination::Questions, Destination::Convert, Destination::Import, Destination::Share];
         let mut active = [false; DOCK_NAV.len()];
         match self.screen {
             Screen::Mom => {
@@ -1021,7 +1029,7 @@ impl crate::App {
             Screen::Figures => active[4] = true,
             // The older import and sharing pages are reached through Import and Share too: the dock
             // still says where you are.
-            Screen::Imports => active[1] = true,
+            Screen::Imports => active[2] = true,
             Screen::Shared => active[3] = true,
             Screen::Settings | Screen::Account => active[5] = true,
             _ => {}
@@ -1047,10 +1055,11 @@ impl crate::App {
 }
 
 /// The dock's nav items, in order: icon and visible label (also the accessible name).
+/// The two core jobs (write a question, convert a worksheet) come first.
 const DOCK_NAV: [(NavIcon, &str); 6] = [
     (NavIcon::Pencil, "Questions"),
-    (NavIcon::Import, "Import"),
     (NavIcon::Exams, "Convert"),
+    (NavIcon::Import, "Import"),
     (NavIcon::Shared, "Share"),
     (NavIcon::Figures, "Figures"),
     // One item for the account and the settings: signed in, it wears the person's initials,
@@ -2112,21 +2121,23 @@ impl crate::App {
                 "D.A.D is free. A coffee helps keep it going; bugs and ideas live on GitHub, and the contact form reaches us directly.",
             ));
             ui.add_space(10.0);
+            // What a teacher comes here for first (a problem, a question), the coffee last; the
+            // desktop download only where it is news, in the browser.
             ui.horizontal_wrapped(|ui| {
-                if crate::pageshell::outline(ui, &format!("{}  Buy me a coffee", egui_phosphor::regular::COFFEE)).clicked() {
-                    crate::platform::open_url(COFFEE);
-                }
-                if crate::pageshell::outline(ui, &format!("{}  Reported issues", egui_phosphor::regular::LIST_BULLETS)).clicked() {
-                    crate::platform::open_url(ISSUES);
-                }
-                if crate::pageshell::outline(ui, &format!("{}  Desktop app", egui_phosphor::regular::DOWNLOAD_SIMPLE)).clicked() {
-                    crate::platform::open_url(DESKTOP_RELEASES);
-                }
                 if crate::pageshell::outline(ui, &format!("{}  Report a bug", egui_phosphor::regular::BUG)).clicked() {
                     ctx.data_mut(|d| d.insert_temp(egui::Id::new("report_open"), true));
                 }
                 if crate::pageshell::outline(ui, &format!("{}  Contact us", egui_phosphor::regular::ENVELOPE_SIMPLE)).clicked() {
                     crate::platform::open_contact();
+                }
+                if crate::pageshell::outline(ui, &format!("{}  Reported issues", egui_phosphor::regular::LIST_BULLETS)).clicked() {
+                    crate::platform::open_url(ISSUES);
+                }
+                if cfg!(target_arch = "wasm32") && crate::pageshell::outline(ui, &format!("{}  Desktop app", egui_phosphor::regular::DOWNLOAD_SIMPLE)).clicked() {
+                    crate::platform::open_url(DESKTOP_RELEASES);
+                }
+                if crate::pageshell::outline(ui, &format!("{}  Buy me a coffee", egui_phosphor::regular::COFFEE)).clicked() {
+                    crate::platform::open_url(COFFEE);
                 }
             });
         });
@@ -2252,27 +2263,44 @@ impl crate::App {
             });
         }
         let testing = msg.as_ref().is_some_and(|m| m.0 == "Testing…");
-        ui.add_space(8.0);
-        ui.horizontal(|ui| {
-            ui.label(theme::text(if cfg.provider == "workers" { "Relay key" } else { "API key" }));
-            ui.add(
-                egui::TextEdit::singleline(&mut buf)
-                    .margin(egui::Margin::symmetric(12, 9))
-                    .password(true)
-                    .desired_width(300.0)
-                    .hint_text("paste a key"),
-            );
-            if crate::pageshell::primary(ui, "Save key").clicked() && !buf.trim().is_empty() {
-                match crate::ai::set_key(&cfg.provider, Some(&buf)) {
-                    Ok(()) => msg = Some(("Key saved on this computer".to_string(), false)),
-                    Err(e) => msg = Some((e, true)),
+        // A key that is already found is not a form to fill in again: the entry form and the how-to
+        // video sit under "Use a different key", and the status says "Key found", not a file path.
+        let found = cfg.key_status() != crate::ai::KeySource::None;
+        let entry = |ui: &mut egui::Ui, buf: &mut String, msg: &mut Option<(String, bool)>| {
+            ui.horizontal(|ui| {
+                ui.label(theme::text(if cfg.provider == "workers" { "Relay key" } else { "API key" }));
+                ui.add(
+                    egui::TextEdit::singleline(buf)
+                        .margin(egui::Margin::symmetric(12, 9))
+                        .password(true)
+                        .desired_width(300.0)
+                        .hint_text("paste a key"),
+                );
+                if crate::pageshell::primary(ui, "Save key").clicked() && !buf.trim().is_empty() {
+                    match crate::ai::set_key(&cfg.provider, Some(buf)) {
+                        Ok(()) => *msg = Some(("Key saved on this computer".to_string(), false)),
+                        Err(e) => *msg = Some((e, true)),
+                    }
+                    buf.clear();
                 }
-                buf.clear();
+            });
+            if crate::platform::help_clip_name(&cfg.provider).is_some() {
+                let label = format!("{}  Watch how to get a key", egui_phosphor::regular::PLAY_CIRCLE);
+                if crate::pageshell::outline(ui, &label).clicked() {
+                    crate::platform::open_help_video(&cfg.provider);
+                }
             }
-        });
+        };
+        ui.add_space(8.0);
+        if !found {
+            entry(ui, &mut buf, &mut msg);
+        }
         ui.horizontal(|ui| {
-            let status = cfg.key_status();
-            ui.label(theme::muted(status.describe()).size(12.0));
+            if found {
+                ui.label(RichText::new("✔ Key found").color(theme::green()).size(13.0));
+            } else {
+                ui.label(theme::muted(cfg.key_status().describe()).size(12.0));
+            }
             if crate::ai::load_keys().get(&cfg.provider).is_some() && kit::danger_text_button(ui, "Remove key").clicked() {
                 match crate::ai::set_key(&cfg.provider, None) {
                     Ok(()) => msg = Some(("Key removed".to_string(), false)),
@@ -2302,14 +2330,10 @@ impl crate::App {
                 });
             }
         });
-        if crate::platform::help_clip_name(&cfg.provider).is_some() {
-            ui.horizontal(|ui| {
-                let label =
-                    format!("{}  Watch how to get a key", egui_phosphor::regular::PLAY_CIRCLE);
-                if crate::pageshell::outline(ui, &label).clicked() {
-                    crate::platform::open_help_video(&cfg.provider);
-                }
-            });
+        if found {
+            egui::CollapsingHeader::new(theme::muted("Use a different key").size(12.5))
+                .id_salt("settings_ai_other_key")
+                .show(ui, |ui| entry(ui, &mut buf, &mut msg));
         }
         if let Some((m, bad)) = &msg {
             let t = if *bad { theme::muted(m.clone()).color(theme::bad()) } else { theme::muted(m.clone()) };
@@ -2351,17 +2375,13 @@ impl crate::App {
                 });
                 ui.add_space(18.0);
 
-                #[cfg(not(target_arch = "wasm32"))]
-                {
-                    crate::momui::connection_settings(ui);
-                    ui.add_space(12.0);
-                }
-
+                // The section that can unblock the core job first; the optional sharing account last.
                 let items = [
-                    pageshell::NavItem { icon: crate::handicons::PERSON, label: "D.A.D account" },
-                    pageshell::NavItem { icon: crate::handicons::DOWNLOAD, label: "Question storage" },
-                    pageshell::NavItem { icon: crate::handicons::SPARKLE, label: "AI conversion" },
+                    pageshell::NavItem { icon: crate::handicons::SPARKLE, label: "AI" },
+                    pageshell::NavItem { icon: crate::handicons::PERSON, label: "MyOpenMath login" },
+                    pageshell::NavItem { icon: crate::handicons::DOWNLOAD, label: "My Questions" },
                     pageshell::NavItem { icon: crate::handicons::HELP, label: "Help & community" },
+                    pageshell::NavItem { icon: crate::handicons::PERSON, label: "D.A.D account (optional)" },
                 ];
                 pageshell::sections_aside(ui, "settings", &items, &[SETTINGS_ACCOUNT], |_| {}, |ui, section| {
                 // fields and menus share the buttons' 12 px corners
@@ -2428,48 +2448,80 @@ impl crate::App {
                     crate::share::shared_ui::account_reasons_inline(ui, if narrow_window { 3.0 } else { 20.0 });
                 });
                 }
-                1 => {
+                SETTINGS_MOM => {
+                    #[cfg(not(target_arch = "wasm32"))]
+                    crate::momui::connection_settings(ui);
+                    #[cfg(target_arch = "wasm32")]
+                    pageshell::card(ui, |ui| {
+                        pageshell::heading(ui, "MyOpenMath login");
+                        ui.label(theme::muted("In the browser, D.A.D adds questions through the MyOpenMath helper on the Add to MyOpenMath step, signed in as you already are."));
+                    });
+                }
+                SETTINGS_STORAGE => {
                 pageshell::card(ui, |ui| {
                     pageshell::heading(ui, "My Questions storage");
                     ui.add(egui::Label::new(theme::muted("Worksheet drafts and completed questions are stored in My Questions. The desktop app also keeps publication receipts so an interrupted attachment can resume.")).wrap());
                     ui.add(egui::Label::new(theme::muted(store::backend_label()).monospace()).wrap());
-                    if pageshell::outline(ui, "Export My Questions").clicked()
+                    // A backup keeps approvals, requests and worksheet sources; Share's download is
+                    // only the questions, for another teacher.
+                    if pageshell::outline(ui, "Back Up My Questions").on_hover_text("Saves every question with its approval and history, to restore on another computer").clicked()
                         && let Err(error) = crate::momui::export_my_questions()
                     {
-                        app.toast_err(format!("Could not export My Questions: {error}"));
+                        app.toast_err(format!("Could not back up My Questions: {error}"));
                     }
                     #[cfg(not(target_arch = "wasm32"))]
                     if pageshell::outline(ui, "Open data folder").clicked() {
                         crate::platform::open_path(&store::store_dir());
                     }
+                    ui.add_space(8.0);
+                    crate::momui::advanced_setting(ui);
                 });
                 }
-                2 => {
-                // --- AI conversion ---
+                SETTINGS_AI => {
+                // --- AI ---
                 pageshell::card(ui, |ui| {
-                    pageshell::heading(ui, "AI conversion");
+                    pageshell::heading(ui, "AI");
                     ui.add_space(4.0);
                     ui.label(theme::muted(
                         "D.A.D uses this AI to write MyOpenMath questions and read uploaded worksheets.",
                     ));
                     ui.add_space(10.0);
                     let before = app.settings.clone();
+                    // The AIs a teacher can use without IT: the ones on this computer, then the hosted
+                    // ones that need only a key. Servers and relays sit one level down.
+                    #[cfg(not(target_arch = "wasm32"))]
+                    let local = crate::ai::cli::installed();
+                    #[cfg(target_arch = "wasm32")]
+                    let local: Vec<&'static str> = Vec::new();
+                    // The same list, in the same order, as the Questions page's AI card.
+                    let main: Vec<(&str, &str)> = crate::momui::plain_ais(&local).into_iter().map(|a| (a.0, a.1)).collect();
+                    // D.A.D AI needs no key or install, only a signed-in school-server account: listed
+                    // with the others, saying so, rather than filed under IT.
+                    // D.A.D AI needs a school server; until one is signed in it sits with the IT options.
+                    let technical_list: Vec<(&str, &str)> = [("ollama", "Ollama (local)"), ("workers", "D.A.D relay"), ("custom", "Custom endpoint")]
+                        .into_iter().chain((!crate::momui::dad_ai_offered()).then_some(("account", "D.A.D AI (school server)"))).collect();
                     ui.horizontal_wrapped(|ui| {
-                        for (val, label) in [
-                            ("account", "D.A.D AI (credits)"),
-                            ("cloud", "Ollama Cloud"),
-                            ("workers", "D.A.D relay"),
-                            ("ollama", "Ollama (local)"),
-                            ("openrouter", "OpenRouter"),
-                            ("custom", "Custom endpoint"),
-                        ] {
-                            let on = app.settings.ai_provider == val;
-                            if kit::chip_toggle(ui, label, on).clicked() {
+                        for (val, label) in &main {
+                            if kit::chip_toggle(ui, label, app.settings.ai_provider == *val).clicked() {
                                 app.settings.ai_provider = val.to_string();
                             }
                         }
                     });
+                    let technical = technical_list.iter().any(|(v, _)| app.settings.ai_provider == *v);
+                    egui::CollapsingHeader::new(theme::muted("Other AIs (for IT or your own server)").size(12.5))
+                        .id_salt("settings_ai_technical")
+                        .default_open(technical)
+                        .show(ui, |ui| {
+                            ui.horizontal_wrapped(|ui| {
+                                for (val, label) in &technical_list {
+                                    if kit::chip_toggle(ui, label, app.settings.ai_provider == *val).clicked() {
+                                        app.settings.ai_provider = val.to_string();
+                                    }
+                                }
+                            });
+                        });
                     ui.add_space(6.0);
+                    let cli = matches!(app.settings.ai_provider.as_str(), "claude-cli" | "codex-cli");
                     if app.settings.ai_provider == "custom" || app.settings.ai_provider == "workers" {
                         ui.horizontal(|ui| {
                             ui.label(theme::text("Base URL"));
@@ -2517,31 +2569,61 @@ impl crate::App {
                         if crate::ai::account_ai_ready() {
                             ui.label(theme::text("Signed in. Each conversion uses credits from your account."));
                         } else {
-                            ui.label(theme::muted("Sign in on the Account screen to use it."));
+                            ui.label(theme::muted("Sign in under D.A.D account (the last section here) to use it. It needs your school's server address."));
                         }
-                        if pageshell::outline(ui, "Open Account…").clicked() {
+                        if pageshell::outline(ui, "Sign In to D.A.D").clicked() {
                             app.account.open();
                         }
                         ui.add_space(6.0);
                     }
-                    if app.settings.ai_provider == "account" {
+                    if cli {
+                        // A subscription on this computer: no key to manage. Claude keeps its three
+                        // models (Sonnet unless changed); Codex has none to pick.
+                        ui.label(theme::text("Uses your subscription on this computer. There is nothing else to set up."));
+                        if app.settings.ai_provider == "claude-cli" {
+                            ui.add_space(6.0);
+                            ui.horizontal(|ui| {
+                                ui.label(theme::text("Model"));
+                                let picks = [("sonnet", "Sonnet (recommended)"), ("opus", "Opus (slower, strongest)"), ("haiku", "Haiku (fastest)")];
+                                let cur = picks.iter().find(|p| p.0 == app.settings.ai_model).map_or(picks[0].1, |p| p.1);
+                                egui::ComboBox::from_id_salt("settings_claude_model").selected_text(cur).width(240.0).show_ui(ui, |ui| {
+                                    for (id, label) in picks {
+                                        if ui.selectable_label(app.settings.ai_model == id, label).clicked() {
+                                            app.settings.ai_model = id.to_string();
+                                        }
+                                    }
+                                });
+                            });
+                        }
+                    } else if app.settings.ai_provider == "account" {
                         // The server chooses the model and holds the key; the picker would show another provider's default.
                         ui.label(theme::muted("The D.A.D server chooses the model and keeps the key, so there is nothing to pick here.").size(12.0));
                     } else {
-                        app.draw_model_picker(ui, ctx);
-                        ui.add_space(6.0);
+                        // The key is what a teacher must give; the model has a working default, so
+                        // its menu and free-text field sit one level down.
                         app.draw_ai_key_ui(ui, ctx);
+                        ui.add_space(6.0);
+                        let model = if app.settings.ai_model.trim().is_empty() { "the default".to_string() } else { app.settings.ai_model.clone() };
+                        egui::CollapsingHeader::new(theme::muted(format!("Model: {model} · Change")).size(12.5))
+                            .id_salt("settings_ai_model")
+                            .show(ui, |ui| app.draw_model_picker(ui, ctx));
                     }
-                    ui.add_space(6.0);
-                    ui.label(theme::muted(app.ai_help_line()).size(11.5));
+                    if !cli {
+                        ui.add_space(6.0);
+                        // Where the key is looked for (environment variables, files) is for IT.
+                        egui::CollapsingHeader::new(theme::muted("Where D.A.D looks for the key").size(12.5))
+                            .id_salt("settings_ai_key_sources")
+                            .show(ui, |ui| { ui.label(theme::muted(app.ai_help_line()).size(11.5)); });
+                    }
                     if app.settings_changed(&before) {
                         app.save_settings();
                     }
                 });
                 }
-                _ => {
+                SETTINGS_HELP => {
                     app.draw_community(ui, ctx);
                 }
+                _ => {}
                 }
                 });
                 // A short section ends two-thirds down and leaves a floor of empty grid paper; the

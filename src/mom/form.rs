@@ -78,6 +78,11 @@ impl Answer {
         Self::ChemicalEquation, Self::Molecule,
     ];
 
+    /// The answer types most questions use, shown first; the rest sit under "More answer types".
+    pub const COMMON: [Answer; 8] = [
+        Self::Number, Self::Exact, Self::Expression, Self::Choice, Self::SelectAll, Self::Text, Self::Written, Self::Drawing,
+    ];
+
     /// The MyOpenMath code, student-facing format, and short explanation.
     pub(crate) fn details(self) -> (&'static str, &'static str, &'static str) {
         match self {
@@ -218,7 +223,7 @@ pub struct Form {
 
 impl Default for Form {
     fn default() -> Form {
-        Form { course: Some(0), topic: Topic::Ai, topic_text: String::new(), part_count: None, part_range: None, answers: vec![None], prefer_answer_types: false,
+        Form { course: None, topic: Topic::Ai, topic_text: String::new(), part_count: None, part_range: None, answers: vec![None], prefer_answer_types: false,
             difficulty: None, rounding: None, options: None, story: None, random: true, extra: String::new(),
             figure: None, line_variant: None, help_style: HelpStyle::default() }
     }
@@ -524,7 +529,8 @@ mod tests {
     #[test]
     fn the_default_leaves_the_choices_to_the_ai() {
         let r = Form::default().request();
-        assert!(r.starts_with("Integrated Math 1: write a MyOpenMath question on a topic you choose from this course."), "{r}");
+        // No course either: a teacher who never opens the Course menu is not given Integrated Math 1.
+        assert!(r.starts_with("Write a MyOpenMath question on a high school or college math topic you choose."), "{r}");
         assert!(r.contains("Choose a difficulty") && r.contains("Choose how many parts") && r.contains("an answer type you choose"), "{r}");
         assert!(r.contains("real-world situation if it suits") && r.contains("random numbers") && r.contains("worked solution") && r.contains("$solutionguide"), "{r}");
     }

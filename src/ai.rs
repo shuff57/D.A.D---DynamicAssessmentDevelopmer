@@ -166,9 +166,9 @@ impl AiCfg {
             "custom" => format!(
                 "A custom endpoint may need an API key. A key saved here is used first, otherwise the {CUSTOM_KEY_ENV} environment variable."
             ),
-            "account" => "The hosted AI runs on the verSHion server you signed in to. Each conversion costs credits from your account: 40 are free every week, and you can buy more on the Account screen.".to_string(),
+            "account" => "D.A.D AI runs on the school server you signed in to. Each conversion costs credits from your account: 40 are free every week, and you can buy more under Settings, then D.A.D account.".to_string(),
             "workers" => format!(
-                "The verSHion relay calls Workers AI on its Cloudflare account, so there is no provider key: the binding is the credential. A relay key is needed only when the relay is reachable publicly, and is then the same key the relay was deployed with (saved here first, otherwise the {WORKERS_KEY_ENV} environment variable). A relay running on this machine needs none."
+                "The D.A.D relay calls Workers AI on its Cloudflare account, so there is no provider key: the binding is the credential. A relay key is needed only when the relay is reachable publicly, and is then the same key the relay was deployed with (saved here first, otherwise the {WORKERS_KEY_ENV} environment variable). A relay running on this machine needs none."
             ),
             _ => "Ollama runs on the local machine and needs no API key.".to_string(),
         }
@@ -1420,7 +1420,7 @@ pub async fn begin_service_async(cfg: &AiCfg, service: &str, pages: usize) -> Re
 /// The hosted AI has no address until the account is signed in: say so, instead of posting to a relative `/service`.
 fn account_signed_in_check(cfg: &AiCfg) -> Result<(), String> {
     if cfg.provider == "account" && (cfg.base.trim().is_empty() || !account_ai_ready()) {
-        return Err("Sign in on the Account screen first (or wait a moment if you just opened the page), then convert again.".to_string());
+        return Err("Sign in first: Settings, then D.A.D account (or wait a moment if you just opened the page), then try again.".to_string());
     }
     Ok(())
 }
@@ -1997,7 +1997,8 @@ mod tests {
         // The address comes from the signed-in account; without it the old code posted to a relative "/service".
         let cfg = AiCfg { provider: "account".into(), base: String::new(), model: "m".into(), think: None };
         let err = begin_service(&cfg, "import", 1).unwrap_err();
-        assert!(err.starts_with("Sign in on the Account screen"), "{err}");
+        // It names a place the teacher can find: Settings, then D.A.D account.
+        assert!(err.starts_with("Sign in first: Settings, then D.A.D account"), "{err}");
     }
 
     #[test]

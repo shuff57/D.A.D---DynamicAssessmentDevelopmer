@@ -102,6 +102,13 @@ pub(crate) fn is_question_file(name: &str, bytes: &[u8]) -> bool {
             && std::str::from_utf8(bytes).is_ok_and(|text| !MomQuestion::parse(text).qtext.is_empty())
 }
 
+/// The records of a "Back Up My Questions" file (a whole library), or None for any other file.
+fn backup_records(file: &PickedFile) -> Option<Vec<Saved>> {
+    let text = std::str::from_utf8(&file.bytes).ok()?;
+    let library: Library = serde_json::from_str(text).ok()?;
+    (!library.questions.is_empty()).then_some(library.questions)
+}
+
 fn imported_sources(file: &PickedFile) -> Result<Vec<String>, String> {
     let text = std::str::from_utf8(&file.bytes).map_err(|_| "Save the question as a UTF-8 file and try again.")?;
     if text.trim_start().starts_with('{') || file.name.to_ascii_lowercase().ends_with(".json") {
@@ -126,7 +133,12 @@ fn export_shared_questions(questions: &[Saved]) -> Result<bool, String> {
 fn import_questions(ui: &mut Ui, st: &mut State) {
     st.question_files.extend(crate::platform::take_picked());
     pageshell::title(ui, "", "Import MyOpenMath questions",
-        "Bring in MyOpenMath question code or a D.A.D package shared by another teacher.");
+        "Bring in MyOpenMath question code, a D.A.D package from another teacher, or your own backup.");
+    // A worksheet is the other "bring it in" job, and it has its own place: say so before the picker
+    // refuses the file.
+    if crate::kit::link(ui, "Have a worksheet (PDF, Word or a photo)? Use Convert instead.", true).clicked() {
+        request_destination(ui.ctx(), Destination::Convert);
+    }
     ui.add_space(12.0);
     egui::ScrollArea::vertical().show(ui, |ui| {
         pageshell::card(ui, |ui| {
@@ -168,6 +180,18 @@ fn import_drafts(st: &mut State) {
     let mut duplicates = 0;
     let paste = PickedFile { name: "Pasted code".into(), bytes: st.import_source.as_bytes().to_vec() };
     for file in st.question_files.iter().chain((!st.import_source.trim().is_empty()).then_some(&paste)) {
+        // A "Back Up My Questions" file holds whole records: restore them as they were (approved
+        // stays approved), each under a fresh id, instead of as drafts to check again.
+        if let Some(saved) = backup_records(file) {
+            for mut record in saved {
+                let src = MomQuestion::parse(&record.src).emit();
+                if !known.insert(src) { duplicates += 1; continue; }
+                record.id = crate::model::new_id();
+                record.worksheet_origin = None;
+                drafts.push(record);
+            }
+            continue;
+        }
         match imported_sources(file) {
             Ok(sources) => for src in sources {
                 let mut q = MomQuestion::parse(&src);
@@ -192,7 +216,7 @@ fn import_drafts(st: &mut State) {
         st.error = Some(format!("Could not save the imported questions: {error}"));
         return;
     }
-    let drafts = if count == 1 { "draft" } else { "drafts" };
+    let drafts = if count == 1 { "question" } else { "questions" };
     let repeated = if duplicates == 1 { "duplicate" } else { "duplicates" };
     st.lib_note = Some(format!("Imported {count} {drafts}. Skipped {duplicates} {repeated}."));
     if errors.is_empty() {
@@ -204,9 +228,8 @@ fn import_drafts(st: &mut State) {
 
 fn share_questions(ui: &mut Ui, st: &mut State) {
     pageshell::title(ui, "", "Share MyOpenMath questions",
-        "Download a D.A.D package another teacher can import. Open an approved question to add it to MyOpenMath.");
+        "Download a D.A.D package another teacher can import with Import.");
     ui.add_space(12.0);
-    let mut open = None;
     let mut export = None;
     egui::ScrollArea::vertical().show(ui, |ui| {
         pageshell::card(ui, |ui| {
@@ -220,11 +243,8 @@ fn share_questions(ui: &mut Ui, st: &mut State) {
                     ui.separator();
                     let q = MomQuestion::parse(&draft.src);
                     ui.add(egui::Label::new(theme::strong(q.name)).wrap());
-                    ui.horizontal_wrapped(|ui| {
-                        if pageshell::outline(ui, "Download question").clicked() { export = Some(std::slice::from_ref(draft)); }
-                        let label = if draft.reviewed { "Add to MyOpenMath" } else { "Open for review" };
-                        if pageshell::outline(ui, label).clicked() { open = Some(draft.clone()); }
-                    });
+                    // Share only downloads: opening a question is My Questions' job.
+                    if pageshell::outline(ui, "Download question").clicked() { export = Some(std::slice::from_ref(draft)); }
                 });
             }
             if let Some(note) = &st.lib_note { ui.label(theme::muted(note)); }
@@ -238,7 +258,6 @@ fn share_questions(ui: &mut Ui, st: &mut State) {
             Err(error) => st.error = Some(format!("Could not save the question package: {error}")),
         }
     }
-    if let Some(saved) = open { open_saved(st, saved); }
 }
 
 /// The question on the right.
@@ -365,9 +384,6 @@ struct State {
     form: Form,
     topic_image: Option<PickedFile>,
     topic_image_error: Option<String>,
-    setup_video_link: String,
-    change: Change,
-    change_other: String,
     writing_preference: String,
     preference_feedback: Option<String>,
     /// Show the code, the raw log and the checker's address.
@@ -393,14 +409,18 @@ struct State {
     student_text: Option<StudentText>,
     /// The "Your AI" card is open for choosing.
     ai_open: bool,
-    ai_key: String,
-    ai_model_pick: usize,
     /// The highlighted entry in the card's AI dropdown.
     ai_choice: usize,
     /// A choice made in the card, applied to the app's settings after the frame.
     ai_pick: Option<AiPick>,
     /// "Keep my current AI" was pressed.
     ai_keep: bool,
+    /// The first-open check that picks a working AI by itself has run.
+    ai_auto_checked: bool,
+    /// A key typed into the AI card for the AI in use (when it has none).
+    ai_card_key: String,
+    /// "Sign In to D.A.D" was pressed in the AI card: the app opens the Account window.
+    open_account: bool,
 }
 
 /// An AI picked in the "Your AI" card.
@@ -505,6 +525,16 @@ impl crate::App {
         let cfg = crate::ai::AiCfg::from(&self.settings);
         // Asked once: until the teacher picks an AI (or keeps the one set up), the card stays open.
         let chosen = crate::store::load_json::<bool>(AI_PICKED).unwrap_or(false);
+        // D.A.D picks the AI itself (Tesler): the one already set up when it can run, else an AI on
+        // this computer. Only when none is ready does the card stay open and ask.
+        if !chosen && !st.ai_auto_checked {
+            st.ai_auto_checked = true;
+            match auto_ai(&cfg) {
+                Some(AutoAi::Keep) => st.ai_keep = true,
+                Some(AutoAi::Pick(pick)) => st.ai_pick = Some(pick),
+                None => {}
+            }
+        }
         #[cfg(not(target_arch = "wasm32"))]
         let browser_open = st.browser.surface().is_some();
         #[cfg(target_arch = "wasm32")]
@@ -554,6 +584,9 @@ impl crate::App {
             st.ai_open = false;
             st.error = None;
             let _ = crate::store::save_json(AI_PICKED, &true);
+        }
+        if std::mem::take(&mut st.open_account) {
+            self.account.open();
         }
         if std::mem::take(&mut st.ai_keep) {
             let _ = crate::store::save_json(AI_PICKED, &true);
@@ -738,11 +771,9 @@ fn write_question(st: &mut State, ctx: &egui::Context, cfg: &crate::ai::AiCfg, r
     let job = start(st, if follow_up.is_some() { "Revising" } else { "Writing" });
     let preference = crate::store::load_json::<String>(WRITING_PREFERENCE).unwrap_or_default();
     let request = form::with_writing_preference(&request, &preference);
-    let video_help = if setup.is_some() {
-        question_help::video_url(&st.setup_video_link).ok()
-    } else {
-        st.current.as_ref().and_then(|current| question_help::attached_video(&current.q))
-    };
+    // A new question starts without a video (one is added after writing, in the Help video card);
+    // a revision keeps the one attached.
+    let video_help = if setup.is_some() { None } else { st.current.as_ref().and_then(|current| question_help::attached_video(&current.q)) };
     let (engine, cfg, ctx) = (st.engine.clone(), cfg.clone(), ctx.clone());
     run_bg(async move {
         let (form, image) = setup.map_or((None, None), |(form, image)| (Some(form), image));
@@ -1089,18 +1120,18 @@ fn side_column(ui: &mut Ui, ctx: &egui::Context, st: &mut State, cfg: &crate::ai
     side(ui, ctx, st);
 }
 
-/// The switch for the advanced tools, at the foot of the main column it adds to, with the cards'
-/// own inset so it lines up with their content.
-fn advanced_switch(ui: &mut Ui, st: &mut State) {
-    ui.add_space(10.0);
-    ui.horizontal(|ui| {
-        ui.add_space(20.0);
-        square_checks(ui);
-        if ui.checkbox(&mut st.advanced, theme::muted("Show advanced tools").size(13.0))
-            .on_hover_text("Question code, test log, and checker").changed()
-        {
-            let _ = crate::store::save_json(ADVANCED, &st.advanced);
-        }
+/// Settings' switch for the Questions page's advanced tools (question code, test log, checker):
+/// a developer setting, so it lives in Settings rather than as a second disclosure on the page.
+pub fn advanced_setting(ui: &mut Ui) {
+    ST.with(|cell| {
+        let mut st = cell.borrow_mut();
+        if !st.inited { st.advanced = crate::store::load_json(ADVANCED).unwrap_or(false); }
+        ui.scope(|ui| {
+            square_checks(ui);
+            if ui.checkbox(&mut st.advanced, "Show advanced tools on the Questions page (question code, test log, checker)").changed() {
+                let _ = crate::store::save_json(ADVANCED, &st.advanced);
+            }
+        });
     });
 }
 
@@ -1146,12 +1177,14 @@ fn steps(ui: &mut Ui, st: &mut State) {
             crate::kit::tertiary(ui, egui_phosphor::regular::PLUS, "New Question", 36.0)
                 .on_hover_text("Start a new question. Your course and question options stay picked")
         }).inner.clicked() {
+            // The question on screen goes to My Questions first (as "Needs review" if it was not
+            // approved), so starting another never throws away what the AI just wrote.
+            save_current(st);
             st.step = Step::Describe;
             st.worksheet_mode = false;
             st.current = None;
             st.topic_image = None;
             st.topic_image_error = None;
-            st.setup_video_link.clear();
             st.error = None;
             st.preview_html = None;
             if st.form.figure.take().is_some() {
@@ -1186,11 +1219,25 @@ fn main(ui: &mut Ui, ctx: &egui::Context, st: &mut State, cfg: &crate::ai::AiCfg
             Step::Copy => { leave(); copy_step(ui, ctx, st) }
         }
     }
-    advanced_switch(ui, st);
     advanced(ui, ctx, st, cfg);
 }
 
+/// The AI that reads worksheets: pages and photos go to it as pictures, which Claude on this
+/// computer cannot take. When Claude was picked and Codex is here too, worksheets go to Codex.
+fn worksheet_ai(cfg: &crate::ai::AiCfg) -> crate::ai::AiCfg {
+    #[cfg(not(target_arch = "wasm32"))]
+    if cfg.provider == "claude-cli" && crate::ai::cli::installed().contains(&"codex-cli") {
+        let mut codex = cfg.clone();
+        codex.provider = "codex-cli".into();
+        codex.model = String::new();
+        return codex;
+    }
+    cfg.clone()
+}
+
 fn worksheet_form(ui: &mut Ui, ctx: &egui::Context, st: &mut State, cfg: &crate::ai::AiCfg) {
+    let rerouted = cfg.provider == "claude-cli";
+    let cfg = &worksheet_ai(cfg);
     st.worksheet_files.extend(crate::platform::take_picked());
     let working = busy(st);
     let can_pick = st.library.worksheet.as_ref().is_none_or(|batch| batch.pending.is_empty() && batch.failures.is_empty());
@@ -1199,6 +1246,12 @@ fn worksheet_form(ui: &mut Ui, ctx: &egui::Context, st: &mut State, cfg: &crate:
     pageshell::card(ui, |ui| {
         pageshell::heading(ui, "Upload a math or science worksheet");
         ui.add(egui::Label::new(theme::muted("PDF, Word, text, or photos. Upload Word worksheets with equations or diagrams as PDFs.").size(13.0)).wrap());
+        // Said before the upload, not after it fails.
+        if cfg.provider == "claude-cli" {
+            ui.add(egui::Label::new(RichText::new("Claude on this computer can't read PDFs or photos. Upload a Word or text file, or pick another AI under Your AI.").color(theme::red()).size(13.0)).wrap());
+        } else if rerouted {
+            ui.add(egui::Label::new(theme::muted("Worksheets are read with Codex on this computer, because Claude can't read pages as pictures.").size(13.0)).wrap());
+        }
         ui.add(egui::Label::new(theme::muted("D.A.D keeps a local copy of the pages it reads so you can compare them with the drafts.").size(13.0)).wrap());
         ui.add_space(8.0);
         if working {
@@ -1412,90 +1465,180 @@ fn saved_status(saved: &Saved) -> &'static str {
     else { "Needs review" }
 }
 
-/// The AI as a teacher would name it.
-fn ai_label(cfg: &crate::ai::AiCfg) -> String {
-    let model = cfg.model.trim();
+
+/// The AIs a teacher can pick without IT, in the order the card and Settings → AI both list them:
+/// (provider, plain name, what it needs, the model a pick starts on). Settings holds the model menus.
+pub(crate) fn plain_ais(local: &[&str]) -> Vec<(&'static str, &'static str, &'static str, &'static str)> {
+    let mut list = Vec::new();
+    if local.contains(&"claude-cli") { list.push(("claude-cli", "Claude on this computer", "Uses your Claude subscription. No key needed.", "sonnet")); }
+    if local.contains(&"codex-cli") { list.push(("codex-cli", "Codex on this computer", "Uses your ChatGPT subscription. No key needed.", "")); }
+    list.push(("cloud", "Ollama Cloud", "Needs a free Ollama key.", ""));
+    list.push(("openrouter", "OpenRouter", "Needs an OpenRouter key and a few dollars of credit.", "deepseek/deepseek-v4.1-flash"));
+    // D.A.D AI runs on a school server's credits: a choice once that account is signed in, or when
+    // this build has its server built in (then signing in is all it asks). Offered otherwise, it led
+    // teachers to a server address they do not have.
+    if dad_ai_offered() {
+        let need = if crate::ai::account_ai_ready() { "No setup. Uses credits from your account." } else { "No key or install. Sign in once; it uses credits." };
+        list.push(("account", "D.A.D AI", need, ""));
+    }
+    list
+}
+
+/// D.A.D AI can be offered: signed in already, or this build knows its server (sign-in only).
+pub(crate) fn dad_ai_offered() -> bool {
+    crate::ai::account_ai_ready() || crate::share::ShareSettings::built_in().is_some()
+}
+
+/// The AI can write now: a key where it needs one, or a signed-in account for D.A.D AI.
+fn ai_ready(cfg: &crate::ai::AiCfg) -> bool {
+    if cfg.provider == "account" { crate::ai::account_ai_ready() } else { cfg.has_key_or_needs_none() }
+}
+
+/// The AI's plain name, without the model id (the model lives in Settings).
+fn ai_name(cfg: &crate::ai::AiCfg) -> String {
     match cfg.provider.as_str() {
-        "claude-cli" => format!("Claude on this computer{}", if model.is_empty() { String::new() } else { format!(" ({})", model) }),
+        "claude-cli" => "Claude on this computer".into(),
         "codex-cli" => "Codex on this computer".into(),
-        "openrouter" => format!("OpenRouter: {model}"),
-        "ollama" => format!("Ollama on this computer: {model}"),
-        "cloud" => format!("Ollama Cloud: {model}"),
-        "account" => "D.A.D's own AI".into(),
-        _ => format!("{}: {model}", cfg.provider),
+        "openrouter" => "OpenRouter".into(),
+        "ollama" => "Ollama on this computer".into(),
+        "cloud" => "Ollama Cloud".into(),
+        "account" => "D.A.D AI".into(),
+        "workers" => "D.A.D relay".into(),
+        _ => "Your own AI server".into(),
     }
 }
 
-/// OpenRouter models offered in the card: (label, model id).
-const OPENROUTER_PICKS: [(&str, &str); 3] = [
-    ("DeepSeek v4.1 Flash (best tested, well under a cent per question)", "deepseek/deepseek-v4.1-flash"),
-    ("Claude Sonnet 5.5 (best writing, costs more)", "anthropic/claude-sonnet-5.5"),
-    ("Free models (slower and uneven)", "openrouter/free"),
-];
-const CLAUDE_PICKS: [(&str, &str); 3] = [("Sonnet (recommended)", "sonnet"), ("Opus (slower, strongest)", "opus"), ("Haiku (fastest)", "haiku")];
-
-/// "Your AI": which AI writes the questions, picked in plain words. AI tools found on this computer
-/// come first (no key needed); an OpenRouter key works anywhere.
+/// "Your AI": which AI writes the questions. One line when it works; open, it lists the same AIs as
+/// Settings → AI, and an AI with no key shows its key field (the one way forward).
 fn ai_card(ui: &mut Ui, st: &mut State, cfg: &crate::ai::AiCfg, chosen: bool) {
     #[cfg(not(target_arch = "wasm32"))]
     let local = crate::ai::cli::installed();
     #[cfg(target_arch = "wasm32")]
     let local: Vec<&'static str> = Vec::new();
-    let open = st.ai_open || !chosen;
+    let ready = ai_ready(cfg);
+    let open = st.ai_open || !chosen || !ready;
     pageshell::card(ui, |ui| {
         control_edges(ui);
         ui.horizontal_wrapped(|ui| {
             ui.label(theme::strong("Your AI").size(15.0));
-            // What will actually write the next question, picked or not: one state, one label.
-            ui.label(theme::text(ai_label(cfg)).size(14.0));
-            if chosen && !open && ui.link("Change").clicked() { st.ai_open = true; }
+            // Readiness and a plain name: a model id is one more thing to ignore here.
+            ui.label(theme::text(ai_name(cfg)).size(14.0));
+            let change = chosen && ready && !open;
+            if !ready {
+                let need = if cfg.provider == "account" { "needs you to sign in" } else { "needs a key" };
+                ui.label(RichText::new(need).color(theme::red()).size(13.0));
+            }
+            // A real button at the card's edge, not a small link: it changes every question written.
+            if change && ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| crate::kit::secondary(ui, "Change", 32.0)).inner.clicked() {
+                st.ai_open = true;
+            }
         });
         if !open { return; }
         ui.add_space(4.0);
-        // Every ready-to-use AI in one list, so the card asks one question with one button.
-        let mut choices: Vec<(String, &'static str, Option<AiPick>)> = Vec::new();
-        if local.contains(&"claude-cli") {
-            for (label, model) in CLAUDE_PICKS {
-                choices.push((format!("Claude · {label}"), "On this computer. Uses your Claude subscription through Claude Code.",
-                    Some(AiPick { provider: "claude-cli", model: model.into(), key: None })));
+        if !ready && cfg.provider == "account" {
+            ui.add(egui::Label::new(theme::muted("D.A.D AI needs no key: sign in once and it uses your account's credits.").size(12.0)).wrap());
+            if crate::kit::secondary(ui, "Sign In to D.A.D", 36.0).clicked() { st.open_account = true; }
+            ui.add_space(8.0);
+        } else if !ready && cfg.uses_key() {
+            // The fix for the AI in use, right here: its key, not a trip to Settings.
+            field_label(ui, "Paste its key");
+            if let Some(need) = plain_ais(&local).into_iter().find(|a| a.0 == cfg.provider).map(|a| a.2) {
+                ui.add(egui::Label::new(theme::muted(need).size(12.0)).wrap());
+            }
+            // Stacked: the side column is narrow, and a key row side by side ran past its edge.
+            let r = ui.add(egui::TextEdit::singleline(&mut st.ai_card_key).password(true).margin(egui::Margin::symmetric(10, 8))
+                .desired_width(ui.available_width()).hint_text("paste a key"));
+            r.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::TextEdit, true, "AI key"));
+            let ok = st.ai_card_key.trim().len() > 10;
+            if ui.add_enabled_ui(ok, |ui| crate::kit::secondary(ui, "Save Key", 36.0)).inner.clicked() && ok {
+                match crate::ai::set_key(&cfg.provider, Some(st.ai_card_key.trim())) {
+                    Ok(()) => { st.ai_card_key.clear(); st.ai_keep = true; st.note = Some("Key saved on this computer.".into()); }
+                    Err(error) => st.error = Some(format!("Could not save the key: {error}")),
+                }
+            }
+            if crate::platform::help_clip_name(&cfg.provider).is_some() && crate::kit::link(ui, "Watch how to get a key", false).clicked() {
+                crate::platform::open_help_video(&cfg.provider);
+            }
+            ui.add_space(8.0);
+            // Where D.A.D AI needs only a sign-in, it is the way with no key at all.
+            if dad_ai_offered() {
+                if crate::kit::link(ui, "No key? Use D.A.D AI instead", true).clicked() {
+                    st.ai_pick = Some(AiPick { provider: "account", model: String::new(), key: None });
+                }
+                ui.add(egui::Label::new(theme::muted("Sign in once; it uses your account's credits.").size(12.0)).wrap());
+                ui.add_space(8.0);
             }
         }
-        if local.contains(&"codex-cli") {
-            choices.push(("Codex".into(), "On this computer. Uses your ChatGPT subscription through Codex.",
-                Some(AiPick { provider: "codex-cli", model: String::new(), key: None })));
-        }
-        choices.push(("Keep my current AI".into(), "The AI set up in Settings.", None));
-        let mut k = st.ai_choice.min(choices.len() - 1);
-        field_label(ui, "Switch to");
-        let labels: Vec<&str> = choices.iter().map(|c| c.0.as_str()).collect();
-        let w = ui.available_width().min(380.0);
-        if dropdown(ui, "mom_ai_choice", &labels, &mut k, w) { st.ai_choice = k; }
-        ui.add(egui::Label::new(theme::muted(choices[k].1).size(12.0)).wrap());
-        ui.add_space(6.0);
-        if crate::kit::secondary(ui, "Use This AI", 36.0).clicked() {
-            match choices[k].2.take() {
-                Some(pick) => st.ai_pick = Some(pick),
-                None => { st.ai_keep = true; st.ai_open = false; }
+        // One list, the same as Settings → AI: the AI in use first, then the others. While the AI in
+        // use is being set up, they wait one level down so the visible path is one.
+        let mut others_ui = |ui: &mut Ui| {
+            let others: Vec<_> = plain_ais(&local).into_iter().filter(|a| a.0 != cfg.provider).collect();
+            if others.is_empty() {
+                if ready && chosen && crate::kit::secondary(ui, "Done", 36.0).clicked() { st.ai_open = false; }
+            } else {
+                let mut labels = vec![format!("{} (current)", ai_name(cfg))];
+                labels.extend(others.iter().map(|a| a.1.to_string()));
+                // With no key for the AI in use, keeping it is no choice: start on the first other AI.
+                let mut k = if !ready && st.ai_choice == 0 { 1 } else { st.ai_choice }.min(labels.len() - 1);
+                field_label(ui, if ready { "Switch to" } else { "Or use another AI" });
+                let refs: Vec<&str> = labels.iter().map(String::as_str).collect();
+                if dropdown(ui, "mom_ai_choice", &refs, &mut k, ui.available_width().min(380.0)) { st.ai_choice = k; }
+                if k > 0 {
+                    ui.add(egui::Label::new(theme::muted(others[k - 1].2).size(12.0)).wrap());
+                }
+                ui.add_space(6.0);
+                // "(current)" picked: the button closes the card; another AI: it switches (an AI that
+                // needs a key then shows its key field above).
+                let label = if k == 0 { "Done" } else { "Use This AI" };
+                if ui.add_enabled_ui(k > 0 || ready, |ui| crate::kit::secondary(ui, label, 36.0)).inner.clicked() {
+                    if k == 0 {
+                        st.ai_keep = true;
+                        st.ai_open = false;
+                    } else {
+                        let (provider, _, _, model) = others[k - 1];
+                        st.ai_pick = Some(AiPick { provider, model: model.into(), key: None });
+                        st.ai_choice = 0;
+                    }
+                }
             }
+        };
+        if ready {
+            others_ui(ui);
+        } else {
+            egui::CollapsingHeader::new(theme::muted("Use a different AI instead").size(13.0)).id_salt("mom_ai_others").show(ui, |ui| others_ui(ui));
         }
         ui.add_space(8.0);
-        egui::CollapsingHeader::new(theme::strong("Use an OpenRouter key").size(14.0)).id_salt("mom_ai_or").default_open(local.is_empty()).show(ui, |ui| {
-            ui.add(egui::Label::new(theme::muted("Make a free account at openrouter.ai, add a few dollars, create a key, and paste it here. It's saved on this computer only.").size(12.0)).wrap());
-            let labels: Vec<&str> = OPENROUTER_PICKS.iter().map(|p| p.0).collect();
-            let mut k = st.ai_model_pick.min(OPENROUTER_PICKS.len() - 1);
-            ui.horizontal_wrapped(|ui| {
-                let r = ui.add(egui::TextEdit::singleline(&mut st.ai_key).password(true).desired_width(260.0).hint_text("sk-or-..."));
-                r.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::TextEdit, true, "OpenRouter key"));
-                let w = ui.available_width().min(300.0);
-                if dropdown(ui, "mom_ai_ormodel", &labels, &mut k, w) { st.ai_model_pick = k; }
-            });
-            let ok = st.ai_key.trim().len() > 10;
-            if ui.add_enabled_ui(ok, |ui| crate::kit::secondary(ui, "Use OpenRouter", 36.0)).inner.clicked() && ok {
-                st.ai_pick = Some(AiPick { provider: "openrouter", model: OPENROUTER_PICKS[k].1.into(), key: Some(std::mem::take(&mut st.ai_key)) });
-            }
-        });
-        ui.label(theme::muted("Other AIs (Ollama, your own server): Settings, then AI conversion.").size(12.0));
+        ui.label(theme::muted("Models and other AIs: Settings, then AI.").size(12.0));
     });
+}
+
+/// What the first open of the Questions screen does about the AI, before anyone is asked.
+enum AutoAi { Keep, Pick(AiPick) }
+
+/// The AI set up already when it can run (has its key, or needs none); else a signed-in D.A.D AI;
+/// else Claude, then Codex, on this computer; else D.A.D AI when the build has its server built in.
+/// None: nothing is ready, so the card asks.
+fn auto_ai(cfg: &crate::ai::AiCfg) -> Option<AutoAi> {
+    if ai_ready(cfg) { return Some(AutoAi::Keep); }
+    if crate::ai::account_ai_ready() {
+        return Some(AutoAi::Pick(AiPick { provider: "account", model: String::new(), key: None }));
+    }
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        let local = crate::ai::cli::installed();
+        if local.contains(&"claude-cli") {
+            return Some(AutoAi::Pick(AiPick { provider: "claude-cli", model: "sonnet".into(), key: None }));
+        }
+        if local.contains(&"codex-cli") {
+            return Some(AutoAi::Pick(AiPick { provider: "codex-cli", model: String::new(), key: None }));
+        }
+    }
+    // A build with its school server built in: D.A.D AI needs only a sign-in, which beats asking a
+    // teacher to go and buy a key. The card then shows one action, Sign In to D.A.D.
+    if crate::share::ShareSettings::built_in().is_some() {
+        return Some(AutoAi::Pick(AiPick { provider: "account", model: String::new(), key: None }));
+    }
+    None
 }
 
 /// A dropdown whose first entry is "Let the AI choose" (None), then `labels` (Some(index)).
@@ -1515,10 +1658,12 @@ fn ai_pick<T: Copy + PartialEq>(ui: &mut Ui, id: &str, all: &[T], label: impl Fn
     if ai_dropdown(ui, id, &labels, &mut k, width) { *cur = k.map(|i| all[i]); }
 }
 
-fn answer_type_picker(ui: &mut Ui, part: usize, answer: &mut Option<Answer>) {
-    let label = |answer: Answer| {
+/// The answer-type menu: "Let the AI choose", the common types, and the rest one level down.
+/// MyOpenMath's type codes show only with the advanced tools on.
+fn answer_type_picker(ui: &mut Ui, part: usize, answer: &mut Option<Answer>, codes: bool) {
+    let label = move |answer: Answer| {
         let (code, name, _) = answer.details();
-        format!("{name} ({code})")
+        if codes { format!("{name} ({code})") } else { name.to_string() }
     };
     let selected = answer.map_or_else(|| AI_CHOOSES.to_string(), label);
     egui::ComboBox::from_id_salt(("mom_answer_type", part))
@@ -1528,10 +1673,15 @@ fn answer_type_picker(ui: &mut Ui, part: usize, answer: &mut Option<Answer>) {
         .show_ui(ui, |ui| {
             ui.selectable_value(answer, None, AI_CHOOSES)
                 .on_hover_text("Choose an answer format that suits the question.");
-            for option in Answer::ALL {
-                ui.selectable_value(answer, Some(option), label(option))
-                    .on_hover_text(option.details().2);
+            for option in Answer::COMMON {
+                ui.selectable_value(answer, Some(option), label(option)).on_hover_text(option.details().2);
             }
+            ui.separator();
+            egui::CollapsingHeader::new(theme::muted("More answer types").size(13.0)).id_salt(("mom_answer_more", part)).show(ui, |ui| {
+                for option in Answer::ALL.into_iter().filter(|a| !Answer::COMMON.contains(a)) {
+                    ui.selectable_value(answer, Some(option), label(option)).on_hover_text(option.details().2);
+                }
+            });
         });
 }
 
@@ -1605,10 +1755,13 @@ fn describe(ui: &mut Ui, ctx: &egui::Context, st: &mut State, cfg: &crate::ai::A
             ui.spacing_mut().item_spacing.x = 0.0;
             ui.vertical(|ui| {
                 ui.spacing_mut().item_spacing.x = spacing;
-                field_label(ui, "Course");
+                // A level, not the MyOpenMath course picked in step 3.
+                field_label(ui, "Course level");
                 let names: Vec<&str> = COURSES.iter().map(|c| c.0).collect();
                 if ai_dropdown(ui, "mom_course", &names, &mut f.course, pair_w) { f.topic = Topic::Ai; f.fix(); }
             });
+            // Without a course the Topic menu has nothing to list: it appears once a course is picked.
+            if f.course.is_none() { return; }
             ui.add_space(16.0);
             ui.vertical(|ui| {
                 ui.spacing_mut().item_spacing.x = spacing;
@@ -1628,8 +1781,8 @@ fn describe(ui: &mut Ui, ctx: &egui::Context, st: &mut State, cfg: &crate::ai::A
         let picture_blocked = cfg.provider == "claude-cli";
         // The one action of this step sits right under what the teacher typed.
         ui.add_space(16.0);
-        let missing = if !st.setup_video_link.trim().is_empty() && let Err(error) = question_help::video_url(&st.setup_video_link) {
-            Some(error)
+        let missing = if !ai_ready(cfg) {
+            Some("Your AI isn't ready yet: finish it in the Your AI card.")
         } else if st.topic_image.is_some() {
             picture_blocked.then_some("Choose an AI that can read uploaded pictures, or describe the topic in words.")
         } else {
@@ -1682,7 +1835,7 @@ fn describe(ui: &mut Ui, ctx: &egui::Context, st: &mut State, cfg: &crate::ai::A
         error_box(ui, st);
 
         ui.add_space(12.0);
-        let set = more_options_set(&st.form, &st.setup_video_link);
+        let set = more_options_set(&st.form);
         let more = if set == 0 { "More options".to_string() } else { format!("More options ({set} set)") };
         egui::CollapsingHeader::new(theme::strong(more).size(14.0)).id_salt("mom_more_options").show(ui, |ui| {
             more_options(ui, st);
@@ -1691,7 +1844,7 @@ fn describe(ui: &mut Ui, ctx: &egui::Context, st: &mut State, cfg: &crate::ai::A
 }
 
 /// How many of the "More options" differ from their defaults, so a closed section still says it holds choices.
-fn more_options_set(f: &Form, video: &str) -> usize {
+fn more_options_set(f: &Form) -> usize {
     let d = Form::default();
     [
         f.part_count.is_some() || f.part_range.is_some(),
@@ -1702,7 +1855,6 @@ fn more_options_set(f: &Form, video: &str) -> usize {
         f.story.is_some(),
         f.random != d.random,
         f.help_style != d.help_style,
-        !video.trim().is_empty(),
         !f.extra.trim().is_empty(),
     ]
     .into_iter()
@@ -1729,6 +1881,7 @@ fn square_checks(ui: &mut Ui) {
 
 /// Everything past the description: each defaults to the AI's choice.
 fn more_options(ui: &mut Ui, st: &mut State) {
+    let advanced = st.advanced;
     let f = &mut st.form;
     part_count_picker(ui, f);
     let per_part = f.part_range.map_or(f.part_count, |[_, max]| Some(max)).is_some_and(|n| n > 1);
@@ -1739,7 +1892,7 @@ fn more_options(ui: &mut Ui, st: &mut State) {
                 let optional = if f.part_range.is_some_and(|[min, _]| i >= min) { " (optional)" } else { "" };
                 ui.label(theme::text(format!("Part ({}){optional}", (b'a' + i as u8) as char)));
             }
-            answer_type_picker(ui, i, &mut f.answers[i]);
+            answer_type_picker(ui, i, &mut f.answers[i], advanced);
         });
         if let Some(answer) = f.answers[i] {
             ui.add(egui::Label::new(theme::muted(answer.details().2).size(13.0)).wrap());
@@ -1748,7 +1901,7 @@ fn more_options(ui: &mut Ui, st: &mut State) {
     if f.answers.iter().any(Option::is_some) {
         ui.checkbox(&mut f.prefer_answer_types, "Let AI choose a different type if it fits better");
     }
-    egui::CollapsingHeader::new("Compare MyOpenMath answer types")
+    if advanced { egui::CollapsingHeader::new("Compare MyOpenMath answer types")
         .id_salt("mom_answer_types_help")
         .show(ui, |ui| {
             for answer in Answer::ALL {
@@ -1758,7 +1911,7 @@ fn more_options(ui: &mut Ui, st: &mut State) {
                 ui.add_space(4.0);
             }
             ui.hyperlink_to("MyOpenMath question-type documentation", "https://dev.imathas.com/help.html#questiontypes");
-        });
+        }); }
 
     egui::Grid::new("mom_question_options").num_columns(2).spacing([16.0, 8.0]).show(ui, |ui| {
         let width = ((ui.available_width() - 16.0) / 2.0).clamp(88.0, 190.0);
@@ -1800,16 +1953,34 @@ fn more_options(ui: &mut Ui, st: &mut State) {
         form::HelpStyle::WrittenHelp => "Give students a way to get started without revealing the answer.",
     };
     ui.add(egui::Label::new(theme::muted(help_description).size(13.0)).wrap());
-    let video = ui.add(egui::TextEdit::singleline(&mut st.setup_video_link)
-        .desired_width(f32::INFINITY).hint_text("Optional video link"));
-    video.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::TextEdit, true, "Optional video link"));
-    ui.add(egui::Label::new(theme::muted("You can also find a video with AI after the question is written.").size(13.0)).wrap());
+    // A help video is added in one place: the Help video card once the question is written.
 
     let f = &mut st.form;
     field_label(ui, "Anything else? (optional)");
     let r = ui.add(egui::TextEdit::multiline(&mut f.extra).desired_rows(2).desired_width(f32::INFINITY)
         .hint_text("For example: use money amounts, or ask for the y-intercept too"));
     r.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::TextEdit, true, "Anything else (optional)"));
+    // The saved writing preference shapes every question written: it sits with the options it
+    // joins, where it can be read before writing, not only in the revise card afterwards.
+    ui.add_space(6.0);
+    let rule = if st.writing_preference.trim().is_empty() { "Save a rule for every question" } else { "Your saved rule for every question" };
+    egui::CollapsingHeader::new(rule).id_salt("mom_writing_preference").show(ui, |ui| {
+        ui.add(egui::Label::new("Describe a choice you want D.A.D. to remember for future AI-written questions and revisions. It applies after you save it here.").wrap());
+        let field = ui.add(egui::TextEdit::multiline(&mut st.writing_preference)
+            .desired_width(f32::INFINITY).desired_rows(3)
+            .hint_text("For example: Keep worked solutions short and show units at each step."));
+        field.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::TextEdit, true, "Question writing preference"));
+        if field.changed() { st.preference_feedback = None; }
+        if pageshell::outline(ui, "Save preference").clicked() {
+            let preference = st.writing_preference.trim();
+            st.preference_feedback = Some(match crate::store::save_json(WRITING_PREFERENCE, &preference) {
+                Ok(()) if preference.is_empty() => "Writing preference cleared.".into(),
+                Ok(()) => "Writing preference saved.".into(),
+                Err(error) => format!("Could not save the writing preference. {error}"),
+            });
+        }
+        if let Some(feedback) = &st.preference_feedback { ui.label(feedback); }
+    });
 }
 
 fn part_count_picker(ui: &mut Ui, form: &mut Form) {
@@ -2011,9 +2182,16 @@ fn try_it(ui: &mut Ui, ctx: &egui::Context, st: &mut State, cfg: &crate::ai::AiC
         ui.add_space(6.0);
         let ready = !stale && !working && st.current.as_ref().is_some_and(|c| c.passed == Some(true));
         if !working && stale && st.error.is_some() && st.current.as_ref().is_some_and(|c| c.passed == Some(true)) {
-            if pageshell::outline(ui, "Retry student preview").clicked() {
-                start_preview(st, ctx);
-            }
+            ui.horizontal_wrapped(|ui| {
+                if pageshell::outline(ui, "Retry student preview").clicked() {
+                    start_preview(st, ctx);
+                }
+                // The fallback belongs where the preview failed, not beside it every time.
+                #[cfg(not(target_arch = "wasm32"))]
+                if crate::kit::link(ui, "Try it as text instead", false).clicked() {
+                    open_sandbox(st, ctx, true);
+                }
+            });
         } else {
             // Filled until the preview has been opened once; after that "Looks Good" is the step forward.
             let opened = st.current.as_ref().is_some_and(|c| c.preview_opened);
@@ -2024,7 +2202,7 @@ fn try_it(ui: &mut Ui, ctx: &egui::Context, st: &mut State, cfg: &crate::ai::AiC
                 if ready && std::mem::take(&mut st.focus_student_review) { preview.request_focus(); }
                 if preview.clicked() { open_sandbox(st, ctx, false); }
                 #[cfg(not(target_arch = "wasm32"))]
-                if pageshell::outline(ui, "Try with text controls")
+                if crate::kit::link(ui, "Try with text controls", false)
                     .on_hover_text("Open the student preview as native text and form controls").clicked()
                 {
                     open_sandbox(st, ctx, true);
@@ -2042,43 +2220,26 @@ fn try_it(ui: &mut Ui, ctx: &egui::Context, st: &mut State, cfg: &crate::ai::AiC
         } else {
             ui.label(theme::strong("Happy with it?").size(15.0));
             ui.add_space(4.0);
-            if seen && let Some(c) = st.current.as_mut() {
-                ui.checkbox(&mut c.preview_confirmed, "I checked how this question looks and scores in the student preview");
-            }
-            let confirmed = st.current.as_ref().is_some_and(|c| c.preview_confirmed);
-            if pageshell::primary_on(ui, "Looks Good", confirmed && !working).clicked() && confirmed && !working {
+            // One press approves: opening the student preview is the check (approve() refuses
+            // without it), so a checkbox restating it was a second decision for the same thing.
+            if pageshell::primary_on(ui, "Looks Good", seen && !working).clicked() && seen && !working {
+                if let Some(c) = st.current.as_mut() { c.preview_confirmed = true; }
                 approve(st);
             }
             if !seen { crate::kit::gated_reason(ui, "Open the student preview first."); }
         }
 
-        ui.add_space(14.0);
-        ui.label(theme::strong("Not quite right?").size(15.0));
-        ui.add_space(4.0);
-        ui.horizontal_wrapped(|ui| {
-            let labels: Vec<&str> = Change::ALL.iter().map(|c| c.label()).collect();
-            let mut k = Change::ALL.iter().position(|c| *c == st.change).unwrap_or(0);
-            if dropdown(ui, "mom_change", &labels, &mut k, 240.0) { st.change = Change::ALL[k]; }
-            let other_ok = st.change != Change::Other || !st.change_other.trim().is_empty();
-            if ui.add_enabled_ui(!working && other_ok, |ui| pageshell::outline(ui, "Rewrite It")).inner.clicked() && other_ok && !working {
-                let c = st.current.as_ref().unwrap();
-                let request = form::change_request(&c.request, &c.q.emit(), st.change, &st.change_other);
-                start_write(st, ctx, cfg, request);
-            }
-        });
-        if st.change == Change::Other {
-            ui.add_space(4.0);
-            let r = ui.add(egui::TextEdit::singleline(&mut st.change_other).desired_width(f32::INFINITY).hint_text("For example: use a pizza shop instead of a bakery"));
-            r.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::TextEdit, true, "What to change"));
-        }
         error_box(ui, st);
 
     });
-    if st.step == Step::Try {
-        ui.add_space(12.0);
-        question_video(ui, ctx, st, cfg);
+    // A question that failed its check already offers "Rewrite with AI" and "Change My Choices":
+    // the revise card would be a second way to do the same thing.
+    let failed = st.current.as_ref().is_some_and(|c| c.passed == Some(false));
+    if st.step == Step::Try && !failed {
         ui.add_space(12.0);
         question_follow_ups(ui, ctx, st, cfg);
+        ui.add_space(12.0);
+        question_video(ui, ctx, st, cfg);
     }
 }
 
@@ -2154,14 +2315,66 @@ fn question_video(ui: &mut Ui, ctx: &egui::Context, st: &mut State, cfg: &crate:
     }
 }
 
+/// The original request plus the recent follow-ups, so a revision keeps what was already asked.
+fn follow_up_context(current: &Current) -> String {
+    let mut context = current.request.clone();
+    if !current.follow_ups.is_empty() {
+        context.push_str("\n\nRecent follow-ups already reflected in the current draft:");
+        for earlier in current.follow_ups.iter().rev().take(8).rev() {
+            context.push_str("\n- ");
+            context.push_str(earlier);
+        }
+    }
+    context
+}
+
 fn question_follow_ups(ui: &mut Ui, ctx: &egui::Context, st: &mut State, cfg: &crate::ai::AiCfg) {
     let working = busy(st);
     let revising = st.job.lock().is_ok_and(|job| job.busy && job.what == "Revising");
     let Some(current) = st.current.as_mut() else { return };
     let mut send = None;
     pageshell::card(ui, |ui| {
-        pageshell::heading(ui, "Follow up with AI");
+        control_edges(ui);
+        // Heading, then the changes: short enough that the card's controls finish in view.
+        pageshell::heading(ui, "Not quite right?");
+        ui.add_space(4.0);
+        // The three changes asked for most, then Rewrite It on the same row so it is in view without
+        // scrolling; the other changes one level down; your own words in the box under them. A
+        // change writes itself into the box; Rewrite It sends it, so a stray click never replaces
+        // the draft. Drawn as real buttons (the 3:1 control edge): pale chips read as disabled.
+        let chip = |ui: &mut Ui, change: Change, current: &mut Current| {
+            let on = current.follow_up_draft.trim() == change.label();
+            let r = if on { crate::kit::secondary_accent(ui, change.label(), 32.0) } else { crate::kit::secondary(ui, change.label(), 32.0) };
+            if r.clicked() {
+                current.follow_up_draft = if on { String::new() } else { change.label().to_string() };
+            }
+        };
+        ui.add_enabled_ui(!working, |ui| {
+            ui.horizontal_wrapped(|ui| {
+                for change in [Change::Easier, Change::Harder, Change::Numbers] { chip(ui, change, current); }
+                ui.add_space(8.0);
+                let can_send = !current.follow_up_draft.trim().is_empty();
+                if ui.add_enabled_ui(can_send, |ui| pageshell::outline(ui, "Rewrite It")).inner.clicked() && can_send {
+                    let message = std::mem::take(&mut current.follow_up_draft).trim().to_string();
+                    // A change's own text sends that change's full instruction.
+                    let change = Change::ALL.into_iter().find(|c| *c != Change::Other && c.label() == message).unwrap_or(Change::Other);
+                    let request = form::change_request(&follow_up_context(current), &current.q.emit(), change, &message);
+                    current.follow_up_failed = false;
+                    send = Some((request, message));
+                }
+            });
+            egui::CollapsingHeader::new(theme::muted("More changes").size(13.0)).id_salt("mom_more_changes").show(ui, |ui| {
+                ui.horizontal_wrapped(|ui| {
+                    for change in [Change::Story, Change::Wording, Change::Solution, Change::AddPart] { chip(ui, change, current); }
+                });
+            });
+            let input = ui.add(egui::TextEdit::multiline(&mut current.follow_up_draft)
+                .desired_width(f32::INFINITY).desired_rows(2)
+                .hint_text("Or type a change, then press Rewrite It. For example: “Keep the graph and add a second part.”"));
+            input.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::TextEdit, !working, "Question follow-up"));
+        });
         if !current.follow_ups.is_empty() {
+            ui.add_space(8.0);
             egui::ScrollArea::vertical().id_salt("mom_follow_ups").max_height(165.0)
                 .stick_to_bottom(true).show(ui, |ui| {
                     for message in &current.follow_ups {
@@ -2172,49 +2385,12 @@ fn question_follow_ups(ui: &mut Ui, ctx: &egui::Context, st: &mut State, cfg: &c
                     }
                 });
         }
-        let input = ui.add_enabled(!working, egui::TextEdit::multiline(&mut current.follow_up_draft)
-            .desired_width(f32::INFINITY).desired_rows(3)
-            .hint_text("Ask for a change, such as “Keep the graph and add a second part.”"));
-        input.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::TextEdit, !working, "Question follow-up"));
-        let can_send = !working && !current.follow_up_draft.trim().is_empty();
-        if ui.add_enabled_ui(can_send, |ui| pageshell::outline(ui, "Send follow-up")).inner.clicked() && can_send {
-            let message = std::mem::take(&mut current.follow_up_draft).trim().to_string();
-            let mut context = current.request.clone();
-            if !current.follow_ups.is_empty() {
-                context.push_str("\n\nRecent follow-ups already reflected in the current draft:");
-                for earlier in current.follow_ups.iter().rev().take(8).rev() {
-                    context.push_str("\n- ");
-                    context.push_str(earlier);
-                }
-            }
-            let request = form::change_request(&context, &current.q.emit(), Change::Other, &message);
-            current.follow_up_failed = false;
-            send = Some((request, message));
-        }
         if revising {
             ui.horizontal(|ui| { ui.spinner(); ui.label("Revising and checking your question…"); });
         } else if current.follow_up_failed {
             ui.add(egui::Label::new("The revision didn’t pass the checker. Your previous question is still available. Edit your follow-up or send it again.").wrap());
         }
 
-        ui.add_space(12.0);
-        egui::CollapsingHeader::new("Save my preference").id_salt("mom_writing_preference").show(ui, |ui| {
-            ui.add(egui::Label::new("Describe a choice you want D.A.D. to remember for future AI-written questions and revisions. It applies after you save it here.").wrap());
-            let field = ui.add(egui::TextEdit::multiline(&mut st.writing_preference)
-                .desired_width(f32::INFINITY).desired_rows(3)
-                .hint_text("For example: Keep worked solutions short and show units at each step."));
-            field.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::TextEdit, true, "Question writing preference"));
-            if field.changed() { st.preference_feedback = None; }
-            if pageshell::outline(ui, "Save preference").clicked() {
-                let preference = st.writing_preference.trim();
-                st.preference_feedback = Some(match crate::store::save_json(WRITING_PREFERENCE, &preference) {
-                    Ok(()) if preference.is_empty() => "Writing preference cleared.".into(),
-                    Ok(()) => "Writing preference saved.".into(),
-                    Err(error) => format!("Could not save the writing preference. {error}"),
-                });
-            }
-            if let Some(feedback) = &st.preference_feedback { ui.label(feedback); }
-        });
     });
     if let Some((request, message)) = send { write_question(st, ctx, cfg, request, Some(message), None); }
 }
@@ -2438,60 +2614,75 @@ fn copy_step(ui: &mut Ui, ctx: &egui::Context, st: &mut State) {
         ("Detailed Solution", c.q.detailed_solution_field(), "the Detailed Solution box"),
     ];
     let mut copied: Option<String> = None;
+    // On the desktop the automatic add above is the way; copying by hand (and the bookmark that
+    // fills the boxes) is one closed fallback, not two more cards to weigh. The web build has no
+    // automatic add, so there the steps are the card.
     pageshell::card(ui, |ui| {
-        pageshell::heading(ui, if cfg!(target_arch = "wasm32") { "Add it to MyOpenMath" } else { "Or copy it in yourself" });
-        ui.add_space(8.0);
-        ui.label(theme::strong("1.  In MyOpenMath, open your course, click Manage Question Set, then Add New Question.").size(14.0));
-        ui.add_space(10.0);
-        ui.label(theme::strong(format!("2.  Set the Question type menu to \"{menu}\".")).size(14.0));
-        ui.add_space(10.0);
-        ui.label(theme::strong("3.  Copy each item and paste it into the box with the same name.").size(14.0));
-        ui.add_space(6.0);
-        for (name, value, place) in &fields {
-            if value.trim().is_empty() { continue; }
-            // Indented to the steps' text (after "3.  "), not past it.
-            ui.horizontal(|ui| {
-                ui.add_space(17.0);
-                if pageshell::outline(ui, &format!("Copy {name}")).clicked() {
-                    ui.ctx().copy_text(value.clone());
-                    copied = Some(format!("Copied. Now paste it into {place} in MyOpenMath."));
-                }
-            });
-            if *name == "Detailed Solution" {
-                ui.horizontal(|ui| {
-                    ui.add_space(17.0);
-                    ui.add(egui::Label::new(theme::muted("Above that box, tick \"Uses random variables from the question\" so students see the solution for their own numbers.").size(13.0)).wrap());
-                });
-            }
-            ui.add_space(4.0);
-        }
-        ui.add_space(10.0);
-        ui.label(theme::strong("4.  Press Save in MyOpenMath.").size(14.0));
-        if let Some(n) = copied.as_ref().or(st.note.as_ref()) {
+        if cfg!(target_arch = "wasm32") {
+            pageshell::heading(ui, "Add it to MyOpenMath");
             ui.add_space(8.0);
-            ui.label(RichText::new(n).color(theme::green()).size(14.0));
+            manual_copy(ui, st, &fields, &menu, &mut copied);
+        } else {
+            egui::CollapsingHeader::new(theme::strong("Can't connect? Add it by hand or with the bookmark").size(15.0)).id_salt("mom_copy_fallback").show(ui, |ui| {
+                manual_copy(ui, st, &fields, &menu, &mut copied);
+            });
         }
     });
     if let Some(n) = copied { st.note = Some(n); }
+}
+
+/// The bookmark that fills every box in one click (for the teacher who uses it each time), then
+/// the four MyOpenMath boxes by hand.
+fn manual_copy(ui: &mut Ui, st: &mut State, fields: &[(&str, String, &str)], menu: &str, copied: &mut Option<String>) {
+    ui.label(theme::strong("Fastest: fill every box with one click").size(14.0));
+    ui.add(egui::Label::new(theme::muted("Set up once: press Copy the Bookmark, make a new bookmark in your browser, and paste it as the bookmark's address (URL). Name it \"Fill MyOpenMath\".").size(13.0)).wrap());
+    ui.add_space(4.0);
+    if pageshell::outline(ui, "Copy the Bookmark").clicked() {
+        ui.ctx().copy_text(BOOKMARKLET.trim().to_string());
+        st.note = Some("Copied the bookmark. Paste it as a new bookmark's address.".into());
+    }
+    ui.add_space(8.0);
+    ui.add(egui::Label::new(theme::muted("Each time: press Copy This Question, open Add New Question in MyOpenMath, and click your Fill MyOpenMath bookmark. Check the boxes, then press Save.").size(13.0)).wrap());
+    ui.add_space(4.0);
+    if pageshell::outline(ui, "Copy This Question").clicked() {
+        let c = st.current.as_ref().unwrap();
+        ui.ctx().copy_text(bookmarklet_package(&c.q));
+        st.note = Some("Copied. Now click your Fill MyOpenMath bookmark in MyOpenMath.".into());
+    }
     ui.add_space(12.0);
-    pageshell::card(ui, |ui| {
-        egui::CollapsingHeader::new(theme::strong("Faster: fill every box with one click").size(15.0)).id_salt("mom_bm").show(ui, |ui| {
-            ui.add(egui::Label::new(theme::muted("Set up once: press Copy the Bookmark, make a new bookmark in your browser, and paste it as the bookmark's address (URL). Name it \"Fill MyOpenMath\".").size(13.0)).wrap());
-            ui.add_space(4.0);
-            if pageshell::outline(ui, "Copy the Bookmark").clicked() {
-                ui.ctx().copy_text(BOOKMARKLET.trim().to_string());
-                st.note = Some("Copied the bookmark. Paste it as a new bookmark's address.".into());
-            }
-            ui.add_space(8.0);
-            ui.add(egui::Label::new(theme::muted("Each time: press Copy This Question, open Add New Question in MyOpenMath, and click your Fill MyOpenMath bookmark. Check the boxes, then press Save.").size(13.0)).wrap());
-            ui.add_space(4.0);
-            if pageshell::outline(ui, "Copy This Question").clicked() {
-                let c = st.current.as_ref().unwrap();
-                ui.ctx().copy_text(bookmarklet_package(&c.q));
-                st.note = Some("Copied. Now click your Fill MyOpenMath bookmark in MyOpenMath.".into());
+    ui.label(theme::strong("Or copy each box").size(14.0));
+    ui.add_space(6.0);
+    ui.label(theme::strong("1.  In MyOpenMath, open your course, click Manage Question Set, then Add New Question.").size(14.0));
+    ui.add_space(10.0);
+    ui.label(theme::strong(format!("2.  Set the Question type menu to \"{menu}\".")).size(14.0));
+    ui.add_space(10.0);
+    ui.label(theme::strong("3.  Copy each item and paste it into the box with the same name.").size(14.0));
+    ui.add_space(6.0);
+    for (name, value, place) in fields {
+        if value.trim().is_empty() { continue; }
+        // Indented to the steps' text (after "3.  "), not past it.
+        ui.horizontal(|ui| {
+            ui.add_space(17.0);
+            if pageshell::outline(ui, &format!("Copy {name}")).clicked() {
+                ui.ctx().copy_text(value.clone());
+                *copied = Some(format!("Copied. Now paste it into {place} in MyOpenMath."));
             }
         });
-    });
+        if *name == "Detailed Solution" {
+            ui.horizontal(|ui| {
+                ui.add_space(17.0);
+                ui.add(egui::Label::new(theme::muted("Above that box, tick \"Uses random variables from the question\" so students see the solution for their own numbers.").size(13.0)).wrap());
+            });
+        }
+        ui.add_space(4.0);
+    }
+    ui.add_space(10.0);
+    ui.label(theme::strong("4.  Press Save in MyOpenMath.").size(14.0));
+    if let Some(n) = copied.as_ref().or(st.note.as_ref()) {
+        ui.add_space(8.0);
+        ui.label(RichText::new(n).color(theme::green()).size(14.0));
+    }
+
 }
 
 fn open_saved(st: &mut State, saved: Saved) {
@@ -2804,6 +2995,17 @@ mod overlay {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_backup_comes_back_approved_and_a_share_package_does_not_count_as_one() {
+        let backup = Library { questions: vec![Saved { id: "a".into(), request: "Slope".into(), src: "// x".into(), passed: true, reviewed: true, saved_at: 1, ..Default::default() }], worksheet: None };
+        let file = PickedFile { name: "dad-my-questions.json".into(), bytes: serde_json::to_vec(&backup).unwrap() };
+        let restored = backup_records(&file).expect("a backup file");
+        assert!(restored[0].reviewed && restored[0].passed && restored[0].request == "Slope");
+        let share = PickedFile { name: "package.json".into(), bytes: br#"{"questions":[{"src":"// x"}]}"#.to_vec() };
+        assert!(backup_records(&share).is_none());
+        assert_eq!(imported_sources(&share).unwrap(), vec!["// x".to_string()]);
+    }
 
     #[test]
     fn follow_up_keeps_the_previous_draft_on_failure_and_requires_review_on_success() {
@@ -3164,7 +3366,6 @@ mod autoadd {
                     let publication = receipt.as_ref().and_then(|path| crate::store::load_json::<PublishState>(path));
                     ui.add_enabled_ui(!working, |ui| {
                         ui.horizontal_wrapped(|ui| {
-                            if pageshell::outline(ui, "Preview in MyOpenMath").clicked() { start_add(st, ctx, cid, aid, false); }
                             match publication {
                                 None | Some(PublishState::ReadyToSave) => {
                                     if pageshell::primary_on(ui, "Publish to selected assessment", receipt.is_some()).clicked() {
@@ -3181,6 +3382,10 @@ mod autoadd {
                                     ui.label(theme::muted("Save unconfirmed. Check your MyOpenMath question set."));
                                 }
                             }
+                            // Step 2 already tried the question as a student: seeing it in MyOpenMath's
+                            // own editor first is optional, so it is a quiet link after Publish.
+                            ui.add_space(8.0);
+                            if crate::kit::link(ui, "Preview in MyOpenMath first", false).clicked() { start_add(st, ctx, cid, aid, false); }
                         });
                     });
                     if receipt.is_none() {
@@ -3206,7 +3411,7 @@ mod autoadd {
                 None => {}
             }
             ui.add_space(8.0);
-            login_box(ui, st);
+            login_box(ui, st, false);
         });
     }
 
@@ -3214,15 +3419,16 @@ mod autoadd {
         pageshell::card(ui, |ui| {
             pageshell::heading(ui, "MyOpenMath connection");
             ui.add(egui::Label::new(theme::muted("Save your instructor login here, or sign in through the browser panel when adding a question.").size(13.0)).wrap());
-            login_box(ui, st);
+            // The Settings section exists for this one control: open, not one more click away.
+            login_box(ui, st, true);
         });
     }
 
     /// The optional saved MyOpenMath sign-in, kept in the computer's keychain.
-    fn login_box(ui: &mut Ui, st: &mut State) {
+    fn login_box(ui: &mut Ui, st: &mut State, open: bool) {
         let p = &mut st.poster;
         if p.has_login.is_none() { p.has_login = Some(poster::saved_login().is_some()); }
-        egui::CollapsingHeader::new(theme::muted("Sign in automatically (optional)").size(13.0)).id_salt("mom_post_login").show(ui, |ui| {
+        egui::CollapsingHeader::new(theme::muted("Sign in automatically (optional)").size(13.0)).id_salt(("mom_post_login", open)).default_open(open).show(ui, |ui| {
             ui.add(egui::Label::new(theme::muted("For a plain MyOpenMath account (not Google or Clever sign-in). Saved in this computer's keychain; D.A.D types it into MyOpenMath's sign-in page and never shows it to the AI.").size(12.0)).wrap());
             if p.has_login == Some(true) {
                 ui.horizontal(|ui| {

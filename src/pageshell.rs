@@ -506,7 +506,8 @@ pub fn sections_aside(
             ui.vertical(|ui| {
                 ui.set_width(NAV_W);
                 nav_column(ui, id, items, &mut selected, settings);
-                if settings {
+                // Settings' "account optional" note qualifies the account section: shown with it.
+                if settings && lead {
                     // The account-optional note sits right under the menu it qualifies, not at the foot
                     // of the rail where it read as a stray caption belonging to nothing.
                     ui.add_space(24.0);
@@ -516,7 +517,7 @@ pub fn sections_aside(
                             ui.set_width(NAV_W - 30.0);
                             crate::kit::label(ui, "Account optional");
                             ui.add_space(6.0);
-                            ui.add(egui::Label::new(theme::muted("Create banks, build exams and print on this machine. Connect when you want to share.").size(13.0)).wrap());
+                            ui.add(egui::Label::new(theme::muted("Writing, testing, adding and sharing questions as files work without an account. D.A.D AI credits and sharing through a school server need one.").size(13.0)).wrap());
                         });
                     });
                 }
