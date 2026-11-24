@@ -36,3 +36,10 @@ panic = "unwind"
 opt-level = 3
 [profile.figtest.package.vershion]
 opt-level = 3
+
+# Desktop packages (tools/package.sh, CI): release minus fat LTO and the single codegen unit,
+# which made the final crate compile and link single-threaded. The wasm build keeps `release`.
+[profile.dist]
+inherits = "release"
+lto = "thin"
+codegen-units = 16

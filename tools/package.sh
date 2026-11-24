@@ -5,6 +5,8 @@
 # The question checker's files ship beside the app; PHP is fetched once on first use (see
 # src/mom/localengine.rs). Put a file named `portable` next to DAD or DAD.app to keep data in DAD-data/.
 # usage: tools/package.sh [rust-target-triple]     (default: this machine)
+# Builds with the `dist` profile (.cargo/config.toml): release with thin LTO, ~5x faster to build
+# than fat LTO for a ~10% larger download. DAD_PROFILE=release gives the smallest binary.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 TARGET="${1:-}"
@@ -19,8 +21,9 @@ case "${TARGET:-$(rustc -vV | sed -n 's/^host: //p')}" in
 esac
 
 engine/browser/checker-files.sh target/checker-files
-cargo build --release --locked --bin vershion ${TARGET:+--target "$TARGET"}
-BIN="target/${TARGET:+$TARGET/}release/vershion"
+PROFILE="${DAD_PROFILE:-dist}"
+cargo build --profile "$PROFILE" --locked --bin vershion ${TARGET:+--target "$TARGET"}
+BIN="target/${TARGET:+$TARGET/}$PROFILE/vershion"
 
 NAME="DAD-$VERSION-$PLAT"
 OUT="dist/desktop"
