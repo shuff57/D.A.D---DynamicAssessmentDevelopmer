@@ -706,7 +706,9 @@ fn apply_style(style: &mut egui::Style) {
         v.menu_corner_radius = CornerRadius::same(12);
         v.faint_bg_color = p.cream;
         v.extreme_bg_color = p.field; // text edit backgrounds
-        v.text_edit_bg_color = Some(p.field);
+        // Text fields take the card fill and the control border, like the dropdowns: the tan
+        // `field` fill is what disabled buttons wear, and an empty field must not look disabled.
+        v.text_edit_bg_color = Some(p.card);
         v.code_bg_color = p.accent_faded;
         v.hyperlink_color = p.accent;
         v.warn_fg_color = p.muted;

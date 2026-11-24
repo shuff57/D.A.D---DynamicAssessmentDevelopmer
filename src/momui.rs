@@ -998,9 +998,14 @@ fn dropdown(ui: &mut Ui, id: &str, labels: &[&str], cur: &mut usize, width: f32)
     *cur != before
 }
 
-fn questions_header(ui: &mut Ui) {
-    let title = |ui: &mut Ui| pageshell::title(ui, "", "MyOpenMath Questions",
-        "Create questions or convert a worksheet, then try the questions before adding them to MyOpenMath.");
+fn questions_header(ui: &mut Ui, worksheet: bool) {
+    // The worksheet mode names itself, so the title, the dock's Convert and the Upload step agree.
+    let (heading, sub) = if worksheet {
+        ("Convert a Worksheet", "Upload a worksheet, check each question D.A.D writes from it, then add them to MyOpenMath.")
+    } else {
+        ("MyOpenMath Questions", "Create questions or convert a worksheet, then try the questions before adding them to MyOpenMath.")
+    };
+    let title = |ui: &mut Ui| pageshell::title(ui, "", heading, sub);
     let dark = theme::is_dark();
     let id = egui::Id::new(("dad_wordmark", dark));
     let ctx = ui.ctx();
@@ -1031,13 +1036,14 @@ fn questions_header(ui: &mut Ui) {
         ui.horizontal(|ui| {
             let title_width = available - width - ui.spacing().item_spacing.x;
             ui.allocate_ui_with_layout(egui::vec2(title_width, 0.0), egui::Layout::top_down(egui::Align::Min), title);
-            draw_logo(ui);
+            // On the content's right edge, where the columns below end (the title's own width varies).
+            ui.with_layout(egui::Layout::right_to_left(egui::Align::Min), draw_logo);
         });
     }
 }
 
 fn page(ui: &mut Ui, ctx: &egui::Context, st: &mut State, cfg: &crate::ai::AiCfg, chosen: bool) {
-    questions_header(ui);
+    questions_header(ui, st.worksheet_mode && st.step == Step::Describe);
     ui.add_space(12.0);
     steps(ui, st);
     ui.add_space(12.0);
@@ -1048,33 +1054,79 @@ fn page(ui: &mut Ui, ctx: &egui::Context, st: &mut State, cfg: &crate::ai::AiCfg
     if wide {
         let side_w = 320.0;
         ui.horizontal_top(|ui| {
+            // The gap is the explicit 16 below; egui's item spacing would add 10 on each side of it.
+            // Each column gets the spacing back for its own content.
+            let spacing = ui.spacing().item_spacing.x;
+            ui.spacing_mut().item_spacing.x = 0.0;
             let main_w = ui.available_width() - side_w - 16.0;
             ui.allocate_ui_with_layout(egui::vec2(main_w, ui.available_height()), egui::Layout::top_down(egui::Align::Min), |ui| {
-                column(ui, "mom_main", |ui| main(ui, ctx, st, cfg, chosen));
+                ui.spacing_mut().item_spacing.x = spacing;
+                column(ui, "mom_main", |ui| main(ui, ctx, st, cfg));
             });
             ui.add_space(16.0);
             ui.allocate_ui_with_layout(egui::vec2(side_w, ui.available_height()), egui::Layout::top_down(egui::Align::Min), |ui| {
-                column(ui, "mom_side", |ui| side(ui, ctx, st));
+                ui.spacing_mut().item_spacing.x = spacing;
+                column(ui, "mom_side", |ui| side_column(ui, ctx, st, cfg, chosen));
             });
         });
     } else {
         column(ui, "mom_stack", |ui| {
-            main(ui, ctx, st, cfg, chosen);
+            main(ui, ctx, st, cfg);
             ui.add_space(12.0);
-            side(ui, ctx, st);
+            side_column(ui, ctx, st, cfg, chosen);
         });
     }
+}
+
+/// The Questions page's side column: which AI writes (while describing), then My Questions.
+/// The AI is a setting beside the work, not a gate in front of it.
+fn side_column(ui: &mut Ui, ctx: &egui::Context, st: &mut State, cfg: &crate::ai::AiCfg, chosen: bool) {
+    let using_line = !st.worksheet_mode && st.form.line_variant.as_ref().is_some_and(|line| line.enabled);
+    if st.step == Step::Describe && !using_line && !busy(st) {
+        ai_card(ui, st, cfg, chosen);
+        ui.add_space(12.0);
+    }
+    side(ui, ctx, st);
+}
+
+/// The switch for the advanced tools, at the foot of the main column it adds to, with the cards'
+/// own inset so it lines up with their content.
+fn advanced_switch(ui: &mut Ui, st: &mut State) {
+    ui.add_space(10.0);
+    ui.horizontal(|ui| {
+        ui.add_space(20.0);
+        square_checks(ui);
+        if ui.checkbox(&mut st.advanced, theme::muted("Show advanced tools").size(13.0))
+            .on_hover_text("Question code, test log, and checker").changed()
+        {
+            let _ = crate::store::save_json(ADVANCED, &st.advanced);
+        }
+    });
 }
 
 /// One scrolling column of the Questions page: the quiet scroller (no rail in the gutter at rest)
 /// over a short cue strip that says "More below" while the column really continues.
 fn column(ui: &mut Ui, salt: &str, add: impl FnOnce(&mut Ui)) {
     const CUE_H: f32 = 22.0;
-    let area = egui::ScrollArea::vertical().id_salt(salt).max_height((ui.available_height() - CUE_H).max(80.0)).auto_shrink([false, true]);
+    let jump = egui::Id::new((salt, "more_below_jump"));
+    let mut area = egui::ScrollArea::vertical().id_salt(salt).max_height((ui.available_height() - CUE_H).max(80.0)).auto_shrink([false, true]);
+    if let Some(y) = ui.ctx().data_mut(|d| d.remove_temp::<f32>(jump)) {
+        area = area.vertical_scroll_offset(y);
+    }
     let out = crate::kit::quiet_scroll_area(ui, area, add);
-    let (bar, _) = ui.allocate_exact_size(egui::vec2(ui.available_width(), CUE_H), egui::Sense::hover());
-    if out.state.offset.y + out.inner_rect.height() < out.content_size.y - 4.0 {
+    let more = out.state.offset.y + out.inner_rect.height() < out.content_size.y - 4.0;
+    // The cue is also the way down: a press scrolls most of a screen.
+    let sense = if more { egui::Sense::click() } else { egui::Sense::hover() };
+    let (bar, resp) = ui.allocate_exact_size(egui::vec2(ui.available_width(), CUE_H), sense);
+    if more {
         crate::kit::more_below(ui, bar, "More below");
+        let resp = resp.on_hover_cursor(egui::CursorIcon::PointingHand);
+        resp.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::Button, true, "Scroll down"));
+        if resp.clicked() {
+            let y = (out.state.offset.y + out.inner_rect.height() * 0.8).min(out.content_size.y - out.inner_rect.height());
+            ui.ctx().data_mut(|d| d.insert_temp(jump, y));
+            ui.ctx().request_repaint();
+        }
     }
 }
 
@@ -1119,7 +1171,7 @@ fn step_pill(ui: &mut Ui, label: &str, on: bool) -> egui::Response {
         .fill(fill).stroke(stroke).corner_radius(egui::CornerRadius::same(255)).min_size(egui::vec2(0.0, 36.0)))
 }
 
-fn main(ui: &mut Ui, ctx: &egui::Context, st: &mut State, cfg: &crate::ai::AiCfg, chosen: bool) {
+fn main(ui: &mut Ui, ctx: &egui::Context, st: &mut State, cfg: &crate::ai::AiCfg) {
     if busy(st) && st.job.lock().map(|j| j.what == "Writing").unwrap_or(false) {
         leave();
         writing(ui, st);
@@ -1128,23 +1180,13 @@ fn main(ui: &mut Ui, ctx: &egui::Context, st: &mut State, cfg: &crate::ai::AiCfg
             Step::Describe => {
                 leave();
                 if std::mem::take(&mut st.scroll_to_question) { ui.scroll_to_cursor(Some(egui::Align::Min)); }
-                let using_line = !st.worksheet_mode
-                    && st.form.line_variant.as_ref().is_some_and(|line| line.enabled);
-                if !chosen && !st.worksheet_mode && st.form.figure.is_none() {
-                    ai_card(ui, st, cfg, chosen);
-                    ui.add_space(12.0);
-                }
                 if st.worksheet_mode { worksheet_form(ui, ctx, st, cfg); } else { describe(ui, ctx, st, cfg); }
-                if !using_line && (chosen || st.worksheet_mode || st.form.figure.is_some()) {
-                    ui.add_space(12.0);
-                    ai_card(ui, st, cfg, chosen);
-                }
             }
             Step::Try => try_it(ui, ctx, st, cfg),
             Step::Copy => { leave(); copy_step(ui, ctx, st) }
         }
     }
-    ui.add_space(12.0);
+    advanced_switch(ui, st);
     advanced(ui, ctx, st, cfg);
 }
 
@@ -1173,7 +1215,7 @@ fn worksheet_form(ui: &mut Ui, ctx: &egui::Context, st: &mut State, cfg: &crate:
             }
             return;
         }
-        if can_pick && pageshell::outline(ui, "Choose worksheet files").clicked() {
+        if can_pick && pageshell::primary(ui, "Choose worksheet files").clicked() {
             if let Some(paths) = crate::platform::pick_files("Math or science worksheets", worksheet::EXTENSIONS) {
                 for path in paths {
                     let name = path.file_name().unwrap_or_default().to_string_lossy().into_owned();
@@ -1401,42 +1443,42 @@ fn ai_card(ui: &mut Ui, st: &mut State, cfg: &crate::ai::AiCfg, chosen: bool) {
     let local: Vec<&'static str> = Vec::new();
     let open = st.ai_open || !chosen;
     pageshell::card(ui, |ui| {
+        control_edges(ui);
         ui.horizontal_wrapped(|ui| {
             ui.label(theme::strong("Your AI").size(15.0));
-            ui.label(theme::text(if chosen { ai_label(cfg) } else { "not picked yet".to_string() }).size(14.0));
+            // What will actually write the next question, picked or not: one state, one label.
+            ui.label(theme::text(ai_label(cfg)).size(14.0));
             if chosen && !open && ui.link("Change").clicked() { st.ai_open = true; }
         });
         if !open { return; }
         ui.add_space(4.0);
-        ui.add(egui::Label::new(theme::muted("Pick which AI writes your questions. An AI already on this computer needs no key.").size(13.0)).wrap());
-        ui.add_space(8.0);
         // Every ready-to-use AI in one list, so the card asks one question with one button.
         let mut choices: Vec<(String, &'static str, Option<AiPick>)> = Vec::new();
         if local.contains(&"claude-cli") {
             for (label, model) in CLAUDE_PICKS {
-                choices.push((format!("Claude on this computer · {label}"), "Uses your Claude subscription through Claude Code.",
+                choices.push((format!("Claude · {label}"), "On this computer. Uses your Claude subscription through Claude Code.",
                     Some(AiPick { provider: "claude-cli", model: model.into(), key: None })));
             }
         }
         if local.contains(&"codex-cli") {
-            choices.push(("Codex on this computer".into(), "Uses your ChatGPT subscription through Codex.",
+            choices.push(("Codex".into(), "On this computer. Uses your ChatGPT subscription through Codex.",
                 Some(AiPick { provider: "codex-cli", model: String::new(), key: None })));
         }
-        choices.push((format!("Keep my current AI · {}", ai_label(cfg)), "Keeps the AI set up in Settings.", None));
+        choices.push(("Keep my current AI".into(), "The AI set up in Settings.", None));
         let mut k = st.ai_choice.min(choices.len() - 1);
-        ui.horizontal_wrapped(|ui| {
-            let labels: Vec<&str> = choices.iter().map(|c| c.0.as_str()).collect();
-            let w = (ui.available_width() - 150.0).clamp(220.0, 380.0);
-            if dropdown(ui, "mom_ai_choice", &labels, &mut k, w) { st.ai_choice = k; }
-            if crate::kit::secondary_accent(ui, "Use This AI", 36.0).clicked() {
-                match choices[k].2.take() {
-                    Some(pick) => st.ai_pick = Some(pick),
-                    None => { st.ai_keep = true; st.ai_open = false; }
-                }
-            }
-        });
-        ui.label(theme::muted(choices[k].1).size(12.0));
+        field_label(ui, "Switch to");
+        let labels: Vec<&str> = choices.iter().map(|c| c.0.as_str()).collect();
+        let w = ui.available_width().min(380.0);
+        if dropdown(ui, "mom_ai_choice", &labels, &mut k, w) { st.ai_choice = k; }
+        ui.add(egui::Label::new(theme::muted(choices[k].1).size(12.0)).wrap());
         ui.add_space(6.0);
+        if crate::kit::secondary(ui, "Use This AI", 36.0).clicked() {
+            match choices[k].2.take() {
+                Some(pick) => st.ai_pick = Some(pick),
+                None => { st.ai_keep = true; st.ai_open = false; }
+            }
+        }
+        ui.add_space(8.0);
         egui::CollapsingHeader::new(theme::strong("Use an OpenRouter key").size(14.0)).id_salt("mom_ai_or").default_open(local.is_empty()).show(ui, |ui| {
             ui.add(egui::Label::new(theme::muted("Make a free account at openrouter.ai, add a few dollars, create a key, and paste it here. It's saved on this computer only.").size(12.0)).wrap());
             let labels: Vec<&str> = OPENROUTER_PICKS.iter().map(|p| p.0).collect();
@@ -1444,10 +1486,11 @@ fn ai_card(ui: &mut Ui, st: &mut State, cfg: &crate::ai::AiCfg, chosen: bool) {
             ui.horizontal_wrapped(|ui| {
                 let r = ui.add(egui::TextEdit::singleline(&mut st.ai_key).password(true).desired_width(260.0).hint_text("sk-or-..."));
                 r.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::TextEdit, true, "OpenRouter key"));
-                if dropdown(ui, "mom_ai_ormodel", &labels, &mut k, 300.0) { st.ai_model_pick = k; }
+                let w = ui.available_width().min(300.0);
+                if dropdown(ui, "mom_ai_ormodel", &labels, &mut k, w) { st.ai_model_pick = k; }
             });
             let ok = st.ai_key.trim().len() > 10;
-            if pageshell::primary_on(ui, "Use OpenRouter", ok).clicked() && ok {
+            if ui.add_enabled_ui(ok, |ui| crate::kit::secondary(ui, "Use OpenRouter", 36.0)).inner.clicked() && ok {
                 st.ai_pick = Some(AiPick { provider: "openrouter", model: OPENROUTER_PICKS[k].1.into(), key: Some(std::mem::take(&mut st.ai_key)) });
             }
         });
@@ -1544,24 +1587,31 @@ fn describe(ui: &mut Ui, ctx: &egui::Context, st: &mut State, cfg: &crate::ai::A
         ui.add_space(12.0);
     }
     pageshell::card(ui, |ui| {
+        control_edges(ui);
         pageshell::heading(ui, "What question do you need?");
         ui.add(egui::Label::new(theme::muted("Describe it in your own words. The AI decides anything you leave open.").size(13.0)).wrap());
         ui.add_space(8.0);
         let f = &mut st.form;
+        // Inset like the dropdowns' text below it.
         let description = ui.add(egui::TextEdit::multiline(&mut f.topic_text).desired_width(f32::INFINITY)
+            .margin(egui::Margin::symmetric(12, 8))
             .desired_rows(3).hint_text("For example: Ask students to compare two linear graphs."));
         description.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::TextEdit, true, "Describe the question"));
 
         // Course and Topic side by side: two choices that narrow the same thing.
         let pair_w = ((ui.available_width() - 16.0) / 2.0).clamp(140.0, 320.0);
         ui.horizontal_wrapped(|ui| {
+            let spacing = ui.spacing().item_spacing.x;
+            ui.spacing_mut().item_spacing.x = 0.0;
             ui.vertical(|ui| {
+                ui.spacing_mut().item_spacing.x = spacing;
                 field_label(ui, "Course");
                 let names: Vec<&str> = COURSES.iter().map(|c| c.0).collect();
                 if ai_dropdown(ui, "mom_course", &names, &mut f.course, pair_w) { f.topic = Topic::Ai; f.fix(); }
             });
             ui.add_space(16.0);
             ui.vertical(|ui| {
+                ui.spacing_mut().item_spacing.x = spacing;
                 field_label(ui, "Topic");
                 let mut topics: Vec<&str> = vec![AI_CHOOSES];
                 topics.extend_from_slice(f.topics());
@@ -1574,11 +1624,22 @@ fn describe(ui: &mut Ui, ctx: &egui::Context, st: &mut State, cfg: &crate::ai::A
             });
         });
 
-        ui.add_space(8.0);
         let mut picked = crate::platform::take_question_image();
         let picture_blocked = cfg.provider == "claude-cli";
-        ui.horizontal_wrapped(|ui| {
-            if ui.add_enabled_ui(!working && !picture_blocked, |ui| pageshell::outline(ui, "Add a reference picture")).inner.clicked() {
+        // The one action of this step sits right under what the teacher typed.
+        ui.add_space(16.0);
+        let missing = if !st.setup_video_link.trim().is_empty() && let Err(error) = question_help::video_url(&st.setup_video_link) {
+            Some(error)
+        } else if st.topic_image.is_some() {
+            picture_blocked.then_some("Choose an AI that can read uploaded pictures, or describe the topic in words.")
+        } else {
+            st.form.missing()
+        };
+        // Write, then the optional picture beside it, quieter: attach sits next to send.
+        let write = ui.horizontal_wrapped(|ui| {
+            let write = pageshell::primary_on(ui, "Write My Question", missing.is_none() && !working).clicked() && missing.is_none() && !working;
+            ui.add_space(12.0);
+            if ui.add_enabled_ui(!working && !picture_blocked, |ui| crate::kit::tertiary(ui, egui_phosphor::regular::IMAGE, "Add a reference picture", 36.0)).inner.clicked() {
                 match crate::platform::pick_question_image() {
                     Ok(file) => picked = file,
                     Err(error) => st.topic_image_error = Some(error),
@@ -1593,7 +1654,8 @@ fn describe(ui: &mut Ui, ctx: &egui::Context, st: &mut State, cfg: &crate::ai::A
             } else if picture_blocked {
                 ui.label(theme::muted("Claude on this computer can't read pictures.").size(12.0));
             }
-        });
+            write
+        }).inner;
         if let Some(image) = picked {
             match worksheet::image_as_png(&image.bytes) {
                 Ok(bytes) => {
@@ -1604,17 +1666,7 @@ fn describe(ui: &mut Ui, ctx: &egui::Context, st: &mut State, cfg: &crate::ai::A
             }
         }
         if let Some(error) = &st.topic_image_error { ui.add(egui::Label::new(error).wrap()); }
-
-        // The one action of this step sits right under what the teacher typed.
-        ui.add_space(16.0);
-        let missing = if !st.setup_video_link.trim().is_empty() && let Err(error) = question_help::video_url(&st.setup_video_link) {
-            Some(error)
-        } else if st.topic_image.is_some() {
-            picture_blocked.then_some("Choose an AI that can read uploaded pictures, or describe the topic in words.")
-        } else {
-            st.form.missing()
-        };
-        if pageshell::primary_on(ui, "Write My Question", missing.is_none() && !working).clicked() && missing.is_none() && !working {
+        if write {
             st.current = None;
             st.request = st.form.request();
             let _ = crate::store::save_json(FORM, &st.form);
@@ -1656,6 +1708,23 @@ fn more_options_set(f: &Form, video: &str) -> usize {
     .into_iter()
     .filter(|b| *b)
     .count()
+}
+
+/// Fields and dropdowns in this `ui` take the 3:1 control edge (`theme::edge`), not the 1.45:1
+/// `border` hairline, which on a card-white field read as disabled.
+pub(crate) fn control_edges(ui: &mut Ui) {
+    let w = &mut ui.visuals_mut().widgets;
+    w.inactive.bg_stroke = egui::Stroke::new(1.0, theme::edge());
+    w.hovered.bg_stroke = egui::Stroke::new(1.0, theme::edge());
+}
+
+/// Checkboxes in this `ui` draw square: the theme's radius 12 turns a 13 px box into a circle that
+/// reads as a radio button.
+fn square_checks(ui: &mut Ui) {
+    let w = &mut ui.visuals_mut().widgets;
+    for v in [&mut w.inactive, &mut w.hovered, &mut w.active, &mut w.open] {
+        v.corner_radius = egui::CornerRadius::same(3);
+    }
 }
 
 /// Everything past the description: each defaults to the AI's choice.
@@ -1720,7 +1789,7 @@ fn more_options(ui: &mut Ui, st: &mut State) {
     });
 
     field_label(ui, "Options");
-    ui.checkbox(&mut f.random, "Give every student different numbers");
+    ui.scope(|ui| { square_checks(ui); ui.checkbox(&mut f.random, "Give every student different numbers") });
     field_label(ui, "Student help");
     ui.horizontal_wrapped(|ui| {
         ui.radio_value(&mut f.help_style, form::HelpStyle::DetailedSolution, "Detailed solution");
@@ -2380,8 +2449,9 @@ fn copy_step(ui: &mut Ui, ctx: &egui::Context, st: &mut State) {
         ui.add_space(6.0);
         for (name, value, place) in &fields {
             if value.trim().is_empty() { continue; }
+            // Indented to the steps' text (after "3.  "), not past it.
             ui.horizontal(|ui| {
-                ui.add_space(22.0);
+                ui.add_space(17.0);
                 if pageshell::outline(ui, &format!("Copy {name}")).clicked() {
                     ui.ctx().copy_text(value.clone());
                     copied = Some(format!("Copied. Now paste it into {place} in MyOpenMath."));
@@ -2389,7 +2459,7 @@ fn copy_step(ui: &mut Ui, ctx: &egui::Context, st: &mut State) {
             });
             if *name == "Detailed Solution" {
                 ui.horizontal(|ui| {
-                    ui.add_space(22.0);
+                    ui.add_space(17.0);
                     ui.add(egui::Label::new(theme::muted("Above that box, tick \"Uses random variables from the question\" so students see the solution for their own numbers.").size(13.0)).wrap());
                 });
             }
@@ -2519,10 +2589,8 @@ fn side(ui: &mut Ui, ctx: &egui::Context, st: &mut State) {
 
 /// Off by default: the code, the raw log, the checker's address and which AI is used.
 fn advanced(ui: &mut Ui, ctx: &egui::Context, st: &mut State, cfg: &crate::ai::AiCfg) {
-    if ui.checkbox(&mut st.advanced, theme::muted("Show advanced tools (question code, test log, checker)").size(13.0)).changed() {
-        let _ = crate::store::save_json(ADVANCED, &st.advanced);
-    }
     if !st.advanced { return; }
+    ui.add_space(10.0);
     let working = busy(st);
     pageshell::card(ui, |ui| {
         ui.label(theme::muted(format!("AI: {} · {}   (change it in Settings, then AI)", cfg.provider, cfg.model)).size(12.0));

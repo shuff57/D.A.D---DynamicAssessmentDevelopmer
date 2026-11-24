@@ -1019,6 +1019,10 @@ impl crate::App {
                 for (item, destination) in active.iter_mut().zip(destinations) { *item = destination == current; }
             }
             Screen::Figures => active[4] = true,
+            // The older import and sharing pages are reached through Import and Share too: the dock
+            // still says where you are.
+            Screen::Imports => active[1] = true,
+            Screen::Shared => active[3] = true,
             Screen::Settings | Screen::Account => active[5] = true,
             _ => {}
         }
@@ -1572,6 +1576,9 @@ impl crate::App {
                     None,
                 );
             });
+            // Three zeros on a fresh store were the first thing the eye met: counts appear once
+            // there is something to count.
+            if n_q + n_exams + n_banks > 0 {
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Min), |ui| {
                 ui.spacing_mut().item_spacing.x = 8.0;
                 for (n, one, many) in [(n_q, "question", "questions"), (n_exams, "exam", "exams"), (n_banks, "bank", "banks")] {
@@ -1596,6 +1603,7 @@ impl crate::App {
                     );
                 }
             });
+            }
         });
         ui.add_space(14.0);
 

@@ -345,7 +345,9 @@ impl crate::App {
         let last_error = with(|st| st.errors.values().next().cloned());
         egui::Area::new(egui::Id::new("grade_intake_button"))
             .order(egui::Order::Foreground)
-            .anchor(Align2::RIGHT_BOTTOM, [-16.0, -16.0 - 44.0])
+            // Right edge on the page content's right edge (the shell keeps 20 + 14 scrollbar room), foot
+            // above the footer rule.
+            .anchor(Align2::RIGHT_BOTTOM, [-34.0, -16.0 - 44.0])
             .show(ctx, |ui| {
                 ui.with_layout(egui::Layout::top_down(egui::Align::Max), |ui| {
                     ui.spacing_mut().item_spacing.y = 6.0;
@@ -368,7 +370,10 @@ impl crate::App {
                                 ui.add(egui::Label::new(theme::muted(e.clone()).size(12.0).color(theme::bad())).wrap());
                             }
                         }
+                        // Only once an exam is chosen: before that the page's card says what to do,
+                        // and a disabled pill alone in the corner read as broken.
                         let can = exam_id.is_some();
+                        if !can { return; }
                         let r = ui.add_enabled(can, egui::Button::new(
                             RichText::new(format!("{}  Add student work", egui_phosphor::regular::UPLOAD_SIMPLE))
                                 .family(theme::bold_family())

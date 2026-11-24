@@ -993,7 +993,9 @@ impl Workspace {
             return a;
         }
         let ctx = ui.ctx().clone();
-        let narrow = ui.available_width() < 640.0;
+        // Search, Open link and Import take their own row unless the window fits the tabs and them
+        // side by side (the search field was squeezed to a 20 px stub at 1180 px).
+        let narrow = ui.available_width() < 1240.0;
         ui.horizontal_wrapped(|ui| {
             if tab(ui, "All", self.subject.is_none() && self.group.is_none()) {
                 self.subject = None;
@@ -1046,15 +1048,29 @@ impl Workspace {
         }
         if narrow {
             ui.add_space(4.0);
-            ui.horizontal_wrapped(|ui| {
-                ui.add(TextEdit::singleline(&mut self.search).hint_text("Search figures…").desired_width(150.0));
-                if ghost(ui, "Open link…").on_hover_text("Reopen a figure from a share link someone copied").clicked() {
-                    self.link_open = !self.link_open;
+            // Search on the left; the page's own actions on its right edge, as on every other page
+            // (a phone keeps them wrapped beside the search instead).
+            let phone = ui.available_width() < 640.0;
+            let row = |ui: &mut Ui, this: &mut Self| {
+                crate::momui::control_edges(ui);
+                // As tall as the buttons beside it.
+                ui.add(TextEdit::singleline(&mut this.search).hint_text("Search figures…").desired_width(220.0)
+                    .min_size(Vec2::new(220.0, 36.0)).vertical_align(Align::Center));
+                let actions = |ui: &mut Ui, this: &mut Self| {
+                    if ghost(ui, "Import SVG/PNG…").clicked() {
+                        this.import_open = !this.import_open;
+                    }
+                    if ghost(ui, "Open link…").on_hover_text("Reopen a figure from a share link someone copied").clicked() {
+                        this.link_open = !this.link_open;
+                    }
+                };
+                if phone {
+                    actions(ui, this);
+                } else {
+                    ui.with_layout(Layout::right_to_left(Align::Center), |ui| actions(ui, this));
                 }
-                if ghost(ui, "Import SVG/PNG…").clicked() {
-                    self.import_open = !self.import_open;
-                }
-            });
+            };
+            if phone { ui.horizontal_wrapped(|ui| row(ui, self)); } else { ui.horizontal(|ui| row(ui, self)); }
         }
         ui.add_space(8.0);
 
@@ -1111,9 +1127,13 @@ impl Workspace {
             ui.available_height().max(200.0)
         };
         let mut picked = None;
-        ScrollArea::vertical()
+        // On the page (not the modal) the grid ends in a "More below" strip while it continues, so a
+        // row cut at the window edge reads as a scroll, not a rendering fault.
+        const CUE_H: f32 = 22.0;
+        let cue = !self.modal && max_h > 200.0;
+        let out = ScrollArea::vertical()
             .id_salt("figs_browser")
-            .max_height(max_h)
+            .max_height(if cue { max_h - CUE_H } else { max_h })
             .auto_shrink([!self.modal, true])
             .show(ui, |ui| {
                 if list.is_empty() {
@@ -1141,6 +1161,10 @@ impl Workspace {
                     ui.add_space(12.0);
                 }
             });
+        if cue && out.state.offset.y + out.inner_rect.height() < out.content_size.y - 4.0 {
+            let (bar, _) = ui.allocate_exact_size(Vec2::new(out.inner_rect.width() - 18.0, CUE_H), Sense::hover());
+            crate::kit::more_below(ui, bar, "More figures below");
+        }
         if let Some(i) = picked {
             self.select(i);
         }

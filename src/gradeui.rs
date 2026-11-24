@@ -340,6 +340,9 @@ fn icon_button(ui: &mut egui::Ui, icon: &str, hint: &str) -> egui::Response {
 
 // ---- the screen's parts --------------------------------------------------------------------------
 
+/// The empty Grade page's "Make an Exam", handed to `draw_grade` on the next frame.
+const MAKE_EXAM: &str = "grade_make_exam";
+
 fn choose_exam(state: &mut GradeState, id: String) {
     let view = std::mem::take(&mut state.text_view);
     *state = GradeState::new();
@@ -371,7 +374,12 @@ fn exam_chooser(ui: &mut egui::Ui, exams: &[(String, String, usize, usize)], sta
         });
         ui.add_space(14.0);
         if exams.is_empty() {
-            ui.label(theme::muted("There are no exams yet. Make one on the Exams page first.").size(13.0));
+            // The empty page's one action: the exam grading needs.
+            ui.label(theme::muted("There are no exams yet. Grading starts from an exam's answer key.").size(13.0));
+            ui.add_space(10.0);
+            if pageshell::primary(ui, "Make an Exam").clicked() {
+                ui.ctx().data_mut(|d| d.insert_temp(egui::Id::new(MAKE_EXAM), true));
+            }
             return;
         }
         kit::small_caps(ui, "Exams");
@@ -1261,6 +1269,11 @@ fn score_for_item(item: &crate::model::ExamItem, store: &crate::store::Store, st
 
 impl crate::App {
     pub fn draw_grade(&mut self, ctx: &egui::Context) {
+        if ctx.data_mut(|d| d.remove_temp::<bool>(egui::Id::new(MAKE_EXAM))).unwrap_or(false) {
+            self.screen = crate::Screen::Exams;
+            ctx.request_repaint();
+            return;
+        }
         let mut state = self.grade.clone().unwrap_or_else(GradeState::new);
         if state.exam_id.as_ref().is_some_and(|id| !self.store.exams.iter().any(|e| &e.id == id)) {
             state = GradeState::new();

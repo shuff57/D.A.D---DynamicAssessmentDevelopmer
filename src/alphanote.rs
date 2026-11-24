@@ -52,11 +52,13 @@ fn popup_modal(ctx: &egui::Context) -> Outcome {
             ui.add_space(8.0);
             ui.add(egui::Label::new(theme::text(TEXT)).wrap());
             ui.add_space(14.0);
+            // The button that closes the notice is the wide filled one; reporting is the quiet option.
             ui.horizontal_wrapped(|ui| {
-                if pageshell::primary(ui, "Got it").clicked() {
+                if pageshell::primary(ui, "Got It, Let's Start").clicked() {
                     out = Outcome::Closed;
                 }
-                if pageshell::outline(ui, &format!("{}  Report an issue", egui_phosphor::regular::BUG)).clicked() {
+                ui.add_space(4.0);
+                if kit::link(ui, "Report an issue", false).clicked() {
                     out = Outcome::Report;
                 }
             });
@@ -246,7 +248,7 @@ mod tests {
         h.run();
         assert!(h.query_by_label_contains("is in alpha and under active development").is_some());
         assert!(h.query_by_label_contains("Report an issue").is_some());
-        h.get_by_label("Got it").click();
+        h.get_by_label("Got It, Let's Start").click();
         h.run();
         assert_eq!(h.state().last, Outcome::Closed);
     }
@@ -265,7 +267,7 @@ mod tests {
         let mut h = harness(false);
         h.run();
         assert!(h.query_by_label_contains("is in alpha and under active development").is_none());
-        assert!(h.query_by_label("Got it").is_none());
+        assert!(h.query_by_label("Got It, Let's Start").is_none());
         h.get_by_label_contains("Report an issue").click();
         h.run();
         assert_eq!(h.state().last, Outcome::Report);
