@@ -2,13 +2,13 @@
 # Run by hand (Actions > Desktop packages > Run workflow), by pushing a v* tag (which also attaches
 # the packages to a draft GitHub release), or by changing the packaging on dad/engine.
 #
-# Cost: this repo is private, and GitHub bills macOS minutes at 10x Linux. The old 3-runner matrix
-# (Linux + macos-latest + macos-15-intel, ~36 min on the Intel runner alone) used ~2,400 of the
-# account's 2,000 included minutes in Nov 2026. So:
-#   - Linux runs on every trigger (cheap, and it's what catches packaging breakage).
+# History: while this repo was private, macOS minutes billed at 10x and the old matrix (with the
+# ~5x slower macos-15-intel runner) used ~2,400 of the account's 2,000 included minutes in Nov 2026.
+# The repo is public now, so runner minutes are free, but:
+#   - Linux runs on every trigger (it's what catches packaging breakage).
 #   - macOS runs only for v* tags, or a manual run with "macos" ticked. Branch pushes skip it.
-#   - Both macOS targets build on ONE Apple Silicon runner; x86_64 is cross-compiled
-#     (package.sh already takes the triple). The Intel runner was ~5x slower than Apple Silicon.
+#   - Both macOS targets build in parallel on Apple Silicon runners; x86_64 is cross-compiled
+#     (package.sh already takes the triple), never on the slow Intel runner.
 name: Desktop packages
 
 on:
@@ -66,7 +66,11 @@ jobs:
 
   macos:
     if: startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && inputs.macos)
-    runs-on: macos-latest   # Apple Silicon
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [aarch64-apple-darwin, x86_64-apple-darwin]
+    runs-on: macos-latest   # Apple Silicon for both; the Intel package is cross-compiled
     timeout-minutes: 40
     steps:
       - uses: actions/checkout@v4
@@ -74,37 +78,31 @@ jobs:
           fetch-depth: 0
       - uses: dtolnay/rust-toolchain@stable
         with:
-          targets: aarch64-apple-darwin,x86_64-apple-darwin
+          targets: ${{ matrix.target }}
       - uses: Swatinem/rust-cache@v2
         with:
-          key: macos-universal
-      - name: Package (Apple Silicon)
-        run: tools/package.sh aarch64-apple-darwin
-      - name: Package (Intel, cross-compiled)
-        run: tools/package.sh x86_64-apple-darwin
-      - name: Smoke-test the macOS archives in portable mode
+          key: ${{ matrix.target }}-on-arm64
+      - name: Package
+        run: tools/package.sh ${{ matrix.target }}
+      - name: Smoke-test the macOS archive in portable mode
         run: |
-          # The x86_64 app can only launch under Rosetta; if the runner image lacks it, that
+          # The x86_64 app can only launch under Rosetta; if the runner image lacks it, the
           # archive still gets its signature verified but is not launched.
-          rosetta=0; arch -x86_64 /usr/bin/true 2>/dev/null && rosetta=1
-          for zip in dist/desktop/*.zip; do
-            echo "== $zip"
-            sandbox=$(mktemp -d)
-            ditto -x -k "$zip" "$sandbox"
-            apps=("$sandbox"/*/DAD.app)
-            app="${apps[0]}"
-            app_dir=$(dirname "$app")
-            codesign --verify --deep --strict "$app"
-            if [[ "$zip" == *x86_64* && $rosetta == 0 ]]; then
-              echo "no Rosetta on this runner: skipping launch of the Intel build"; continue
-            fi
-            touch "$app_dir/portable"
-            XDG_DATA_HOME="$sandbox/data" VERSHION_SEED=1 "$app/Contents/MacOS/DAD"
-            test -s "$app_dir/DAD-data/banks.json"
-          done
+          sandbox=$(mktemp -d)
+          ditto -x -k dist/desktop/*.zip "$sandbox"
+          apps=("$sandbox"/*/DAD.app)
+          app="${apps[0]}"
+          app_dir=$(dirname "$app")
+          codesign --verify --deep --strict "$app"
+          if [[ "${{ matrix.target }}" == x86_64-* ]] && ! arch -x86_64 /usr/bin/true 2>/dev/null; then
+            echo "no Rosetta on this runner: skipping launch of the Intel build"; exit 0
+          fi
+          touch "$app_dir/portable"
+          XDG_DATA_HOME="$sandbox/data" VERSHION_SEED=1 "$app/Contents/MacOS/DAD"
+          test -s "$app_dir/DAD-data/banks.json"
       - uses: actions/upload-artifact@v4
         with:
-          name: DAD-macos
+          name: DAD-${{ matrix.target }}
           path: dist/desktop/*.zip
           if-no-files-found: error
       - name: Attach to a draft release
