@@ -1115,7 +1115,8 @@ fn draw_dock(root: &mut egui::Ui, active: [bool; DOCK_NAV.len()], who: Option<&(
             // Narrow, the floating "Report an issue" pill sat over page content (Home's last bank
             // card), so it moves into the dock as an item over light/dark, when the dock has a
             // free item's height to spare above the nav. Too short a window keeps the pill.
-            let report = narrow && wants_report && ui.available_height() >= 2.0 * btn_h + 4.0 + DOCK_REPORT_CLEAR;
+            // At every width: the floating pill sat over page content and floating actions.
+            let report = wants_report && ui.available_height() >= 2.0 * btn_h + 4.0 + DOCK_REPORT_CLEAR;
             let reserve = if report { 2.0 * btn_h + 4.0 } else { btn_h };
             let floor = (ui.available_height() - reserve - 4.0).max(0.0);
             ui.allocate_at_least(Vec2::new(item_w, floor), egui::Sense::hover());
@@ -1953,7 +1954,7 @@ impl crate::App {
         match cfg.provider.as_str() {
             "cloud" => format!("Ollama Cloud runs gemma4:31b on Ollama's servers. {}", cfg.key_source_help()),
             "ollama" => "Ollama runs on your machine: install it, pull a vision model (the \
-                  default is gemma4:31b), and verSHion finds it at 127.0.0.1:11434."
+                  default is gemma4:31b), and D.A.D finds it at 127.0.0.1:11434."
                 .to_string(),
             _ => cfg.key_source_help(),
         }
@@ -2100,7 +2101,7 @@ impl crate::App {
             ui.label(theme::serif("Community").size(18.0));
             ui.add_space(4.0);
             ui.label(theme::muted(
-                "verSHion is free. A coffee helps keep it going; bugs and ideas live on GitHub, and the contact form reaches us directly.",
+                "D.A.D is free. A coffee helps keep it going; bugs and ideas live on GitHub, and the contact form reaches us directly.",
             ));
             ui.add_space(10.0);
             ui.horizontal_wrapped(|ui| {
@@ -2208,7 +2209,7 @@ impl crate::App {
                     }
                 });
                 ui.label(
-                    theme::muted("This opens a prefilled issue on GitHub; nothing is sent from verSHion.")
+                    theme::muted("This opens a prefilled issue on GitHub; nothing is sent from D.A.D.")
                         .size(11.5),
                 );
             });
@@ -2447,9 +2448,9 @@ impl crate::App {
                     let before = app.settings.clone();
                     ui.horizontal_wrapped(|ui| {
                         for (val, label) in [
-                            ("account", "verSHion AI (credits)"),
+                            ("account", "D.A.D AI (credits)"),
                             ("cloud", "Ollama Cloud"),
-                            ("workers", "verSHion relay"),
+                            ("workers", "D.A.D relay"),
                             ("ollama", "Ollama (local)"),
                             ("openrouter", "OpenRouter"),
                             ("custom", "Custom endpoint"),
@@ -2517,7 +2518,7 @@ impl crate::App {
                     }
                     if app.settings.ai_provider == "account" {
                         // The server chooses the model and holds the key; the picker would show another provider's default.
-                        ui.label(theme::muted("The verSHion server chooses the model and keeps the key, so there is nothing to pick here.").size(12.0));
+                        ui.label(theme::muted("The D.A.D server chooses the model and keeps the key, so there is nothing to pick here.").size(12.0));
                     } else {
                         app.draw_model_picker(ui, ctx);
                         ui.add_space(6.0);
@@ -2541,9 +2542,9 @@ impl crate::App {
                 crate::pageshell::footer(
                     ui,
                     if ui.ctx().content_rect().width() < 900.0 {
-                        "verSHion · saved on this machine"
+                        "D.A.D · saved on this machine"
                     } else {
-                        "verSHion · your work is saved on this machine, and nothing leaves it unless you share it"
+                        "D.A.D · your work is saved on this machine, and nothing leaves it unless you share it"
                     },
                 );
             });
@@ -2680,7 +2681,7 @@ impl crate::App {
             )
             .show(ctx, |ui| {
                 ui.set_width(540.0);
-                ui.label(theme::serif("How verSHion works").size(26.0));
+                ui.label(theme::serif("How D.A.D works").size(26.0));
                 ui.add_space(4.0);
                 ui.label(theme::muted(
                     "Two ideas: Question Banks hold questions; Exams pick and arrange them for printing.",

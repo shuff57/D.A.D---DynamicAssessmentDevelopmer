@@ -355,7 +355,7 @@ fn trust_modal(ctx: &egui::Context, m: &mut AccountModel) {
             ui.add_space(8.0);
             para(
                 ui,
-                "Only continue if this is your school's verSHion pool server. Your email and password will be sent to \
+                "Only continue if this is your school's D.A.D pool server. Your email and password will be sent to \
                  it. verSHion asks again whenever the address changes.",
             );
             ui.horizontal_wrapped(|ui| {
@@ -505,7 +505,7 @@ fn server_field_width(avail: f32, btn_w: f32) -> f32 {
 fn server_page(ui: &mut Ui, m: &mut AccountModel, address_source: bool) {
     para(
         ui,
-        "Sharing questions with other teachers needs an account on a verSHion pool server.",
+        "Sharing questions with other teachers needs an account on a D.A.D pool server.",
     );
     // The field and its action on one row, the usual address-and-submit pair: below the field, a
     // locked Connect was read in turn as washed out, as a pressable pill and as a drop zone. Beside

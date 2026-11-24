@@ -318,7 +318,7 @@ impl SharedUi {
             ui.add_space(20.0);
             pageshell::footer(
                 ui,
-                "verSHion · sharing is the only part that needs a server, and only when you use it",
+                "D.A.D · sharing is the only part that needs a server, and only when you use it",
             );
         });
         changed

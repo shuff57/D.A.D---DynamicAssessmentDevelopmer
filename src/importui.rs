@@ -3252,7 +3252,7 @@ impl crate::App {
 
 fn history(app: &mut crate::App, ui: &mut egui::Ui) {
     ui.label(theme::serif("Import history").size(22.0).color(theme::ink()));
-    ui.label(kit::lead("Everything verSHion has read: pasted, converted by the AI, or read from a file."));
+    ui.label(kit::lead("Everything D.A.D has read: pasted, converted by the AI, or read from a file."));
     ui.add_space(4.0);
     if app.store.imports.is_empty() {
         crate::pageshell::empty_line(ui, crate::handicons::IMPORT, "Nothing imported yet. What you import is listed here.", None);

@@ -1398,7 +1398,7 @@ impl crate::App {
                     ui.add_space(14.0);
                     how_it_works(ui, 0.0);
                 }
-                pageshell::footer(ui, "verSHion · student work stays on this machine");
+                pageshell::footer(ui, "D.A.D · student work stays on this machine");
                 return;
             }
 

@@ -208,8 +208,11 @@ pub fn preview_question(
         const form = document.getElementById('control')?.form;
         if (!form) return false;
         form.addEventListener('submit', event => event.preventDefault(), true);
-        for (const element of form.querySelectorAll('button[type=submit], input[type=submit], input[type=image]')) {{
-            element.disabled = true;
+        for (const element of form.querySelectorAll('button, input[type=submit], input[type=image]')) {{
+            if (element.type === 'submit' || element.type === 'image' ||
+                element.textContent.trim() === 'Save' || element.classList.contains('quickSaveButton')) {{
+                element.disabled = true;
+            }}
         }}
         return true;
     }})()"#))?;
@@ -247,7 +250,8 @@ pub fn add_question_recorded(
         return Err("The editor is no longer open for the selected assessment. Nothing was saved.".into());
     }
     log("Saving to the MyOpenMath question set…");
-    let button = "[...(document.getElementById('control')?.form?.querySelectorAll('button[type=submit]') ?? [])].find(b => b.textContent.trim() === 'Save' && !b.disabled && b.getClientRects().length > 0)";
+    // The live editor changes Save from type=submit to type=button when its script wires up form validation.
+    let button = "[...(document.getElementById('control')?.form?.querySelectorAll('button') ?? [])].find(b => b.form === document.getElementById('control').form && b.textContent.trim() === 'Save' && !b.disabled && b.getClientRects().length > 0)";
     if p.eval(&format!("!!({button})"))? != Value::Bool(true) {
         return Err("Couldn't find MyOpenMath's Save button. Nothing was saved automatically.".into());
     }

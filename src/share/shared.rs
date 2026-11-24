@@ -139,7 +139,7 @@ impl Guide {
     pub fn help(&self) -> &'static str {
         match self {
             Guide::Checking => "Looking for a saved sign-in. Nothing is sent until you press a button.",
-            Guide::NotSetUp => "Everything else in verSHion works as usual. The person who builds verSHion for your school sets the pool server.",
+            Guide::NotSetUp => "Everything else in D.A.D works as usual. The person who builds D.A.D for your school sets the pool server.",
             Guide::NoServer => "Enter the address of a pool server below. Release builds have it built in.",
             Guide::Offline => "You may be offline. You can still use everything else in verSHion.",
             Guide::SignIn => "An account lets you find questions other teachers shared and share your own. It is optional; nothing else in verSHion needs one.",
