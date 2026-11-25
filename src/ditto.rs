@@ -99,7 +99,7 @@ pub fn is_ditto(text: &str) -> bool {
 pub fn import_text(text: &str, page_png: Option<&[u8]>, page_no: usize, fallback_name: &str) -> Result<DittoImport, String> {
     let v = json_object(text).ok_or("The reply was not a JSON object.")?;
     if v.get("format").and_then(Value::as_str) != Some(FORMAT) {
-        return Err(format!("Not a verSHion Ditto file (format should be \"{FORMAT}\")."));
+        return Err(format!("Not a D.A.D Ditto file (format should be \"{FORMAT}\")."));
     }
     let bank = v.get("bank").ok_or("The file has no \"bank\".")?;
     let name = bank.get("name").and_then(Value::as_str).filter(|n| !n.trim().is_empty()).unwrap_or(fallback_name).to_string();

@@ -396,7 +396,7 @@ pub fn grouped(bank: &QuestionBank) -> Vec<(QKind, Vec<&Question>)> {
 pub fn cover_lines(bank: &QuestionBank) -> Vec<String> {
     let mut out = vec![
         plural(bank.questions.len(), "question"),
-        "A digital file for importing into verSHion: it holds the whole question bank, answers included. Import works only from this original file: printing it, scanning it, or saving it again as a PDF removes the data verSHion reads.".to_string(),
+        "A digital file for importing into D.A.D: it holds the whole question bank, answers included. Import works only from this original file: printing it, scanning it, or saving it again as a PDF removes the data verSHion reads.".to_string(),
     ];
     let types: Vec<String> = grouped(bank).iter().map(|(k, v)| format!("{} {}", kind_title(*k), v.len())).collect();
     out.push(format!("Question types: {}", types.join(" · ")));
@@ -439,7 +439,7 @@ pub fn bank_doc(bank: &QuestionBank, image: &dyn Fn(&crate::model::ImageRef) -> 
     }
     ExamDoc {
         title: bank.name.clone(),
-        header_line: "verSHion · Question bank file · for teachers: answers included".to_string(),
+        header_line: "D.A.D · Question bank file · for teachers: answers included".to_string(),
         heading_pt: 18.0,
         body_pt: 10.5,
         margin_mm: 18.0,
@@ -630,7 +630,7 @@ pub fn attach_file(pdf: &[u8], name: &str, data: &[u8], title: &str, subject: &s
         format!("{root} 0 obj\n{} /Names << /EmbeddedFiles << /Names [{} {fs} 0 R] >> >> /AF [{fs} 0 R] >>\nendobj\n", dict[..close].trim_end(), pdf_text(name)).as_bytes(),
     );
     offs.push((info, out.len()));
-    out.extend_from_slice(format!("{info} 0 obj\n<< /Title {} /Subject {} /Creator (verSHion) /Producer (verSHion) >>\nendobj\n", pdf_text(title), pdf_text(subject)).as_bytes());
+    out.extend_from_slice(format!("{info} 0 obj\n<< /Title {} /Subject {} /Creator (D.A.D) /Producer (D.A.D) >>\nendobj\n", pdf_text(title), pdf_text(subject)).as_bytes());
     offs.sort();
     let xref = out.len();
     let mut x = String::from("xref\n");
@@ -657,7 +657,7 @@ pub fn bank_pdf(bank: &QuestionBank) -> Result<Vec<u8>, String> {
     let doc = bank_doc(bank, &store_image);
     let pdf = crate::export::render_pdf(&doc)?;
     let data = serde_json::to_vec_pretty(&bank_data(bank)).map_err(|e| e.to_string())?;
-    attach_file(&pdf, ATTACHMENT, &data, &bank.name, "Teacher question bank containing answers; verSHion bank file")
+    attach_file(&pdf, ATTACHMENT, &data, &bank.name, "Teacher question bank containing answers; D.A.D bank file")
 }
 
 /// Question data embedded in a PDF: a verSHion bank file's `queshion-bank.json`, or the

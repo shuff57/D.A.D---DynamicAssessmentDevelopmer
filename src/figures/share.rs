@@ -155,7 +155,7 @@ pub fn decode(text: &str) -> Result<(String, serde_json::Map<String, serde_json:
     }
     // the scheme and "figure/" in any case (some apps capitalise a pasted link's start)
     let rest = if let Some(i) = t.to_ascii_lowercase().find("figure/") { &t[i + "figure/".len()..] } else {
-        return Err("not a verSHion figure link (it should start with vershion://figure/)".into());
+        return Err("not a D.A.D figure link (it should start with vershion://figure/)".into());
     };
     let (id, query) = match rest.split_once('?') {
         Some((a, b)) => (a, b),

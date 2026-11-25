@@ -482,8 +482,8 @@ fn provider_dest(s: &crate::Settings) -> Dest {
     let cfg = crate::ai::AiCfg::from(s);
     let d = |short: &str, detail: String, leaves| Dest { short: short.to_string(), detail, leaves };
     match cfg.provider.as_str() {
-        "account" => d("verSHion's server", "the verSHion server, paid with credits from your account".to_string(), true),
-        "workers" => d("the verSHion relay", "the verSHion relay".to_string(), true),
+        "account" => d("D.A.D's server", "the D.A.D server, paid with credits from your account".to_string(), true),
+        "workers" => d("the D.A.D relay", "the D.A.D relay".to_string(), true),
         "cloud" => d("Ollama Cloud", format!("Ollama Cloud · {}", cfg.model), true),
         "openrouter" => d("OpenRouter", format!("OpenRouter · {}", cfg.model), true),
         "custom" => d("your own AI server", format!("{} · {}", cfg.base, cfg.model), true),
@@ -3918,8 +3918,8 @@ mod tests {
         let cases = [
             (set("cloud", "gemma4:31b", "", ""), Some("Ollama Cloud"), "Ollama Cloud · gemma4:31b"),
             (set("openrouter", "m/x", "", ""), Some("OpenRouter"), "OpenRouter · m/x"),
-            (set("account", "", "", ""), Some("verSHion's server"), "the verSHion server, paid with credits"),
-            (set("workers", "", "https://relay.example", ""), Some("the verSHion relay"), "the verSHion relay"),
+            (set("account", "", "", ""), Some("D.A.D's server"), "the D.A.D server, paid with credits"),
+            (set("workers", "", "https://relay.example", ""), Some("the D.A.D relay"), "the D.A.D relay"),
             (set("custom", "llm", "https://ai.example/v1", ""), Some("your own AI server"), "https://ai.example/v1 · llm"),
             // Nothing configured falls back to local Ollama, as AiCfg does.
             (set("", "", "", ""), None, "Ollama on this computer"),
