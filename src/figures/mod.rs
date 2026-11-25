@@ -352,7 +352,8 @@ impl Subject {
 pub enum Group { Science, MathComputing, Business, Humanities, Health }
 
 impl Group {
-    pub const ALL: [Group; 5] = [Group::Science, Group::MathComputing, Group::Business, Group::Humanities, Group::Health];
+    /// D.A.D is for math teachers: their topic comes first, in the tab row and in the All view.
+    pub const ALL: [Group; 5] = [Group::MathComputing, Group::Science, Group::Business, Group::Humanities, Group::Health];
     pub fn name(self) -> &'static str {
         match self { Group::Science => "Science", Group::MathComputing => "Math and computing", Group::Business => "Business and economics", Group::Humanities => "Humanities and arts", Group::Health => "Health and technology" }
     }

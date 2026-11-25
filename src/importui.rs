@@ -905,7 +905,9 @@ const FORMAT_INTRO_GAP: f32 = 24.0;
 const FORMAT_GROUPS: [(&str, &[&str]); 3] = [
     ("Documents", &["PDF", "Word", "Photos of a worksheet", "Pasted text"]),
     ("Spreadsheets", &["Excel", "CSV"]),
-    ("Quiz tools", &["Respondus", "Canvas QTI", "Blackboard", "Moodle XML", "GIFT", "Aiken", "Kahoot", "Quizlet", "Test Parrot .json"]),
+    // The tools a teacher knows by name; the formats behind them (QTI, Moodle XML, GIFT, Aiken,
+    // Respondus, Test Parrot) are read as well, and needn't be read off this card first.
+    ("Quiz tools", &["Canvas", "Blackboard", "Moodle", "Kahoot", "Quizlet", "Other quiz exports"]),
 ];
 
 /// How many format columns of `col_w` (the longest name) fit in `width` with a `gap` between two
@@ -915,7 +917,7 @@ fn format_cols(width: f32, col_w: f32, gap: f32) -> usize {
 }
 
 /// How many columns each group's names take in its block on the desktop (each a near-square
-/// block): Documents two by two, Spreadsheets one column, Quiz tools three by three.
+/// block): Documents two by two, Spreadsheets one column, Quiz tools three by two.
 const FORMAT_BLOCK_COLS: [usize; 3] = [2, 1, 3];
 
 /// The x of each side-by-side group block in a panel `inner` wide, given each block's own width
@@ -1036,7 +1038,7 @@ fn formats_panel(ui: &mut egui::Ui) {
         let inner = ui.available_width();
         // The heading and its sentence: one line with a clear gap where both fit, else the
         // sentence on a line of its own under the heading.
-        let intro = "Detected from the file itself — nothing is converted until you press Convert.";
+        let intro = "Detected from the file itself — nothing is converted until you press Convert with AI.";
         let size = |t: egui::RichText| {
             egui::WidgetText::from(t).into_galley(ui, Some(egui::TextWrapMode::Extend), f32::INFINITY, egui::TextStyle::Body).size()
         };
@@ -1197,7 +1199,7 @@ fn page(app: &mut crate::App, ui: &mut egui::Ui, ctx: &egui::Context, st: &mut S
             // pages that promise different things.
             kit::page_header(
                 ui,
-                &["Home", "Import to a bank"],
+                &[],
                 "Import into a question bank",
                 Some("For exams and question banks: pasted text, files, spreadsheets or a photo of a worksheet. We work out the format for you."),
             );
@@ -1413,10 +1415,10 @@ fn privacy_text(app: &crate::App) -> String {
     let (dest, leaves) = provider_label(&app.settings);
     if leaves {
         format!(
-            "Text and spreadsheets are read on this computer. Nothing leaves it until you press Convert, and then only the photo goes to {dest}."
+            "Text and spreadsheets are read on this computer. Nothing leaves it until you press Convert with AI, and then only the photo goes to {dest}."
         )
     } else {
-        format!("Everything is read on this computer. When you press Convert, the photo goes to {dest}, which runs here too.")
+        format!("Everything is read on this computer. When you press Convert with AI, the photo goes to {dest}, which runs here too.")
     }
 }
 
@@ -3428,9 +3430,9 @@ mod tests {
         assert_eq!(three[0], (0, vec![(0, 0), (0, 1), (0, 2), (0, 3)]));
         assert_eq!(three[1], (1, vec![(1, 0), (1, 1)]));
         assert_eq!(three[2].0, 2);
-        assert_eq!(three[2].1, vec![(2, 0), (2, 1), (2, 2), (3, 0), (3, 1), (3, 2), (4, 0), (4, 1), (4, 2)]);
+        assert_eq!(three[2].1, vec![(2, 0), (2, 1), (3, 0), (3, 1), (4, 0), (4, 1)]);
         let two = format_cells(2);
-        assert_eq!(two[2].1, vec![(2, 0), (2, 1), (2, 2), (2, 3), (2, 4), (3, 0), (3, 1), (3, 2), (3, 3)]);
+        assert_eq!(two[2].1, vec![(2, 0), (2, 1), (2, 2), (3, 0), (3, 1), (3, 2)]);
     }
 
     /// Renders the panel and returns each group label's and format name's rect, in order.
@@ -3523,14 +3525,14 @@ mod tests {
             for b in &blocks {
                 assert!((b.0.top() - blocks[0].0.top()).abs() < 0.5, "one top line for all headings");
             }
-            // One shared pitch: every line's top is one of three, the same in all blocks.
+            // One shared pitch: every line's top is one of two, the same in all blocks.
             let mut tops: Vec<f32> = Vec::new();
             for t in blocks.iter().flat_map(|b| b.1.iter().map(|r| r.top())) {
                 if !tops.iter().any(|u| (u - t).abs() < 0.5) {
                     tops.push(t);
                 }
             }
-            assert_eq!(tops.len(), 3, "{tops:?}");
+            assert_eq!(tops.len(), 2, "{tops:?}");
         }
     }
 
@@ -3606,7 +3608,7 @@ mod tests {
                 }
             }
             tops.sort_by(f32::total_cmp);
-            assert_eq!(tops.len(), 5, "{tops:?}");
+            assert_eq!(tops.len(), 4, "{tops:?}");
             for w in tops.windows(2) {
                 assert!((w[1] - w[0] - (tops[1] - tops[0])).abs() < 0.5, "one pitch: {tops:?}");
             }
@@ -3707,8 +3709,8 @@ mod tests {
         theme::begin_frame(false);
     }
 
-    /// Quiz tools' 3 x 3 grid on desktop: three column x positions, each shared by all
-    /// three rows, and every row using all three, so each name sits straight under the one above.
+    /// Quiz tools' 3 x 2 grid on desktop: three column x positions, each shared by both
+    /// rows, and every row using all three, so each name sits straight under the one above.
     #[test]
     fn quiz_tools_columns_share_their_x_on_every_row() {
         for width in [1100.0, 1600.0] {
@@ -3722,7 +3724,7 @@ mod tests {
             }
             assert_eq!(xs.len(), 3, "three columns at {width}: {xs:?}");
             for x in &xs {
-                assert_eq!(quiz.iter().filter(|r| (r.left() - x).abs() < 0.5).count(), 3, "a column holds a name on each row at {width}");
+                assert_eq!(quiz.iter().filter(|r| (r.left() - x).abs() < 0.5).count(), 2, "a column holds a name on each row at {width}");
             }
             let mut tops: Vec<f32> = Vec::new();
             for r in quiz {
@@ -3730,7 +3732,7 @@ mod tests {
                     tops.push(r.top());
                 }
             }
-            assert_eq!(tops.len(), 3, "three rows at {width}");
+            assert_eq!(tops.len(), 2, "two rows at {width}");
             for t in &tops {
                 let row: Vec<f32> = quiz.iter().filter(|r| (r.top() - t).abs() < 0.5).map(|r| r.left()).collect();
                 assert!(xs.iter().all(|x| row.iter().any(|l| (l - x).abs() < 0.5)), "every row uses all three columns at {width}");
@@ -3738,7 +3740,7 @@ mod tests {
         }
     }
 
-    /// Quiz tools in the 760 band: two columns (five and four), each read top down and each name straight under the one above.
+    /// Quiz tools in the 760 band: two columns of three, each read top down and each name straight under the one above.
     #[test]
     fn quiz_tools_band_columns_read_down() {
         for (width, cols) in [(640.0_f32, 2_usize), (615.0, 2), (680.0, 2)] {
@@ -3751,7 +3753,7 @@ mod tests {
                 }
             }
             assert_eq!(xs.len(), cols, "{cols} columns at {width}: {xs:?}");
-            let lines = 9_usize.div_ceil(cols);
+            let lines = 6_usize.div_ceil(cols);
             for (i, r) in quiz.iter().enumerate() {
                 assert!((r.left() - xs[i / lines]).abs() < 0.5, "read down each column at {width}");
                 assert!((r.top() - quiz[i % lines].top()).abs() < 0.5, "a line shares one top at {width}");

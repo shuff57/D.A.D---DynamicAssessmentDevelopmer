@@ -527,7 +527,7 @@ impl crate::App {
                     }
                 }
                 let bank = match banks.len() {
-                    0 => "None yet".to_string(),
+                    0 => "No bank yet".to_string(),
                     1 => self.store.bank(banks[0]).map(|b| b.name.clone()).unwrap_or_else(|| "Missing bank".into()),
                     n => format!("{n} banks"),
                 };
@@ -557,7 +557,7 @@ impl crate::App {
                 // The page's action sits in the header, as on Banks.
                 ui.horizontal(|ui| {
                     ui.vertical(|ui| {
-                        kit::page_header(ui, &["Home", "Exams"], "Exams", Some(&sub));
+                        kit::page_header(ui, &[], "Exams", Some(&sub));
                     });
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                         if crate::pageshell::primary(ui, "New exam").clicked() {
@@ -867,9 +867,10 @@ fn exams_actions_w(ui: &egui::Ui) -> f32 {
     g.size().x + 2.0 * 18.0 + 8.0 + EXAMS_ACT_H
 }
 
-/// A card's footer date: "Edited <date>", "Archived · " first for an archived exam.
+/// A card's footer date: "Edited 2 hours ago" as Home and Banks say it, "Archived · " first for an
+/// archived exam.
 fn exams_when(row: &ExamRow) -> String {
-    format!("{}Edited {}", if row.archived { "Archived · " } else { "" }, bankui::fmt_date(row.modified))
+    format!("{}{}", if row.archived { "Archived · " } else { "" }, crate::screens::edited_label(row.modified))
 }
 
 /// The card's main action: the house primary (filled accent, on-accent label) at card size, so it
