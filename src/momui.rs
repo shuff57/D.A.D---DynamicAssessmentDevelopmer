@@ -4186,7 +4186,13 @@ mod autoadd {
         match r {
             Ok(c) => {
                 st.poster.courses = c;
-                if st.poster.courses.is_empty() { st.poster.result = Some(Err("No courses you teach were found on MyOpenMath.".into())); }
+                if st.poster.courses.is_empty() {
+                    st.poster.result = Some(Err("No courses you teach were found on MyOpenMath.".into()));
+                } else {
+                    // Connected: back to the card, where the course and assessment are picked. The
+                    // panel was left on MyOpenMath's home page with only "Back to transfer" to press.
+                    st.browser.close();
+                }
             }
             Err(e) => st.poster.result = Some(Err(e)),
         }
