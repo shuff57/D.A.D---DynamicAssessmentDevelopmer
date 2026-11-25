@@ -78,8 +78,20 @@ pub fn init(backend: Box<dyn Backend + Send + Sync>) {
 
 #[cfg(not(target_arch = "wasm32"))]
 pub fn with_backend<R>(f: impl FnOnce(&dyn Backend) -> R) -> R {
-    let backend = BACKEND.get_or_init(|| Box::new(FsBackend::from_env()));
+    let backend = BACKEND.get_or_init(default_backend);
     f(backend.as_ref())
+}
+
+#[cfg(all(not(target_arch = "wasm32"), not(test)))]
+fn default_backend() -> Box<dyn Backend + Send + Sync> {
+    Box::new(FsBackend::from_env())
+}
+
+/// Tests that save (a written question, a library) never reach the teacher's real store: unless a
+/// test installs its own backend first, they write to a scratch folder for this test run.
+#[cfg(all(not(target_arch = "wasm32"), test))]
+fn default_backend() -> Box<dyn Backend + Send + Sync> {
+    Box::new(FsBackend::new(std::env::temp_dir().join(format!("dad-test-store-{}", std::process::id()))))
 }
 
 #[cfg(target_arch = "wasm32")]

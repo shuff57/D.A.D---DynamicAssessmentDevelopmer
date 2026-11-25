@@ -1035,7 +1035,9 @@ impl crate::App {
             _ => {}
         }
         let wants_report = crate::alphanote::wants_dock(root.ctx());
-        let out = draw_dock(root, active, who.as_ref(), wants_report, theme::is_dark());
+        // A job that keeps going while the teacher is elsewhere says so on the Questions item.
+        let working = crate::momui::job_label().filter(|(item, _)| !active[*item]);
+        let out = draw_dock(root, active, who.as_ref(), wants_report, theme::is_dark(), working);
         if let Some(i) = out.picked {
             self.screen = match destinations.get(i) {
                 Some(destination) => {
@@ -1080,7 +1082,7 @@ struct DockOut {
 /// The dock as a left panel of `root`: the [`DOCK_NAV`] items (`active` marks the current page),
 /// then at its floor the Report item (narrow, when `wants_report` and there is room) and the
 /// light/dark button (`dark` is the current mode).
-fn draw_dock(root: &mut egui::Ui, active: [bool; DOCK_NAV.len()], who: Option<&(String, String)>, wants_report: bool, dark: bool) -> DockOut {
+fn draw_dock(root: &mut egui::Ui, active: [bool; DOCK_NAV.len()], who: Option<&(String, String)>, wants_report: bool, dark: bool, working: Option<(usize, &'static str)>) -> DockOut {
     // V4 dock: an 88 pt rounded rail inside a 10 pt app gutter; below ~900 pt a 72 pt rail
     // (still labelled, at a smaller size) whose gap to the page is 8 instead of 16, so the page
     // keeps the x and width it had beside the old 64 pt rail.
@@ -1118,6 +1120,7 @@ fn draw_dock(root: &mut egui::Ui, active: [bool; DOCK_NAV.len()], who: Option<&(
 
             for (i, (icon, label)) in DOCK_NAV.into_iter().enumerate() {
                 let badge = if matches!(icon, NavIcon::Gear) { who } else { None };
+                let label = working.filter(|(item, _)| *item == i).map_or(label, |(_, word)| word);
                 if dock_item(ui, icon, label, active[i], item_w, narrow, badge) {
                     out.picked = Some(i);
                 }
@@ -3809,7 +3812,7 @@ mod tests {
                     }
                     let mut root = root_ui(ui.ctx());
                     let active = [false; DOCK_NAV.len()];
-                    let out = draw_dock(&mut root, active, None, true, false);
+                    let out = draw_dock(&mut root, active, None, true, false, None);
                     let page_x = egui::CentralPanel::default().frame(Frame::NONE).show(&mut root, |ui| ui.max_rect().left()).inner;
                     *rail = (out.rail, root.max_rect().width() < 900.0, page_x);
                 },

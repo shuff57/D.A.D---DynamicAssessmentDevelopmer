@@ -324,6 +324,7 @@ fn import_questions(ui: &mut Ui, st: &mut State) {
 /// not approved), so starting another never throws away what the AI just wrote.
 fn start_new_question(st: &mut State) {
     save_current(st);
+    st.add_elsewhere = false;
     // "New" means a blank description; course, topic and question options stay picked.
     st.form.topic_text.clear();
     st.step = Step::Describe;
@@ -536,7 +537,11 @@ struct Current {
     request: String,
     follow_ups: Vec<String>,
     follow_up_draft: String,
+    /// The change being sent now, put back in the box if the teacher stops it.
+    follow_up_pending: String,
     follow_up_failed: bool,
+    /// Why the last rewrite failed, in the teacher's words (the AI's error, or the checker).
+    follow_up_why: Option<String>,
     video_link_draft: String,
     video_search_topic: String,
     video_suggestion: Option<question_help::VideoSuggestion>,
@@ -581,6 +586,9 @@ enum Outcome {
 #[derive(Default)]
 struct Job {
     busy: bool,
+    /// Counts jobs (and stops): a write the teacher stopped finds a different number when it ends,
+    /// and its result is dropped.
+    generation: u64,
     what: &'static str,
     pause_after_current: bool,
     log: Vec<String>,
@@ -657,6 +665,21 @@ struct State {
     ai_key_shown: bool,
     /// Write as soon as step 1 is drawn ("Write a Question From It" on Import).
     write_now: bool,
+    /// Said on the writing card: a press that waits for the write to finish.
+    wait_note: Option<String>,
+    /// When the write on screen started (egui time, seconds).
+    write_started: f64,
+    /// A question already in MyOpenMath, opened to add it to another assessment too.
+    add_elsewhere: bool,
+    /// A question was written while the teacher was on another screen; the dock says "Ready".
+    ready_unseen: bool,
+    /// A job failed while the teacher was on another screen; the dock says "Needs a look".
+    failed_unseen: bool,
+    /// "I'm done with this worksheet" was pressed and waits for its confirm.
+    confirm_close_worksheet: bool,
+    /// Saved questions with a receipt saying they are in a MyOpenMath assessment (read once, again
+    /// after each publish).
+    published: Option<std::collections::HashSet<String>>,
     /// What a dropped photo became, said once beside it.
     topic_image_note: Option<String>,
     /// The paste was not a whole question: what it looks like, and so what to do instead.
@@ -732,6 +755,41 @@ pub fn leave() {
         #[cfg(not(target_arch = "wasm32"))]
         if state.browser.surface().is_some() { state.browser.close(); }
     });
+}
+
+/// What a running job is called, for the dock while the teacher is on another screen. None when
+/// nothing runs, or while the Questions page itself is drawing (it shows the job in full).
+thread_local! {
+    /// The label as of the Questions page's last frame, for the dock while that page holds the
+    /// state (Import and Share are drawn by it).
+    static JOB_LABEL: std::cell::Cell<Option<(usize, &'static str)>> = const { std::cell::Cell::new(None) };
+}
+
+/// The dock item (0 Questions, 1 Convert) and what to call it while a job runs elsewhere.
+pub fn job_label() -> Option<(usize, &'static str)> {
+    ST.with(|state| {
+        let Ok(st) = state.try_borrow() else { return JOB_LABEL.with(std::cell::Cell::get) };
+        job_label_of(&st).or_else(|| JOB_LABEL.with(std::cell::Cell::get))
+    })
+}
+
+fn job_label_of(st: &State) -> Option<(usize, &'static str)> {
+    let job = st.job.lock().ok()?;
+    // Finished while the teacher was elsewhere (collected or still waiting to be): say so until
+    // they are back on Questions.
+    let written = job.outcomes.iter().any(|o| matches!(o, Outcome::Authored { q: Some(_), .. }));
+    if !job.busy && (st.ready_unseen || written) { return Some((0, "Ready ✔")); }
+    // Ended badly while the teacher was elsewhere: it is not silent either.
+    if !job.busy && st.failed_unseen { return Some((0, "Needs a look")); }
+    job.busy.then_some(match job.what {
+        "Writing" => (0, "Writing…"),
+        "Revising" => (0, "Rewriting…"),
+        "MyOpenMath" => (0, "Adding…"),
+        // A worksheet job lives on Convert, so its word goes there.
+        "Reading worksheet" => (1, "Reading…"),
+        "Converting worksheet" => (1, "Converting…"),
+        _ => (0, "Working…"),
+    })
 }
 
 /// Ctrl/Cmd+N on the Questions screen: the same as the New Question command.
@@ -812,13 +870,21 @@ pub(crate) fn stage_figure(title: String, spec: String, line: Option<crate::mom:
 impl crate::App {
     pub fn draw_mom(&mut self, ctx: &egui::Context) {
         let mut st = ST.with(|s| std::mem::take(&mut *s.borrow_mut()));
+        // The state is out of ST while this page draws; the dock reads the job from here.
+        JOB_LABEL.with(|l| l.set(job_label_of(&st)));
         if !st.inited {
             st.inited = true;
             st.engine = crate::store::load_json::<String>("mom/engine.json").unwrap_or_else(|| DEFAULT_ENGINE.to_string());
             if st.engine == crate::mom::author::BUNDLED_ENGINE { crate::mom::author::warm_bundled_engine(); }
             st.library = crate::store::load_json(LIBRARY).unwrap_or_default();
             if st.form.figure.is_none() {
-                st.worksheet_mode |= st.library.worksheet.is_some();
+                // Open on Convert only while a worksheet still has work in it (problems waiting or
+                // drafts to review), not for good after one upload.
+                // A draft approved but not yet in MyOpenMath is work left too (the receipts say which).
+                let published = published_ids();
+                let work_left = st.library.worksheet.as_ref().is_some_and(|b| !b.pending.is_empty() || !b.failures.is_empty()
+                    || worksheet_drafts(&st.library, &b.id).iter().any(|(_, d)| !d.reviewed || (cfg!(not(target_arch = "wasm32")) && !published.contains(&d.id))));
+                st.worksheet_mode |= work_left;
                 st.form = crate::store::load_json(FORM).unwrap_or_default();
             }
             st.form.fix();
@@ -867,15 +933,25 @@ impl crate::App {
                 browser_workspace(ui, &mut st, surface);
                 return;
             }
-            if !busy(&st) {
+            // Taken now, never saved for later: a press replayed after a job ends would replace
+            // what the job just made. Import and Share open while a job runs (it keeps going);
+            // Convert waits, and the writing card says so.
+            {
                 let requested = ctx.data_mut(|data| {
                     let id = egui::Id::new("dad_destination_request");
                     let result = data.get_temp::<Destination>(id);
                     data.remove::<Destination>(id);
                     result
                 });
+                // Only jobs a page swap would break hold Convert back; a quick check lets it through.
+                // A worksheet job lives on Convert, so Convert always opens to it.
+                let working = busy(&st) && st.job.lock().map(|j| matches!(j.what, "Writing" | "Revising" | "MyOpenMath")).unwrap_or(false);
                 match requested {
                     Some(Destination::Import | Destination::Share) => st.tool_page = requested,
+                    Some(Destination::Convert) if working => {
+                        st.tool_page = None;
+                        st.wait_note = Some("Convert is free once this is done. Press Stop to go now.".into());
+                    }
                     Some(Destination::Convert) => {
                         st.tool_page = None;
                         st.worksheet_mode = true;
@@ -914,6 +990,7 @@ impl crate::App {
             let _ = crate::store::save_json(AI_PICKED, &true);
             st.ai_open = false;
         }
+        JOB_LABEL.with(|l| l.set(None));
         ST.with(|s| *s.borrow_mut() = st);
     }
 }
@@ -954,27 +1031,45 @@ fn take(st: &mut State, outcome: Outcome) {
                 if let Some(current) = st.current.as_mut() {
                     current.follow_up_draft = message.clone();
                     current.follow_up_failed = true;
+                    // The AI's own failure (busy, no answer) is not the checker's.
+                    current.follow_up_why = Some(match &error {
+                        Some(e) => format!("The rewrite didn't come back: {} Your question below is unchanged.", form::plain_error(e)),
+                        None => "The rewrite didn't pass the checker, so it wasn't used. Your question below is unchanged.".into(),
+                    });
                 }
                 return;
             }
+            if error.is_some() && q.is_none() { st.failed_unseen = true; }
             st.error = error;
             if let Some(mut q) = q {
                 // A question needs a name (MyOpenMath's Description); a model sometimes leaves it out.
                 if q.name.trim().is_empty() {
                     q.name = st.form.short_name();
                 }
-                // A rewrite keeps the question's place in My Questions.
-                let saved_id = st.current.as_ref().and_then(|c| c.saved_id.clone());
+                // A rewrite keeps the question's place in My Questions, unless that question is
+                // already in MyOpenMath: then the rewrite is a new question, and the published
+                // version stays as it is (the receipt is for that version).
+                let mut saved_id = st.current.as_ref().and_then(|c| c.saved_id.clone());
+                if st.published.is_none() { st.published = Some(published_ids()); }
+                let new_version = saved_id.as_ref().is_some_and(|id| st.published.as_ref().is_some_and(|p| p.contains(id)));
+                if new_version { saved_id = None; }
                 let worksheet_source = st.current.as_ref().and_then(|c| c.worksheet_source.clone());
                 let mut follow_ups = st.current.as_mut().map(|c| std::mem::take(&mut c.follow_ups)).unwrap_or_default();
                 follow_ups.extend(follow_up);
                 st.current = Some(Current { q, request: st.request.clone(), follow_ups, passed: Some(passed), problems, untested, saved_id, worksheet_source, ..Default::default() });
+                // In My Questions at once (as "Needs review"), so closing D.A.D before approving it
+                // never loses a question the AI just wrote.
+                save_current(st);
+                if new_version { st.lib_note = Some("Saved as a new question. The earlier version stays in MyOpenMath as it was.".into()); }
+                st.wait_note = None;
+                st.ready_unseen = true;
                 st.step = Step::Try;
                 st.preview_html = None;
                 st.note = None;
             }
         }
         Outcome::WorksheetRead { questions, mut notes, retry_files } => {
+            if questions.is_empty() { st.failed_unseen = true; }
             let id = crate::model::new_id();
             let pending: Vec<_> = questions.into_iter().enumerate().map(|(index, mut source)| WorksheetProblem {
                 origin: WorksheetOrigin { batch: id.clone(), number: index + 1, original: source.original.take() },
@@ -984,7 +1079,8 @@ fn take(st: &mut State, outcome: Outcome) {
                 notes.push("No problems were found in this worksheet.".into());
             }
             st.library.worksheet = Some(WorksheetBatch { id, pending, notes, failures: Vec::new() });
-            st.worksheet_files.extend(retry_files);
+            // The files were kept chosen while reading (so Stop leaves them); a finished read clears them, a failed one keeps them.
+            st.worksheet_files = retry_files;
             save_worksheet(st);
         }
         Outcome::WorksheetItem(origin, item) => {
@@ -1065,12 +1161,15 @@ fn run_bg(f: impl std::future::Future<Output = ()> + 'static) {
 fn start(st: &mut State, what: &'static str) -> Arc<Mutex<Job>> {
     if let Ok(mut j) = st.job.lock() {
         j.busy = true;
+        j.generation += 1;
         j.what = what;
         j.pause_after_current = false;
         j.log.clear();
     }
     st.error = None;
     st.note = None;
+    st.wait_note = None;
+    st.lib_note = None;
     st.job.clone()
 }
 
@@ -1091,12 +1190,14 @@ fn start_write(st: &mut State, ctx: &egui::Context, cfg: &crate::ai::AiCfg, requ
 fn write_question(st: &mut State, ctx: &egui::Context, cfg: &crate::ai::AiCfg, request: String, follow_up: Option<String>, setup: Option<(Form, Option<Vec<u8>>)>) {
     st.log.clear();
     let job = start(st, if follow_up.is_some() { "Revising" } else { "Writing" });
+    st.write_started = ctx.input(|i| i.time);
     let preference = crate::store::load_json::<String>(WRITING_PREFERENCE).unwrap_or_default();
     let request = form::with_writing_preference(&request, &preference);
     // A new question starts without a video (one is added after writing, in the Help video card);
     // a revision keeps the one attached.
     let video_help = if setup.is_some() { None } else { st.current.as_ref().and_then(|current| question_help::attached_video(&current.q)) };
     let (engine, cfg, ctx) = (st.engine.clone(), cfg.clone(), ctx.clone());
+    let generation = job.lock().map(|j| j.generation).unwrap_or(0);
     run_bg(async move {
         let (form, image) = setup.map_or((None, None), |(form, image)| (Some(form), image));
         let mut chat = ModelChat { cfg: &cfg, tools: false, reference_image: image.as_deref(), video_help };
@@ -1105,15 +1206,28 @@ fn write_question(st: &mut State, ctx: &egui::Context, cfg: &crate::ai::AiCfg, r
         let log_job = job.clone();
         let log_ctx = ctx.clone();
         let run = author_full(&request, &mut chat, &mut eng, &mut critic, Budget::tries(MAX_TRIES), move |line| {
-            if let Ok(mut j) = log_job.lock() { j.log.push(line.to_string()); }
+            if let Ok(mut j) = log_job.lock() && j.generation == generation { j.log.push(line.to_string()); }
             log_ctx.request_repaint();
         }).await;
         let untested = run.report.as_ref().map(|r| r.untested_parts.clone()).unwrap_or_default();
         let mut problems = run.problems;
         let passed = run.passed && run.critic_ok != Some(false);
         if run.critic_ok == Some(false) { problems.extend(run.critic_notes); }
+        // Stopped by the teacher meanwhile: the answer is not wanted.
+        if job.lock().map(|j| j.generation != generation).unwrap_or(true) { return; }
         finish(&job, &ctx, Outcome::Authored { follow_up, q: run.question, passed, problems, untested, error: run.error });
     });
+}
+
+/// Stop a write: the screen is free at once, and the answer, when it comes, is dropped.
+fn stop_job(st: &mut State) {
+    if let Ok(mut j) = st.job.lock() {
+        j.busy = false;
+        j.generation += 1;
+        j.log.clear();
+    }
+    st.log.clear();
+    st.wait_note = None;
 }
 
 struct SetupCheck {
@@ -1180,18 +1294,25 @@ fn read_worksheet(st: &mut State, ctx: &egui::Context, cfg: &crate::ai::AiCfg) {
     st.preview_html = None;
     st.log.clear();
     let job = start(st, "Reading worksheet");
+    // Kept chosen: a stopped read leaves the files ready to read again.
+    st.worksheet_files = files.clone();
+    let generation = job.lock().map(|j| j.generation).unwrap_or(0);
     let (cfg, ctx) = (cfg.clone(), ctx.clone());
     run_bg(async move {
         let (questions, notes) = worksheet::read(&files, &cfg, |line| {
-            if let Ok(mut j) = job.lock() { j.log.push(line); }
+            if let Ok(mut j) = job.lock() && j.generation == generation { j.log.push(line); }
             ctx.request_repaint();
         }).await;
+        if job.lock().map(|j| j.generation != generation).unwrap_or(true) { return; }
         let retry_files = if questions.is_empty() { files } else { Vec::new() };
         finish(&job, &ctx, Outcome::WorksheetRead { questions, notes, retry_files });
     });
 }
 
 fn convert_worksheet(st: &mut State, ctx: &egui::Context, cfg: &crate::ai::AiCfg, questions: Vec<WorksheetProblem>) {
+    let batch_total = st.library.worksheet.as_ref().map_or(questions.len(), |b| {
+        st.library.questions.iter().filter(|q| q.worksheet_origin.as_ref().is_some_and(|o| o.batch == b.id)).count() + b.pending.len() + b.failures.len()
+    }).max(questions.len());
     st.log.clear();
     let job = start(st, "Converting worksheet");
     let (engine, cfg, ctx) = (st.engine.clone(), cfg.clone(), ctx.clone());
@@ -1205,7 +1326,9 @@ fn convert_worksheet(st: &mut State, ctx: &egui::Context, cfg: &crate::ai::AiCfg
         let mut engine = HttpEngine { base: engine };
         for (index, question) in questions.into_iter().enumerate() {
             if job.lock().is_ok_and(|job| job.pause_after_current) { break; }
-            progress(format!("Converting and checking question {} of {total}…", index + 1));
+            // Counted in the worksheet's own numbers, as the line above it ("2 of 5 converted").
+            let _ = (index, total);
+            progress(format!("Converting and checking problem {} of {batch_total}…", question.origin.number));
             let request = question.source.request();
             let run = author_async_logged(&request, &mut chat, &mut engine, MAX_TRIES, |_| {}).await;
             let origin = question.origin.clone();
@@ -1295,6 +1418,14 @@ fn timestamp() -> u64 {
 
 fn save_current(st: &mut State) {
     let Some(c) = st.current.as_mut() else { return };
+    // Another try at the same description replaces a row that failed its check, so a run of
+    // retries leaves one question, not a pile of attempts. A row that passed is never replaced:
+    // two passing versions of one description are two questions.
+    if c.saved_id.is_none() && c.worksheet_source.is_none() {
+        c.saved_id = st.library.questions.iter()
+            .find(|s| s.request == c.request && !s.passed && !s.reviewed && s.worksheet_origin.is_none())
+            .map(|s| s.id.clone());
+    }
     let worksheet_origin = st.library.questions.iter().find(|saved| Some(&saved.id) == c.saved_id.as_ref())
         .and_then(|saved| saved.worksheet_origin.clone());
     let entry = Saved {
@@ -1486,11 +1617,16 @@ fn column(ui: &mut Ui, salt: &str, add: impl FnOnce(&mut Ui)) {
 /// The three steps across the top; a step opens once the one before it is done.
 fn steps(ui: &mut Ui, st: &mut State) {
     let has_q = st.current.is_some();
+    // The last step closes out once a receipt says this question is in MyOpenMath.
+    if st.published.is_none() { st.published = Some(published_ids()); }
+    let in_mom = st.current.as_ref().and_then(|c| c.saved_id.as_ref()).is_some_and(|id| st.published.as_ref().is_some_and(|p| p.contains(id)));
     let reviewed = st.current.as_ref().is_some_and(|c| c.reviewed);
     ui.horizontal_wrapped(|ui| {
         for (i, (step, name, open)) in [(Step::Describe, if st.worksheet_mode { "Upload" } else { "Describe it" }, true), (Step::Try, "Try it", has_q), (Step::Copy, "Add to MyOpenMath", reviewed)].into_iter().enumerate() {
             if i > 0 { ui.label(theme::muted("›").size(18.0)); }
-            let label = format!("{}   {name}", i + 1);
+            // A step behind the teacher shows a tick, so the row says how far along they are.
+            let done = match step { Step::Describe => has_q, Step::Try => reviewed, Step::Copy => in_mom };
+            let label = if done && (st.step != step || step == Step::Copy) { format!("✔ {}   {name}", i + 1) } else { format!("{}   {name}", i + 1) };
             let r = ui.add_enabled_ui(open && !busy(st), |ui| step_pill(ui, &label, st.step == step)).inner;
             if r.clicked() { st.step = step; }
         }
@@ -1515,9 +1651,20 @@ fn step_pill(ui: &mut Ui, label: &str, on: bool) -> egui::Response {
 }
 
 fn main(ui: &mut Ui, ctx: &egui::Context, st: &mut State, cfg: &crate::ai::AiCfg) {
-    if busy(st) && st.job.lock().map(|j| j.what == "Writing").unwrap_or(false) {
+    st.ready_unseen = false;
+    st.failed_unseen = false;
+    let what = st.job.lock().map(|j| j.what).unwrap_or("");
+    if busy(st) && matches!(what, "Writing" | "Revising") {
         leave();
-        writing(ui, st);
+        // Stopping a revision keeps the question as it was; stopping a write goes back to its description.
+        if writing(ui, st) {
+            stop_job(st);
+            // With a question on screen (a rewrite, or "Rewrite with AI" after a failed check),
+            // Stop goes back to it; a first write goes back to its description.
+            st.step = if what == "Revising" || st.current.is_some() { Step::Try } else { Step::Describe };
+            // A stopped change goes back in its box, ready to send again.
+            if let Some(c) = st.current.as_mut() && what == "Revising" { c.follow_up_draft = std::mem::take(&mut c.follow_up_pending); }
+        }
     } else {
         match st.step {
             Step::Describe => {
@@ -1569,13 +1716,21 @@ fn worksheet_form(ui: &mut Ui, ctx: &egui::Context, st: &mut State, cfg: &crate:
                 ui.spinner();
                 ui.label(theme::text(st.log.last().map(String::as_str).unwrap_or("Opening worksheet…")));
             });
-            if let Ok(mut job) = st.job.lock() && job.what == "Converting worksheet" {
-                if job.pause_after_current {
-                    ui.label("Pausing after this problem…");
-                } else if pageshell::outline(ui, "Pause after this problem").clicked() {
-                    job.pause_after_current = true;
+            let mut stop_reading = false;
+            if let Ok(mut job) = st.job.lock() {
+                if job.what == "Converting worksheet" {
+                    ui.label(theme::muted("About a minute per problem. Drafts are saved as each one finishes.").size(13.0));
+                    if job.pause_after_current {
+                        ui.label("Pausing after this problem…");
+                    } else if pageshell::outline(ui, "Pause after this problem").clicked() {
+                        job.pause_after_current = true;
+                    }
+                } else if job.what == "Reading worksheet" {
+                    ui.label(theme::muted("About half a minute a page.").size(13.0));
+                    stop_reading = crate::kit::secondary(ui, "Stop", 32.0).on_hover_text("Stop reading; the files stay chosen").clicked();
                 }
             }
+            if stop_reading { stop_job(st); }
             return;
         }
         let choose = can_pick && ui.horizontal_wrapped(|ui| {
@@ -1608,7 +1763,10 @@ fn worksheet_form(ui: &mut Ui, ctx: &egui::Context, st: &mut State, cfg: &crate:
         if let Some(batch) = st.library.worksheet.as_mut() {
             let count = batch.pending.iter().filter(|problem| !problem.source.text().is_empty()).count().min(20);
             if !batch.pending.is_empty() {
-                ui.label(theme::strong(format!("{} worksheet problems left to convert", batch.pending.len())));
+                // Counted as done, out of the whole worksheet: "2 of 5", not "3 left".
+                let made = st.library.questions.iter().filter(|q| q.worksheet_origin.as_ref().is_some_and(|o| o.batch == batch.id)).count();
+                let total = made + batch.pending.len() + batch.failures.len();
+                ui.label(theme::strong(format!("{made} of {total} worksheet problems converted")));
                 ui.horizontal_wrapped(|ui| {
                     if pageshell::primary_on(ui, &format!("Create {count} MyOpenMath drafts"), count > 0).clicked() {
                         convert = Some(count);
@@ -1695,26 +1853,57 @@ fn worksheet_form(ui: &mut Ui, ctx: &egui::Context, st: &mut State, cfg: &crate:
         let drafts = worksheet_drafts(&st.library, &batch.id);
         if !drafts.is_empty() {
             let mut open = None;
+            let mut finished_open: Option<Saved> = None;
+            if st.published.is_none() { st.published = Some(published_ids()); }
             ui.add_space(12.0);
             pageshell::card(ui, |ui| {
                 pageshell::heading(ui, "Review worksheet drafts");
                 let approved = drafts.iter().filter(|(_, draft)| draft.reviewed).count();
-                ui.label(theme::muted(format!("{approved} of {} drafts approved", drafts.len())));
-                if let Some((_, next)) = drafts.iter().find(|(_, draft)| !draft.reviewed)
-                    && pageshell::primary(ui, "Continue reviewing").clicked()
-                {
-                    open = Some((*next).clone());
+                let published = st.published.clone().unwrap_or_default();
+                let added = drafts.iter().filter(|(_, d)| published.contains(&d.id)).count();
+                let line = if added > 0 { format!("{approved} of {} drafts approved · {added} in MyOpenMath", drafts.len()) } else { format!("{approved} of {} drafts approved", drafts.len()) };
+                ui.label(theme::muted(line));
+                let mut add_next = None;
+                if let Some((_, next)) = drafts.iter().find(|(_, draft)| !draft.reviewed) {
+                    if pageshell::primary(ui, "Continue reviewing").clicked() { open = Some((*next).clone()); }
+                } else if let Some((_, next)) = drafts.iter().find(|(_, d)| !published.contains(&d.id)) {
+                    // All approved: the last stretch is adding them, one press each.
+                    if pageshell::primary(ui, "Add the Next One to MyOpenMath").clicked() { add_next = Some((*next).clone()); }
+                } else if added > 0 {
+                    ui.label(RichText::new("✔ Every draft from this worksheet is in MyOpenMath.").color(theme::green()));
                 }
+                if let Some(next) = add_next { open = None; finished_open = Some(next); }
                 egui::CollapsingHeader::new("All worksheet drafts").show(ui, |ui| for (number, draft) in &drafts {
                     ui.push_id(&draft.id, |ui| {
                         let title = MomQuestion::parse(&draft.src).name;
                         let response = ui.link(format!("Problem {number} · {title}"));
                         if response.clicked() { open = Some((*draft).clone()); }
-                        ui.label(theme::muted(saved_status(draft)).size(13.0));
+                        let status = if published.contains(&draft.id) { "In MyOpenMath" } else if draft.reviewed { "Ready to add" } else { saved_status(draft) };
+                        ui.label(theme::muted(status).size(13.0));
                     });
                 });
             });
+            // Finished with this worksheet, whatever is left: the drafts stay in My Questions, and
+            // D.A.D stops opening on Convert for it.
+            ui.add_space(6.0);
+            if st.confirm_close_worksheet {
+                let waiting = st.library.worksheet.as_ref().map_or(0, |b| b.pending.len() + b.failures.len());
+                let ask = if waiting > 0 { format!("Close this worksheet? Its drafts stay in My Questions; the {waiting} problems not converted yet are dropped.") } else { "Close this worksheet? Its drafts stay in My Questions.".into() };
+                ui.add(egui::Label::new(theme::muted(ask).size(13.0)).wrap());
+                ui.horizontal(|ui| {
+                    if crate::kit::secondary(ui, "Close It", 32.0).clicked() {
+                        st.library.worksheet = None;
+                        st.confirm_close_worksheet = false;
+                        st.worksheet_mode = false;
+                        save_worksheet(st);
+                    }
+                    if crate::kit::secondary(ui, "Keep It", 32.0).clicked() { st.confirm_close_worksheet = false; }
+                });
+            } else if crate::kit::link(ui, "I'm done with this worksheet", false).clicked() {
+                st.confirm_close_worksheet = true;
+            }
             if let Some(saved) = open { open_worksheet_draft(st, saved); }
+            if let Some(saved) = finished_open { open_saved(st, saved); st.step = Step::Copy; }
         }
     }
 }
@@ -1771,6 +1960,69 @@ fn worksheet_navigation(ui: &mut Ui, st: &mut State) -> bool {
         ui.ctx().request_repaint();
     }
     back
+}
+
+/// Ids of saved questions that a receipt shows attached to a MyOpenMath assessment.
+#[cfg(not(target_arch = "wasm32"))]
+fn published_ids() -> std::collections::HashSet<String> {
+    use crate::mom::poster::PublishState;
+    crate::store::list_dir("mom/publications").into_iter().filter_map(|file| {
+        let state: PublishState = crate::store::load_json(&format!("mom/publications/{file}"))?;
+        matches!(state, PublishState::Attached(_)).then(|| file.split('-').next().unwrap_or_default().to_string())
+    }).collect()
+}
+
+/// The web build publishes through the helper server and keeps no receipts here.
+#[cfg(target_arch = "wasm32")]
+fn published_ids() -> std::collections::HashSet<String> { Default::default() }
+
+/// Where a saved question went: its receipt's course, assessment and MyOpenMath question number.
+#[cfg(not(target_arch = "wasm32"))]
+fn receipt_for(id: &str) -> Option<crate::mom::poster::Publication> {
+    use crate::mom::poster::PublishState;
+    // In two assessments: the newest receipt is the one the teacher just made.
+    let dir = crate::store::store_dir().join("mom/publications");
+    let mut files: Vec<String> = crate::store::list_dir("mom/publications").into_iter().filter(|file| file.starts_with(&format!("{id}-"))).collect();
+    files.sort_by_key(|file| std::cmp::Reverse(std::fs::metadata(dir.join(file)).and_then(|m| m.modified()).ok()));
+    files.into_iter().find_map(|file| match crate::store::load_json::<PublishState>(&format!("mom/publications/{file}"))? {
+        PublishState::Attached(p) => Some(p),
+        _ => None,
+    })
+}
+
+/// The next worksheet draft not yet in MyOpenMath, after the one on screen.
+fn next_worksheet_draft(st: &State) -> Option<Saved> {
+    let id = st.current.as_ref()?.saved_id.as_deref()?;
+    let batch = st.library.questions.iter().find(|s| s.id == id)?.worksheet_origin.as_ref()?.batch.clone();
+    let published = st.published.clone().unwrap_or_default();
+    worksheet_drafts(&st.library, &batch).into_iter().map(|(_, d)| d)
+        .find(|d| d.id != id && !published.contains(&d.id)).cloned()
+}
+
+/// After a question is in MyOpenMath: the one next action, by what the teacher is working through.
+fn finish_actions(ui: &mut Ui, st: &mut State) {
+    if let Some(next) = next_worksheet_draft(st) {
+        if pageshell::primary(ui, "Next Worksheet Draft").clicked() {
+            st.add_elsewhere = false;
+            if next.reviewed { open_saved(st, next); st.step = Step::Copy; } else { open_worksheet_draft(st, next); }
+        }
+    } else if from_worksheet(st) {
+        // The worksheet's last draft: back to the worksheet, where it says it is all done.
+        if pageshell::primary(ui, "Back to the Worksheet").clicked() {
+            st.add_elsewhere = false;
+            st.worksheet_mode = true;
+            st.step = Step::Describe;
+        }
+        ui.add_space(8.0);
+        if crate::kit::link(ui, "Write Another Question", false).clicked() { start_new_question(st); }
+    } else if pageshell::primary(ui, "Write Another Question").clicked() {
+        start_new_question(st);
+    }
+}
+
+fn from_worksheet(st: &State) -> bool {
+    let Some(id) = st.current.as_ref().and_then(|c| c.saved_id.as_deref()) else { return false };
+    st.library.questions.iter().find(|s| s.id == id).is_some_and(|s| s.worksheet_origin.is_some())
 }
 
 fn saved_status(saved: &Saved) -> &'static str {
@@ -2178,7 +2430,11 @@ fn describe(ui: &mut Ui, ctx: &egui::Context, st: &mut State, cfg: &crate::ai::A
         let picture_blocked = cfg.provider == "claude-cli";
         // The one action of this step sits right under what the teacher typed.
         ui.add_space(16.0);
-        let missing = if !ai_ready(cfg) {
+        let worksheet_job = st.job.lock().map(|j| j.busy && matches!(j.what, "Reading worksheet" | "Converting worksheet")).unwrap_or(false);
+        let missing = if worksheet_job {
+            // Write waits for a worksheet job; say which, and where it is.
+            Some("D.A.D is working on your worksheet. Write is free when it finishes; see Convert.")
+        } else if !ai_ready(cfg) {
             Some("Your AI isn't ready yet: finish it in the Your AI card.")
         } else if st.topic_image.is_some() {
             picture_blocked.then_some("Choose an AI that can read uploaded pictures, or describe the topic in words.")
@@ -2480,9 +2736,12 @@ fn error_box(ui: &mut Ui, st: &State) {
     }
 }
 
-fn writing(ui: &mut Ui, st: &State) {
+/// True when the teacher pressed Stop.
+fn writing(ui: &mut Ui, st: &State) -> bool {
+    let mut stop = false;
+    let revising = st.job.lock().map(|j| j.what == "Revising").unwrap_or(false);
     pageshell::card(ui, |ui| {
-        pageshell::heading(ui, "Writing your question");
+        pageshell::heading(ui, if revising { "Rewriting your question" } else { "Writing your question" });
         ui.add_space(6.0);
         let mut said: Vec<String> = Vec::new();
         for line in &st.log {
@@ -2491,6 +2750,7 @@ fn writing(ui: &mut Ui, st: &State) {
             }
         }
         if said.is_empty() { said.push("Writing your question…".into()); }
+        if revising && said[0] == "Writing your question…" { said[0] = "Rewriting your question…".into(); }
         let last = said.len() - 1;
         for (i, p) in said.iter().enumerate().skip(said.len().saturating_sub(5)) {
             ui.horizontal(|ui| {
@@ -2499,8 +2759,25 @@ fn writing(ui: &mut Ui, st: &State) {
             });
         }
         ui.add_space(8.0);
-        ui.label(theme::muted("This usually takes between 10 seconds and a minute. You can leave this page open and come back.").size(13.0));
+        // Past the usual minute, the line says so with the time, instead of repeating the estimate.
+        let secs = (ui.input(|i| i.time) - st.write_started).max(0.0) as u64;
+        let timing = if secs >= 60 {
+            ui.ctx().request_repaint_after(std::time::Duration::from_secs(1));
+            format!("Taking longer than usual ({}:{:02}). The AI is still working; it keeps going while you use Import, Share, Figures or Settings.", secs / 60, secs % 60)
+        } else {
+            ui.ctx().request_repaint_after(std::time::Duration::from_secs(1));
+            "This usually takes between 10 seconds and a minute. It keeps going while you use Import, Share, Figures or Settings.".to_string()
+        };
+        ui.add(egui::Label::new(theme::muted(timing).size(13.0)).wrap());
+        if let Some(note) = &st.wait_note {
+            ui.add(egui::Label::new(theme::muted(note).size(13.0)).wrap());
+        }
+        ui.add_space(6.0);
+        // Spotted a wrong description or level a few seconds in: no need to wait out the answer.
+        let why = if revising { "Stop and keep the question as it was" } else { "Stop writing and go back to the description" };
+        stop = crate::kit::secondary(ui, "Stop", 32.0).on_hover_text(why).clicked();
     });
+    stop
 }
 
 fn try_it(ui: &mut Ui, ctx: &egui::Context, st: &mut State, cfg: &crate::ai::AiCfg) {
@@ -2519,6 +2796,12 @@ fn try_it(ui: &mut Ui, ctx: &egui::Context, st: &mut State, cfg: &crate::ai::AiC
     }
     pageshell::card(ui, |ui| {
         let c = st.current.as_ref().unwrap();
+        // A failed rewrite says so at the top, above the question it left unchanged, so the old
+        // version is never approved by mistake.
+        if c.follow_up_failed && let Some(why) = &c.follow_up_why {
+            ui.add(egui::Label::new(RichText::new(why).color(theme::red()).size(14.0)).wrap());
+            ui.add_space(6.0);
+        }
         ui.add(egui::Label::new(theme::serif(if c.q.name.is_empty() { "Your question" } else { &c.q.name }).size(20.0)).wrap());
         ui.add_space(6.0);
         if let Some(location) = &c.worksheet_source {
@@ -2784,6 +3067,7 @@ fn question_follow_ups(ui: &mut Ui, ctx: &egui::Context, st: &mut State, cfg: &c
                 && ui.input_mut(|i| i.consume_key(egui::Modifiers::COMMAND, egui::Key::Enter));
             if rewrite {
                 let message = std::mem::take(&mut current.follow_up_draft).trim().to_string();
+                current.follow_up_pending = message.clone();
                 // A change's own text sends that change's full instruction.
                 let change = Change::ALL.into_iter().find(|c| *c != Change::Other && c.label() == message).unwrap_or(Change::Other);
                 let request = form::change_request(&follow_up_context(current), &current.q.emit(), change, &message);
@@ -2806,7 +3090,7 @@ fn question_follow_ups(ui: &mut Ui, ctx: &egui::Context, st: &mut State, cfg: &c
         if revising {
             ui.horizontal(|ui| { ui.spinner(); ui.label("Revising and checking your question…"); });
         } else if current.follow_up_failed {
-            ui.add(egui::Label::new("The revision didn’t pass the checker. Your previous question is still available. Edit your follow-up or send it again.").wrap());
+            ui.add(egui::Label::new("Your change is back in the box: edit it or send it again.").wrap());
         }
 
     });
@@ -2850,8 +3134,14 @@ fn browser_workspace(ui: &mut Ui, st: &mut State, surface: crate::mom::desktop_b
     let mut toggle_view = student && st.student_url.is_some() && !working
         && ui.input_mut(|input| input.consume_key(egui::Modifiers::ALT, egui::Key::T));
     ui.horizontal_wrapped(|ui| {
-        back = pageshell::outline(ui, if student { "Back to review" } else { "Back to transfer" }).clicked();
+        let adding = !student && working && st.job.lock().map(|j| j.what == "MyOpenMath").unwrap_or(false);
+        let label = if student { "Back to review" } else if adding { "Stop adding" } else { "Back to transfer" };
+        let r = pageshell::outline(ui, label);
+        back = if adding { r.on_hover_text("Stops before MyOpenMath saves the question. If Save was already clicked, the question stays and D.A.D records where.") } else { r }.clicked();
+        // A real stop: the add checks this just before it would click Save.
+        if back && adding { crate::mom::poster::STOP_BEFORE_SAVE.store(true, std::sync::atomic::Ordering::SeqCst); }
         ui.label(theme::serif(surface.title()).size(22.0));
+        if adding { ui.label(theme::muted("This usually takes under a minute.").size(13.0)); }
         if student {
             let label = if st.student_text_mode { "Browser view" } else { "Text controls" };
             toggle_view |= ui.add_enabled_ui(!working && st.student_url.is_some(), |ui| pageshell::outline(ui, label))
@@ -3011,6 +3301,47 @@ fn copy_step(ui: &mut Ui, ctx: &egui::Context, st: &mut State) {
         });
         return;
     }
+    // Already in MyOpenMath: the step is done. Show the finish and the next thing to do, not the
+    // pickers, the sign-in and the by-hand fallback again; adding it somewhere else is one link.
+    if st.published.is_none() { st.published = Some(published_ids()); }
+    let in_mom = c.saved_id.as_ref().is_some_and(|id| st.published.as_ref().is_some_and(|p| p.contains(id)));
+    #[cfg(not(target_arch = "wasm32"))]
+    if in_mom && !st.add_elsewhere {
+        let receipt = c.saved_id.as_deref().and_then(receipt_for);
+        let name = c.q.name.trim().to_string();
+        pageshell::card(ui, |ui| {
+            ui.label(RichText::new("✔ It's in MyOpenMath").color(theme::green()).family(theme::bold_family()).size(20.0));
+            let place = receipt.as_ref().and_then(|p| st.poster.place_name(p.course, p.assessment));
+            let line = match (&receipt, place) {
+                (Some(_), Some(place)) => format!("“{name}” is in {place}. Students see it the next time they open the assessment."),
+                (Some(_), None) => format!("“{name}” is in your MyOpenMath assessment. Students see it the next time they open it."),
+                _ => format!("“{name}” is in your MyOpenMath assessment."),
+            };
+            ui.add(egui::Label::new(theme::text(line).size(14.0)).wrap());
+            if let Some(p) = &receipt { ui.label(theme::muted(format!("MyOpenMath question ID {}", p.question)).size(12.0)); }
+            ui.add_space(8.0);
+            ui.horizontal_wrapped(|ui| {
+                finish_actions(ui, st);
+                if let Some(p) = &receipt {
+                    ui.add_space(8.0);
+                    if crate::kit::link(ui, "See it in MyOpenMath", true).clicked() { autoadd::see_in_mom(st, ui.ctx(), p.course, p.assessment); }
+                }
+            });
+            ui.add_space(4.0);
+            if crate::kit::link(ui, "Add it to a different assessment", false).clicked() { st.add_elsewhere = true; }
+        });
+        return;
+    }
+    let _ = in_mom;
+    // Which question this is, and that this is the short last step.
+    let name = c.q.name.trim();
+    ui.horizontal_wrapped(|ui| {
+        ui.label(RichText::new("✔ Approved and saved.").color(theme::green()).size(14.0));
+        ui.label(theme::muted("Last step: choose where").size(14.0));
+        if !name.is_empty() { ui.label(theme::strong(name).size(15.0)); }
+        ui.label(theme::muted(if name.is_empty() { "it goes." } else { "goes." }).size(14.0));
+    });
+    ui.add_space(6.0);
     #[cfg(not(target_arch = "wasm32"))]
     {
         autoadd::card(ui, ctx, st);
@@ -3105,6 +3436,7 @@ fn manual_copy(ui: &mut Ui, st: &mut State, fields: &[(&str, String, &str)], men
 
 fn open_saved(st: &mut State, saved: Saved) {
     st.tool_page = None;
+    st.add_elsewhere = false;
     #[cfg(not(target_arch = "wasm32"))]
     { st.poster.clear_result(); }
     st.worksheet_mode = saved.worksheet_source.is_some();
@@ -3137,10 +3469,25 @@ fn side(ui: &mut Ui, ctx: &egui::Context, st: &mut State) {
         pageshell::heading(ui, "My Questions");
         ui.add_space(4.0);
         if st.library.questions.is_empty() {
-            ui.label(theme::muted("Converted drafts and approved questions appear here.").size(13.0));
+            ui.label(theme::muted("Questions you write or convert appear here, saved as soon as they are written.").size(13.0));
         }
         let mut open: Option<Saved> = None;
         let mut delete: Option<String> = None;
+        if st.published.is_none() { st.published = Some(published_ids()); }
+        let published = st.published.clone().unwrap_or_default();
+        // Done first: what is finished, then what is waiting on the teacher.
+        let (mut done, mut ready, mut review, mut fix) = (0, 0, 0, 0);
+        for s in &st.library.questions {
+            if published.contains(&s.id) { done += 1 }
+            else if !s.passed && !s.needs_check { fix += 1 }
+            else if s.reviewed { ready += 1 }
+            else { review += 1 }
+        }
+        // Finished on its own line, then what is left, so neither breaks mid-phrase.
+        if done > 0 { ui.label(RichText::new(format!("✔ {done} in MyOpenMath")).color(theme::green()).size(12.5)); }
+        let parts: Vec<String> = [(ready, "ready to add"), (review, "to review"), (fix, "to fix")]
+            .into_iter().filter(|(n, _)| *n > 0).map(|(n, what)| format!("{n} {what}")).collect();
+        if !parts.is_empty() && st.library.questions.len() > 1 { ui.label(theme::muted(parts.join(" · ")).size(12.5)); }
         for s in &st.library.questions {
             let q = MomQuestion::parse(&s.src);
             let name = if q.name.is_empty() { "Untitled question".to_string() } else { q.name.clone() };
@@ -3150,10 +3497,13 @@ fn side(ui: &mut Ui, ctx: &egui::Context, st: &mut State) {
                 ui.add(egui::Label::new(theme::muted(source).size(12.0)).wrap());
             }
             ui.add_enabled_ui(!busy(st), |ui| ui.horizontal(|ui| {
-                let (status, fill, fg) = if !s.passed && !s.needs_check {
+                // Finished work reads as finished: a question already in MyOpenMath says so.
+                let (status, fill, fg) = if published.contains(&s.id) {
+                    ("In MyOpenMath", theme::accent_faded(), theme::green())
+                } else if !s.passed && !s.needs_check {
                     (saved_status(s), theme::error_wash(), theme::red())
                 } else if s.reviewed {
-                    (saved_status(s), theme::accent_faded(), theme::accent_col())
+                    ("Ready to add", theme::accent_faded(), theme::accent_col())
                 } else {
                     (saved_status(s), theme::highlighter(), theme::on_highlighter())
                 };
@@ -3614,7 +3964,7 @@ mod autoadd {
 
     #[derive(Serialize, Deserialize, Default, Clone)]
     #[serde(default)]
-    struct Prefs { course: Option<u64>, assessment: Option<u64> }
+    struct Prefs { course: Option<u64>, assessment: Option<u64>, place: Option<(u64, u64, String)> }
 
     fn publication_path(st: &State, cid: u64, aid: u64) -> Option<String> {
         let id = st.current.as_ref()?.saved_id.as_deref()?;
@@ -3641,6 +3991,17 @@ mod autoadd {
 
         pub(super) fn message(&self) -> Option<&str> {
             self.result.as_ref().map(|result| match result { Ok(message) | Err(message) => message.as_str() })
+        }
+
+        /// "Course · Assessment" by name, when D.A.D has read that course's assessments.
+        pub(super) fn place_name(&self, cid: u64, aid: u64) -> Option<String> {
+            let live = (|| {
+                let course = self.courses.iter().find(|course| course.id == cid)?;
+                let assessment = self.assessments.iter().find(|assessment| assessment.id == aid && self.assessments_for == Some(cid))?;
+                Some(format!("{} · {}", course.name, assessment.name))
+            })();
+            // Not connected this session: the names saved when the teacher last published there.
+            live.or_else(|| self.prefs.place.as_ref().filter(|(c, a, _)| *c == cid && *a == aid).map(|(_, _, name)| name.clone()))
         }
 
         pub(super) fn destination(&self) -> Option<String> {
@@ -3720,6 +4081,9 @@ mod autoadd {
         st.log.clear();
         st.poster.result = None;
         st.browser.open(Surface::Transfer);
+        poster::STOP_BEFORE_SAVE.store(false, std::sync::atomic::Ordering::SeqCst);
+        // The names the pickers show now, kept with the ids so the finish can name the place later.
+        if let Some(place) = st.poster.place_name(cid, aid) { st.poster.prefs.place = Some((cid, aid, place)); let _ = crate::store::save_json(PREFS, &st.poster.prefs); }
         let job = start(st, "MyOpenMath");
         let ctx = ctx.clone();
         run_bg(async move {
@@ -3734,6 +4098,16 @@ mod autoadd {
                 }
             });
             finish(&job, &ctx, Outcome::Posted { result: r, preview: !publish });
+        });
+    }
+
+    /// Open the signed-in MyOpenMath panel on the assessment's question list.
+    pub(super) fn see_in_mom(st: &mut State, ctx: &egui::Context, cid: u64, aid: u64) {
+        st.browser.open(Surface::Transfer);
+        let ctx = ctx.clone();
+        std::thread::spawn(move || {
+            if let Ok(t) = tab(&ctx) { let _ = t.navigate(&format!("{}/course/addquestions2.php?cid={cid}&aid={aid}", poster::MOM)); }
+            ctx.request_repaint();
         });
     }
 
@@ -3756,8 +4130,13 @@ mod autoadd {
     }
 
     pub fn posted(st: &mut State, r: Result<Added, String>) {
+        st.published = None;
+        // Done: back to the card, where the finish is said in full (the panel showed a plain line).
+        if matches!(r, Ok(Added::Saved(_))) { st.browser.close(); }
+        let place = st.poster.destination();
         st.poster.result = Some(match r {
-            Ok(Added::Saved(p)) => Ok(format!("Verified question {} in MyOpenMath assessment {}.", p.question, p.assessment)),
+            // The card's finish says it in full; no second green line under it.
+            Ok(Added::Saved(_)) => { let _ = place; st.poster.result = None; return; }
             Ok(Added::SavedToSet(p, error)) => Err(format!("Question {} is in your MyOpenMath question set. Attachment is unconfirmed. {error}", p.question)),
             Ok(Added::Filled) => Ok("Save is disabled in this preview. Return to transfer to publish to the selected assessment.".into()),
             Err(e) => Err(e),
@@ -3836,6 +4215,7 @@ mod autoadd {
                 if let Some((cid, aid)) = target {
                     let receipt = publication_path(st, cid, aid);
                     let publication = receipt.as_ref().and_then(|path| crate::store::load_json::<PublishState>(path));
+                    let mut finished: Option<poster::Publication> = None;
                     ui.add_enabled_ui(!working, |ui| {
                         ui.horizontal_wrapped(|ui| {
                             match publication {
@@ -3848,17 +4228,36 @@ mod autoadd {
                                     if pageshell::primary(ui, "Retry attachment").clicked() { start_add(st, ctx, cid, aid, true); }
                                 }
                                 Some(PublishState::Attached(p)) => {
-                                    ui.label(theme::strong(format!("Published · question {}", p.question)));
+                                    // The end of the job: say it is done, where, and offer the next one.
+                                    finished = Some(p);
                                 }
                                 Some(PublishState::AwaitingConfirmation) => {
-                                    ui.label(theme::muted("Save unconfirmed. Check your MyOpenMath question set."));
+                                    ui.label(theme::muted("Save unconfirmed. Check the assessment in MyOpenMath."));
+                                    if crate::kit::link(ui, "Open the assessment in MyOpenMath", true).clicked() { see_in_mom(st, ctx, cid, aid); }
                                 }
                             }
                             // Step 2 already tried the question as a student: seeing it in MyOpenMath's
                             // own editor first is optional, so it is a quiet link after Publish.
-                            ui.add_space(8.0);
-                            if crate::kit::link(ui, "Preview in MyOpenMath first", false).clicked() { start_add(st, ctx, cid, aid, false); }
+                            if finished.is_none() {
+                                ui.add_space(8.0);
+                                if crate::kit::link(ui, "Preview in MyOpenMath first", false).clicked() { start_add(st, ctx, cid, aid, false); }
+                            }
                         });
+                        if let Some(p) = &finished {
+                            ui.label(RichText::new("✔ It's in MyOpenMath").color(theme::green()).family(theme::bold_family()).size(18.0));
+                            let place = st.poster.destination().unwrap_or_else(|| format!("assessment {}", p.assessment));
+                            ui.add(egui::Label::new(theme::text(format!("It's published in {place}. Students see it the next time they open the assessment.")).size(14.0)).wrap());
+                            ui.label(theme::muted(format!("MyOpenMath question ID {}", p.question)).size(12.0));
+                            ui.add_space(6.0);
+                            ui.horizontal_wrapped(|ui| {
+                                finish_actions(ui, st);
+                                ui.add_space(8.0);
+                                // In the panel that is already signed in, not a browser that may not be.
+                                if crate::kit::link(ui, "See it in MyOpenMath", true).clicked() {
+                                    see_in_mom(st, ui.ctx(), p.course, p.assessment);
+                                }
+                            });
+                        }
                     });
                     if receipt.is_none() {
                         crate::kit::gated_reason(ui, "Publishing requires a saved, approved question.");
@@ -3870,6 +4269,7 @@ mod autoadd {
             if mine && ui.link("Show MyOpenMath browser").clicked() { st.browser.open(Surface::Transfer); }
             if working && mine && !st.log.is_empty() {
                 ui.add_space(8.0);
+                ui.label(theme::muted("This usually takes under a minute. You can watch it in the browser panel.").size(13.0));
                 for line in st.log.iter().rev().take(3).collect::<Vec<_>>().into_iter().rev() {
                     ui.horizontal(|ui| {
                         ui.spinner();
@@ -3879,6 +4279,8 @@ mod autoadd {
             }
             match &st.poster.result {
                 Some(Ok(m)) => { ui.add_space(6.0); ui.add(egui::Label::new(RichText::new(format!("✔ {m}")).color(theme::green()).size(14.0)).wrap()); }
+                // A stop the teacher asked for is not a fault: said plainly, not in red.
+                Some(Err(e)) if e.starts_with("Stopped before saving") => { ui.add_space(6.0); ui.add(egui::Label::new(theme::muted(e).size(14.0)).wrap()); }
                 Some(Err(e)) => { ui.add_space(6.0); ui.add(egui::Label::new(RichText::new(e).color(theme::red()).size(14.0)).wrap()); }
                 None => {}
             }

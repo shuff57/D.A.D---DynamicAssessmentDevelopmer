@@ -182,7 +182,8 @@ pub async fn read(
         let notes_before = notes.len();
         for (index, page) in pages.into_iter().enumerate() {
             let location = if page_count == 1 { file.name.clone() } else { format!("{} · page {}", file.name, index + 1) };
-            progress(format!("Reading {location}…"));
+            // "page 3 of 7", so the wait has a size.
+            progress(if page_count == 1 { format!("Reading {location}…") } else { format!("Reading {} · page {} of {page_count}…", file.name, index + 1) });
             match transcribe(&page, cfg).await {
                 Ok(transcription) => {
                     notes.extend(transcription.notes.into_iter().filter(|note| !note.trim().is_empty())

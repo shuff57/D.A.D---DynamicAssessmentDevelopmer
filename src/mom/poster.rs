@@ -71,6 +71,10 @@ pub enum PublishState {
     Attached(Publication),
 }
 
+/// Set by the teacher's "Stop adding": the add stops at the last safe point, just before
+/// MyOpenMath's Save is clicked. After that click the question stays, and the receipt says where.
+pub static STOP_BEFORE_SAVE: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
 /// Keep the state on disk before each remote change so a retry can reconcile the same question.
 pub fn publish_question(
     p: &mut impl Page, cid: u64, aid: u64, q: &MomQuestion, key: &str, log: &mut impl FnMut(&str),
@@ -254,6 +258,9 @@ pub fn add_question_recorded(
     let button = "[...(document.getElementById('control')?.form?.querySelectorAll('button') ?? [])].find(b => b.form === document.getElementById('control').form && b.textContent.trim() === 'Save' && !b.disabled && b.getClientRects().length > 0)";
     if p.eval(&format!("!!({button})"))? != Value::Bool(true) {
         return Err("Couldn't find MyOpenMath's Save button. Nothing was saved automatically.".into());
+    }
+    if STOP_BEFORE_SAVE.swap(false, std::sync::atomic::Ordering::SeqCst) {
+        return Err("Stopped before saving. Nothing was added to MyOpenMath.".into());
     }
     record(PublishState::AwaitingConfirmation)?;
     let clicked = p.eval(&format!(

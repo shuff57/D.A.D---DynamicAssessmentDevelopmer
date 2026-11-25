@@ -510,10 +510,22 @@ pub fn plain_error(e: &str) -> String {
     if l.contains("can't reach") || l.contains("timeout") || l.contains("timed out") || l.contains("connection") {
         return "Couldn't reach the AI. Check your internet connection and try again.".into();
     }
-    if l.contains("engine") {
-        return "The question checker didn't start. Reload the page and try again.".into();
+    if l.contains("429") || l.contains("answered 5") || l.contains("503") || l.contains("502") || l.contains("overloaded") || l.contains("rate limit") {
+        return "The AI is busy right now. Wait a minute and try again.".into();
     }
-    "Something went wrong while writing the question. Try again, or change the description.".into()
+    if l.contains("engine") {
+        return if cfg!(target_arch = "wasm32") {
+            "The question checker didn't start. Reload the page and try again.".into()
+        } else {
+            "The question checker didn't start. Try again; if it keeps failing, close D.A.D and open it again.".into()
+        };
+    }
+    // A sentence already written for the teacher (the preview, the checker) is shown as it is;
+    // only raw errors get the general line, which does not blame the description.
+    let written_for_teachers = e.len() < 220 && e.starts_with(|c: char| c.is_ascii_uppercase())
+        && !["{", "error:", "Error:", "::", "os error", "JSON", "Failed to load", "404", "500", "No such file", "panicked", "Unexpected", "http", "answered"].iter().any(|raw| e.contains(raw));
+    if written_for_teachers { return e.to_string(); }
+    "That didn't work. Try again; if it keeps happening, change the description or pick another AI.".into()
 }
 
 #[cfg(test)]
