@@ -1119,6 +1119,15 @@ impl Workspace {
         } else if let Some(g) = self.group {
             let order = |d: &FigureDef| g.subjects().iter().position(|s| *s == d.subject).unwrap_or(usize::MAX);
             list.sort_by_key(|(_, d)| order(d));
+        } else {
+            // All: the topics in tab order (math first), each in its own subject order, so a math
+            // teacher's first screen is graphs and number lines, not free-body diagrams.
+            let order = |d: &FigureDef| {
+                let g = d.subject.group();
+                let gi = figures::Group::ALL.iter().position(|x| *x == g).unwrap_or(usize::MAX);
+                (gi, g.subjects().iter().position(|s| *s == d.subject).unwrap_or(usize::MAX))
+            };
+            list.sort_by_key(|(_, d)| order(d));
         }
 
         let max_h = if self.modal {
@@ -4884,7 +4893,8 @@ impl crate::App {
                     act = ws.show(ui);
                 });
         } else {
-        crate::screens::desk_panel(ui, if phone { 8 } else if ws.sel.is_some() { 16 } else { 24 }, |ui| {
+        // the list keeps every page's 20 pt inset (24 set its title 4 pt right of and below theirs)
+        crate::screens::desk_panel(ui, if phone { 8 } else if ws.sel.is_some() { 16 } else { 20 }, |ui| {
             if phone {
                 // no breadcrumb row on a phone: the canvas wants the height, and "← Figures" below
                 // leads back to the list (which has the rail with Home)
