@@ -2112,28 +2112,26 @@ impl crate::App {
 
     /// Coffee, the issue list, the report form and the contact page. The report opens a prefilled
     /// GitHub issue and Contact opens /contact/ in the browser; nothing is sent from the app itself.
-    fn draw_community(&mut self, ui: &mut egui::Ui, ctx: &egui::Context) {
+    fn draw_community(&mut self, ui: &mut egui::Ui, _ctx: &egui::Context) {
         use crate::kit;
         const COFFEE: &str = "https://www.buymeacoffee.com/shuff57";
         const ISSUES: &str = "https://github.com/shuff57/verSHion/issues";
         kit::card().inner_margin(Margin::same(18)).show(ui, |ui| {
             ui.set_min_width(ui.available_width().max(0.0));
-            ui.label(theme::serif("Community").size(18.0));
+            ui.label(theme::serif("Help & community").size(18.0));
             ui.add_space(4.0);
             ui.label(theme::muted(
-                "D.A.D is free. A coffee helps keep it going; bugs and ideas live on GitHub, and the contact form reaches us directly.",
+                "Something wrong? Use Report in the dock, on any page. The contact form reaches us directly, known issues are listed on GitHub, and a coffee helps keep D.A.D free.",
             ));
             ui.add_space(10.0);
-            // What a teacher comes here for first (a problem, a question), the coffee last; the
-            // desktop download only where it is news, in the browser.
+            // What a teacher comes here for first (a question), the coffee last; the desktop
+            // download only where it is news, in the browser. Reporting a problem is the dock's
+            // Report item, on every page: a second button here opened the same dialog.
             ui.horizontal_wrapped(|ui| {
-                if crate::pageshell::outline(ui, &format!("{}  Report a bug", egui_phosphor::regular::BUG)).clicked() {
-                    ctx.data_mut(|d| d.insert_temp(egui::Id::new("report_open"), true));
-                }
                 if crate::pageshell::outline(ui, &format!("{}  Contact us", egui_phosphor::regular::ENVELOPE_SIMPLE)).clicked() {
                     crate::platform::open_contact();
                 }
-                if crate::pageshell::outline(ui, &format!("{}  Reported issues", egui_phosphor::regular::LIST_BULLETS)).clicked() {
+                if crate::pageshell::outline(ui, &format!("{}  Known issues", egui_phosphor::regular::LIST_BULLETS)).clicked() {
                     crate::platform::open_url(ISSUES);
                 }
                 if cfg!(target_arch = "wasm32") && crate::pageshell::outline(ui, &format!("{}  Desktop app", egui_phosphor::regular::DOWNLOAD_SIMPLE)).clicked() {
