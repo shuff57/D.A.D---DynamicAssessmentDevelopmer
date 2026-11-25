@@ -158,6 +158,32 @@ Each piece runs in its own thread and branch. The coordinating thread merges fin
 | # | Work | Branch | Status |
 |---|---|---|---|
 | 1 | End-to-end test on real MyOpenMath (write, try, publish, the finish, Stop adding, the In MyOpenMath label) | `dad/e2e-mom` | started |
-| 2 | Server launch prep: deploy steps for `server/`, release build with the URL, D.A.D AI sign-in and credits (every account or paid step waits for the owner) | `dad/server-launch` | started |
-| 3 | Older screens' UX (headers on Home, Grade and Shared; duplicate import and share screens; Help's five buttons; Figures opening on physics) | `dad/legacy-ux` | started |
-| 4 | Housekeeping: full test suite including figures, the flaky Figures drag test, compiler warnings | `dad/housekeeping` | started |
+| 2 | Server launch prep: deploy steps for `server/`, release build with the URL, D.A.D AI sign-in and credits (every account or paid step waits for the owner) | `dad/server-launch` | merged 2026-11-25 (`9311ad48`); owner steps remain, see below |
+| 3 | Older screens' UX (headers on Home, Grade and Shared; duplicate import and share screens; Help's five buttons; Figures opening on physics) | `dad/legacy-ux` | merged 2026-11-25 (`7ba4e770`), Opus 8.6 / DeepSeek 8.5 |
+| 4 | Housekeeping: full test suite including figures, the flaky Figures drag test, compiler warnings | `dad/housekeeping` | committed; final checks running |
+
+### Older screens (`dad/legacy-ux`): what changed and what is open
+
+Scores: L0 7.2 / 7.0, L1 8.3 / 8.4, L2 8.6 / 8.5 (Opus / DeepSeek). Reports and marked images are in `~/.cache/dad-legacy-ux/`.
+
+Now settled (keep):
+- Figures opens on math: "Math and computing" is the first tab and leads the All view.
+- Home, Grade, Banks, Exams and the bank importer have no breadcrumbs. Home's counts are one subtitle line with zeros left out, its three tiles are equal, and its filled tile comes first in both states.
+- Help & community has three buttons: Contact us, Known issues, Buy me a coffee. Report stays in the dock.
+- Shared fills the page width, with a "What sharing does" panel and a full-width legal strip.
+- The bank importer lists Canvas, Blackboard, Moodle, Kahoot, Quizlet and "Other quiz exports", and its button is "Convert with AI". Grade hides its checking keys until an exam exists.
+
+Waiting for the owner:
+- Home, Banks, Exams, Grade, the bank importer and Shared can't be reached from the app; the owner chose to polish them in place without adding a way in.
+- Only Questions carries the wordmark that Stage A says every header has.
+- The bank importer has two names ("Import into a question bank" and "Import to a bank"), both locked in Stage C. Grade says "Make an Exam" (Stage A); Home and Exams say "New exam".
+- Zero counts on Banks and Exams ("1 bank · 0 questions"), and whether the Shared page should be renamed "Shared by teachers" so it isn't confused with the dock's Share.
+
+Left open (small): about 100 "verSHion" strings in `src/share/`; three Shared states not captured; card layout differences between Banks and Exams; missing footers on Banks, Exams and Home; small copy. Narrow width and dark mode were not checked.
+
+### Server launch (`dad/server-launch`): what changed and what is open
+
+- The server is the Rust server `server/api` on the VPS (`docs/hosting-port.md`), not the Worker. The runbook is `docs/server-launch.md`.
+- The server has a `question` service at 1 credit. The app opens a credit session for every write, rewrite, worksheet problem and worksheet file, and turns server refusals into teacher sentences (`ai::account_message`).
+- Tested locally with an Ollama model: sign-up, sign-in, writing on credits, running out of credits, an ended sign-in and an unreachable server. Worksheet conversion on D.A.D AI was not tested end to end.
+- Open: `AI_RELAY_KEY` must be set, or calls without a sign-in get the AI free. The server's emails still say "verSHion". `VERSHION_LEGAL_URL` is the site root, not `/legal`. The 1-credit price is the builder's choice.
