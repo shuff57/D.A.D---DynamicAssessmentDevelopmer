@@ -5476,10 +5476,14 @@ mod tests {
         // a vertex knob next to a moved label still drags the vertex
         let (ctx, mut ws) = open_fig("rectangle");
         ws.params.set_s(figures::labels::KEY, "v2:20,-20");
+        // draw the moved label now instead of after the 150 ms debounce: the knob is found on this preview, and a
+        // debounce that ran out in the middle of the drag (a busy machine) redrew a larger canvas under the pointer
+        ws.live = true;
         for _ in 0..2 {
             comp_frame(&ctx, &mut ws, vec![]);
         }
         let def = &reg()[ws.sel.unwrap()];
+        assert_eq!(ws.shown.as_ref().map(|s| s.0), Some(hash_params(def.id, &ws.params)), "the preview shows the moved label");
         let hs = def.handles(&ws.params, ws.canvas);
         let knob = hs.iter().find(|h| !h.label_drag && h.tip.contains("width")).expect("width knob").pos;
         let ab = ws.params.s("m_ab").to_string();
