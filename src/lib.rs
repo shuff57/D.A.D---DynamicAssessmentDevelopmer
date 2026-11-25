@@ -11,6 +11,12 @@ pub fn env_var(name: &str) -> Result<String, std::env::VarError> {
         .or_else(|first| std::env::var(name.replacen("VERSHION_", "QUESHION_", 1)).map_err(|_| first))
 }
 
+/// Tests only: whether the tests' time limits on a render are checked. The limits are set for optimised code, so they
+/// are checked in the slow tier (`cargo test --profile figtest --lib --features slow-tests`); a plain debug
+/// `cargo test --lib` skips them, because on a busy machine renders ran past them while giving the right answers.
+#[cfg(test)]
+pub(crate) const TIMED: bool = cfg!(feature = "slow-tests");
+
 pub fn env_var_os(name: &str) -> Option<std::ffi::OsString> {
     std::env::var_os(name)
         .or_else(|| std::env::var_os(name.replacen("VERSHION_", "QUESHION_", 1)))

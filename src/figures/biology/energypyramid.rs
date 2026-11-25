@@ -1198,6 +1198,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
     fn hostile_text_never_panics_and_always_parses_as_an_image() {
         let long = "q".repeat(5000);
         let inputs = ["", "\n\n", ":", "::", "A:1:2", "A: 1e", "𝒜: 5\nB: 3", "A\u{0}: 5\nB: 3", "R&D <x> \"q\": 5\nB 'y': 3", "A: 1e-320\nB: 1e-323", "A: 9e307\nB: 1", "\u{feff}", "\u{feff}A: 5\nB: 3", "A: 1e21\nB: 1e-7", "A: 1.5 × 10^999\nB: 1", &long, "A: 5\nB: 4\nC: 3\nD: 2\nE: 1\nF: 0.5\nG: 0.1", "\u{202e}A: 5\nB: 3", "A: ９\nB: 3"];

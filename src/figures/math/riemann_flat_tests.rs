@@ -203,6 +203,7 @@ fn check(c: &Case, strips: &str, rule: &str, n: usize) -> Vec<String> {
 }
 
 #[test]
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
 fn riemann_flat_pieces_on_strip_levels() {
     let cs = cases();
     assert!(cs.len() >= 48, "{} cases", cs.len());

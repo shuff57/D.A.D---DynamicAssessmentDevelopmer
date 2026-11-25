@@ -376,6 +376,7 @@ fn without_leader(p: &crate::figures::Params, t: &str) -> String {
 }
 
 #[test]
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
 fn every_label_touches_no_other_ink_as_rasterized() {
     // measured from pixels, not boxes: each text's own dark pixels (there with it, white without it) have no other
     // ink within 2 px, and lie inside the page, at 2x, over the crowded touching states. Every label in the figure
@@ -428,6 +429,7 @@ fn every_label_touches_no_other_ink_as_rasterized() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
 fn the_contact_arrows_touch_no_other_ink_as_rasterized() {
     // the pair's own ink (taken out by colour) keeps 2 px from every other stroke and text, at 2x
     let mut n = 0;
@@ -473,6 +475,7 @@ fn the_contact_arrows_touch_no_other_ink_as_rasterized() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
 fn the_contact_label_is_nearest_its_own_pair() {
     // read from the drawn glyph box (the label's ink, rasterized at 2x with and without it, boxed): the nearest stroke
     // edge to the pair's label is the pair's own (an arrow, or the leader to it), by 2 px over any other stroke
@@ -515,6 +518,7 @@ fn contact_texts<'a>(t: &'a str, lab: &str) -> Vec<&'a str> {
 }
 
 #[test]
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
 fn a_typed_contact_label_is_drawn_or_the_panel_says_it_was_left_off() {
     // checker round 1: "F_{contact}" on a ramp drew no label and said nothing. Over the table and ramps of 10 to 60
     // degrees, every force switch together, object sizes and labels from P to F_{1 on 2}: the pair's label is in the
@@ -760,6 +764,7 @@ fn ink(t: &str) -> (Vec<(super::pulley_b10::Seg, bool)>, Vec<(String, (f64, f64,
 }
 
 #[test]
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
 fn the_contact_label_is_clear_of_every_stroke_however_long() {
     // checker round 2: on 50 and 60 degree ramps the string from the post up to the wheel ran through the pair's
     // label, because the placer kept only strokes whose bounding box's top-left corner was within 220 px of the pair

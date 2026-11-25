@@ -184,6 +184,7 @@ fn rows_of(p: &Params) -> Vec<(labels_b8::LKey, String, String, Rect)> {
 /// Large and Medium in Print: every label not put on a side keeps its text and place from the figure with no side chosen, and every
 /// label put on a side keeps its text (units and all). The canvas is the same.
 #[test]
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
 fn more_side_rows_never_change_another_labels_text_or_an_unsided_labels_place() {
     let simple = fig(&figures()[0], "Print", "Large", "radius left; chord left; om right; am left");
     let four: Vec<String> = rep(&simple).placed.iter().map(|l| l.text.clone()).collect();

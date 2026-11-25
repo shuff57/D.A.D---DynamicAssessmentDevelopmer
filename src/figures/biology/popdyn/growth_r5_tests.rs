@@ -60,6 +60,7 @@ fn fixed_axes(seed: u64, n: usize) -> Vec<Case> {
 /// renderer draws them) or its blank line, the title's words or blank line, every other word or number, the curves,
 /// census dots and each other, and on the page.
 #[test]
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
 fn fixed_axes_blank_lines_clear_of_the_k_label_and_title() {
     let d = def(PG);
     let cases = fixed_axes(0xf1_8ed_a5, 480);
@@ -133,6 +134,7 @@ fn fixed_axes_blank_lines_clear_of_the_k_label_and_title() {
 /// Leaders from neighbouring narrow phase brackets stand apart at their feet (they once left 0.15 to 1.15 px apart and
 /// fanned out from one spot): each foot at least 1.95 px from the next (2 px where both brackets are under 4 px: the most their own brackets allow), the checker's figure and the round 3 sweep.
 #[test]
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
 fn narrow_bracket_leaders_have_a_gap_at_their_feet() {
     let d = def(PG);
     let mut cases: Vec<Case> = vec![vec![("mark_infl", b(true)), ("mark_phases", b(true)), ("infl_label_style", s("Blank line")), ("phase_label_style", s("Blank line")), ("r", f(5.0)), ("tspan", f(1000.0)), ("n0", f(400.0))]];

@@ -331,6 +331,7 @@ fn clicks_combine_and_read_back() {
 /// region is chosen and white when it is not, for every combination of regions in the one- and two-set layouts and a
 /// spread of them with three sets, in a tint, a pattern and Print.
 #[test]
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
 fn shading_covers_exactly_the_chosen_regions() {
     for (sets, arr, _) in layouts() {
         let base = with(&[("sets", sets), ("arrangement", arr), ("counts", ""), ("totals", "false"), ("universal", "None")]);

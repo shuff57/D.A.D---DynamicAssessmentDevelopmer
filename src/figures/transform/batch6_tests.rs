@@ -240,6 +240,7 @@ fn then_lines_are_read_leniently_and_bad_ones_are_named() {
 /// The 6d edges: the most transformations, the biggest enlargements, ten vertices, Large letters, every image shown:
 /// it renders, and an image past the largest grid is cut at its edge with a note (never drawn off the page).
 #[test]
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
 fn the_biggest_and_most_crowded_figures_stay_on_the_page() {
     let ten = "0, 0\n2, 0\n3, 2\n1, 3\n-1, 2\n-2, 0\n-3, -2\n0, -3\n2, -3\n4, -1";
     let p = with(&[s("pre", ten), s("op", "Dilate"), f("scale", 3.0), f("cx", -10.0), f("cy", -10.0), s("then", "dilate 5 about (10, 10)\ndilate 5\ndilate 5"), s("label_size", "Large"), s("pt_labels", "Letters and coordinates")]);
@@ -738,6 +739,7 @@ fn crowded_cases() -> Vec<(String, Vec<(&'static str, Value)>)> {
 }
 
 #[test]
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
 fn coordinate_labels_never_overlap_text_lines_dots_or_rings() {
     for (name, case) in crowded_cases() {
         for size in ["Small", "Medium", "Large"] {

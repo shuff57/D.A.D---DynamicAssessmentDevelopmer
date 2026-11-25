@@ -66,6 +66,7 @@ fn at_deg(p: &Params, deg: f64, r: f64) -> Pt { let c = centre(p); interact::pol
 /// one off it, and the polygon's own corners. Each lands where it is dropped, its dot and letter go with it, the lines through it
 /// follow, and the drag writes only that point's own params (every other row, typed number and letter is kept exactly).
 #[test]
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
 fn every_drawn_point_can_be_dragged_and_the_figure_follows() {
     let base = with(&[b("show_b", true), b("show_c", true), b("show_chord", true), b("show_inscribed", true), f("a1", 20.0), f("a2", 110.0), f("c_angle", 250.0),
         s("more_points", "D 300, P 45 1.8r, 33.33"), s("joins", "AD, OP, BD"), s("marks", "AD length"), s("polygon", "4 sides")]);
@@ -318,6 +319,7 @@ fn side_of(r: &Rect, a: Pt, b: Pt) -> i32 { if labels_b8::box_on_side(r, a, b, 1
 /// dragged through the hit test across its line: it goes to the other side and stays there, and back again; on both sides it is
 /// inside the page, on no other text and on no drawn line or point.
 #[test]
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
 fn a_line_label_dragged_across_its_line_stays_on_that_side() {
     use labels_b8::LKey;
     let sets: Vec<(Vec<(&'static str, Value)>, Vec<LKey>)> = vec![
@@ -411,6 +413,7 @@ fn labels_on_either_side_stay_clear_over_crowded_figures() {
 /// it did with the label knobs taken away (shade an area, name a crossing or midpoint, label a line, put a point on the circle, join
 /// points), and the point knobs win their own presses.
 #[test]
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
 fn the_old_clicks_still_fire_under_the_label_knobs() {
     let p = with(&[b("show_b", true), b("show_c", true), b("show_chord", true), b("show_inscribed", true), s("more_points", "D 300"), s("joins", "AC, BD"), s("marks", "BD length, AC x"), f("a2", 100.0), f("c_angle", 200.0)]);
     let all = hs(&p);

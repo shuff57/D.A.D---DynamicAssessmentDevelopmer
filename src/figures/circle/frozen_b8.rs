@@ -107,6 +107,7 @@ fn cases() -> Vec<Vec<(&'static str, Value)>> {
 }
 
 #[test]
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
 fn circle_b8_frozen() {
     use crate::figures::{share, spec};
     let d = def();

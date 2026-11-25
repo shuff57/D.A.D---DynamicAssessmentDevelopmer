@@ -173,6 +173,7 @@ fn other_multiterm_factors_and_operations_by_hand() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
 fn sum_radii_styles_units_operations_sweep() {
     let mut count = 0;
     for (radius, r) in [
@@ -404,7 +405,7 @@ fn corrected_render_time_under_200ms() {
             let elapsed = start.elapsed();
             worst = worst.max(elapsed);
             assert!(
-                elapsed.as_secs_f64() < 0.2,
+                !crate::TIMED || elapsed.as_secs_f64() < 0.2,
                 "{operation} n={n}: {elapsed:?}"
             );
         }

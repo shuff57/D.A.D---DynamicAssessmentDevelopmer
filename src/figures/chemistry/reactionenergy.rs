@@ -2567,6 +2567,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
     fn odd_inputs_never_panic_or_print_nan() {
         let mut cases: Vec<Params> = Vec::new();
         for v in [f64::NAN, f64::INFINITY, f64::NEG_INFINITY, -1e300, 1e300, 0.0, -0.0, 1e-12] {
@@ -2592,6 +2593,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
     fn no_label_collides_across_ten_thousand_cases() {
         let mut cases: Vec<Vec<(&'static str, Value)>> = Vec::new();
         let sizes = ["Small", "Medium", "Large"];
@@ -2789,6 +2791,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
     fn the_overall_ea_is_never_below_a_step_it_contains() {
         let mut cases: Vec<Vec<(&'static str, Value)>> = Vec::new();
         // the critic's case first
@@ -3124,6 +3127,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
     fn labels_stay_by_their_own_features_across_ten_thousand_cases() {
         let cases = attribution_cases();
         assert!(cases.len() >= 10_000, "only {} cases", cases.len());
@@ -3897,6 +3901,7 @@ mod tests {
     /// The new modes through both audits: no label on another label, an axis text, a stroke or off the page, and every
     /// label by its own feature, over random three-step, enzyme, level-diagram, value-label and titled figures.
     #[test]
+    #[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
     fn the_new_modes_pass_the_label_audits_across_three_thousand_cases() {
         let mut rng = crate::figures::biology::Rng::new(41);
         let pick = |r: &mut crate::figures::biology::Rng, lo: f64, hi: f64, step: f64| lo + r.below((((hi - lo) / step).round() as usize) + 1) as f64 * step;
@@ -3939,6 +3944,7 @@ mod tests {
     /// Every option of every choice and both values of every switch, alone and over three steps with a catalyst and
     /// over the level diagram, renders a whole SVG and a PNG with no non-finite number (the census's cases, run here).
     #[test]
+    #[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
     fn every_option_renders() {
         let defs = (def().params)();
         for base in [vec![], three(&[b("catalyst", true)]), vec![s("view", "Level diagram")]] {

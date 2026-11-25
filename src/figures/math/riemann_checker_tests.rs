@@ -322,6 +322,7 @@ const SMALL_MEDIUM_REFUSED: &[&str] = &[
 ];
 
 #[test]
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
 fn the_checkers_sweep_is_clean() {
     let mut cases = classroom();
     assert_eq!(cases.len(), 100);
@@ -419,6 +420,7 @@ fn detach_cases() -> Vec<(String, String)> {
 /// own strip, and (the fourth checker's) no a or b label in the row of x-axis numbers, on its 223 cases with heights or
 /// areas on, at every size.
 #[test]
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
 fn strip_labels_sit_on_their_strips() {
     let cases = detach_cases();
     assert!(cases.len() >= 223, "{}", cases.len());

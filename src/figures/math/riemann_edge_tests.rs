@@ -232,6 +232,7 @@ fn line_texts(svg: &str) -> Vec<String> {
 fn number(t: &str) -> Option<f64> { t.trim().replace('\u{2212}', "-").parse().ok() }
 
 #[test]
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
 fn riemann_flat_edge_and_end_level_strips_match_independent_widths() {
     let (mut renders, mut worst) = (0, (std::time::Duration::ZERO, None));
     let mut failures = vec![];

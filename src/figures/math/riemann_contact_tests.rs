@@ -74,7 +74,7 @@ fn riemann_wide_contacts_settle_or_refuse() {
         let t0 = std::time::Instant::now();
         let got = model(&p(f, g, *x0, *x1));
         let el = t0.elapsed();
-        if el.as_secs_f64() > 0.5 { bad.push(format!("{ctx}: {el:?}")); }
+        if crate::TIMED && el.as_secs_f64() > 0.5 { bad.push(format!("{ctx}: {el:?}")); }
         let refused = |e: &str| REFUSED.iter().any(|r| e.contains(r));
         match (want, got) {
             (Want::Touch(r, strict), Err(e)) => {

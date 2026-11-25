@@ -231,6 +231,7 @@ fn versions_b9_frozen_box_plot() { check("box-plot") }
 #[test]
 fn versions_b9_frozen_waves() { check("waves") }
 #[test]
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
 fn versions_b9_frozen_predator_prey() { check("predator-prey") }
 #[test]
 fn versions_b9_frozen_projectile_motion() { check("projectile-motion") }

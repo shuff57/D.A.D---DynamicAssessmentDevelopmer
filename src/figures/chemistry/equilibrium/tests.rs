@@ -651,6 +651,7 @@ fn the_k_expression_is_written_from_the_coefficients_and_leaves_out_solids() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
 fn the_equilibrium_is_exact_to_the_printed_digits_over_a_large_grid() {
     let mut r = Rng(7);
     let mut checked = 0usize;
@@ -718,6 +719,7 @@ fn each_printed_value_is_the_same_in_every_mode() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
 fn k_from_equilibrium_data_and_q_are_exact_to_the_printed_digits() {
     let mut r = Rng(11);
     let mut n_k = 0;
@@ -902,6 +904,7 @@ fn rk4(m: &Model, tau_end: f64) -> Vec<(f64, f64)> {
 }
 
 #[test]
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
 fn the_curves_converge_to_the_exact_equilibrium_and_agree_with_an_rk4_run() {
     let mut r = Rng(5);
     let mut n = 0;
@@ -1010,6 +1013,7 @@ fn student_cases() -> Vec<L> {
 const WORDS: [&str; 12] = ["system shifts", "Le Chatelier", "shifts to the", "shifts left", "shifts right", "so the reaction ran", "proceeds forward", "proceeds in reverse", "quadratic formula", "is rejected", "Check: Q", "Small-x check"];
 
 #[test]
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
 fn the_student_copy_hides_every_computed_value_and_every_law_name() {
     let mut n = 0;
     for l in student_cases() {
@@ -1067,6 +1071,7 @@ fn the_student_axes_do_not_depend_on_the_answer() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
 fn desc_is_short_ascii_without_numbers_and_neutral_on_the_student_copy() {
     for l in student_cases() {
         for ans in [true, false] {
@@ -1121,6 +1126,7 @@ fn print_is_grey_only_and_tells_the_series_apart_by_dash_and_marker() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
 fn the_axes_are_labelled_once_in_order_on_their_ticks() {
     for l in student_cases().into_iter().step_by(3) {
         let mut l2 = l.clone();
@@ -1151,6 +1157,7 @@ fn the_axes_are_labelled_once_in_order_on_their_ticks() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
 fn odd_inputs_never_panic_or_print_nan() {
     let mut r = Rng(3);
     for n in 0..400 {
@@ -1288,6 +1295,7 @@ fn audit_cases(n: usize) -> Vec<(L, bool)> {
 }
 
 #[test]
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
 fn the_label_audit_finds_nothing_over_twelve_thousand_cases() {
     let cases = audit_cases(12_000);
     let chunk = cases.len().div_ceil(4);
@@ -1348,6 +1356,7 @@ fn the_audit_catches_what_it_is_meant_to_catch() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
 fn large_labels_never_clip() {
     let mut g = Glyphs::new();
     let mut r = Rng(8);
@@ -1408,6 +1417,7 @@ fn rand_critic_like(n: usize, seed: u64) -> Vec<L> {
 }
 
 #[test]
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
 fn the_multiplied_out_line_keeps_every_term_and_prints_the_true_degree() {
     let mut seen = 0;
     for l in rand_critic_like(900, 17) {
@@ -1496,6 +1506,7 @@ fn is_root(st: &Setup, k: &Dec, printed: &str, min_n: usize, other: Option<&str>
 }
 
 #[test]
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
 fn printed_roots_agree_with_the_chain_and_with_the_exact_polynomial() {
     let mut n_quad = 0;
     let mut continue_roots = false;
@@ -1617,6 +1628,7 @@ fn geometry_only(svg: &str) -> String {
 }
 
 #[test]
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
 fn student_copies_with_equal_givens_and_different_hidden_answers_have_identical_geometry() {
     let mut r = Rng(77);
     let mut compared = 0;
@@ -1657,6 +1669,7 @@ fn student_copies_with_equal_givens_and_different_hidden_answers_have_identical_
 }
 
 #[test]
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
 fn the_student_copy_draws_no_curve_and_no_plateau_unless_the_graph_is_the_given() {
     for l in student_cases() {
         let mut ls = l.clone();
@@ -1910,6 +1923,7 @@ fn independent_the_direction_task_sentences() {
 /// Every character the figure draws is in the first font of the figure's font list. A character that is not there is
 /// drawn from another font, which changes the look and the width of the whole line (the infinity sign once did).
 #[test]
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
 fn every_drawn_character_is_in_the_figure_font() {
     let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("assets/fonts/NotoSans-Regular.ttf");
     let bytes = std::fs::read(&path).expect("the figure font is bundled");

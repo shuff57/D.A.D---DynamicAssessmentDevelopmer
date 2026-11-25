@@ -465,6 +465,7 @@ fn ink(svg: &str) -> Vec<(String, (f64, f64, f64, f64), f64)> {
 }
 
 #[test]
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
 fn text_is_readable_inside_the_page_and_never_overlaps_at_any_size() {
     let long = "Pondweed in a beaker of water with sodium hydrogencarbonate added, at the far end of the bench";
     let mut n = 0;
@@ -563,6 +564,7 @@ fn nothing_to_drag_in_either_view() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
 fn mark_labels_and_letters_sit_clear_of_every_curve() {
     let mut n = 0;
     for size in ["Small", "Medium", "Large"] {

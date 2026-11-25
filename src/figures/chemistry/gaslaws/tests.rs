@@ -743,6 +743,7 @@ fn sweep_cases(n: usize, seed: u64) -> Vec<Vec<(&'static str, Value)>> {
 }
 
 #[test]
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
 fn labels_clear_and_attributed_across_twelve_thousand_cases_in_real_glyphs() {
     let mut g = Glyphs::new();
     let mut problems: BTreeMap<String, Vec<String>> = BTreeMap::new();

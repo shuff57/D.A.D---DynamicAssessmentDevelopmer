@@ -400,6 +400,7 @@ fn option_sets() -> Vec<(&'static str, Vec<(&'static str, Value)>)> {
 /// The sweep: every classroom example, at every size, with each optional part alone and all together. Read from the
 /// drawn SVG with the checker's rules (see `faults`); also counted: labels set by name only (their whole in the panel).
 #[test]
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
 fn classroom_sweep_labels_are_clear() {
     let list = classroom();
     assert!(list.len() >= 130);
@@ -521,6 +522,7 @@ fn examples_draw_cleanly() {
 /// A control shows in the panel exactly when changing it changes what is drawn or said (the render, which holds the key,
 /// and the notes), in ordinary states and degenerate ones: every hidden control does nothing.
 #[test]
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
 fn controls_show_exactly_when_they_act() {
     let d = def();
     let states: Vec<Vec<(&str, Value)>> = vec![

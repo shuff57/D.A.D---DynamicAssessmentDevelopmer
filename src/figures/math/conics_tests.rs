@@ -333,6 +333,7 @@ fn print_is_grey_only() {
 
 /// Each switch is shown exactly where flipping it changes the drawing.
 #[test]
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
 fn every_switch_is_shown_exactly_where_it_draws() {
     let d = def();
     let defs = (d.params)();
@@ -396,6 +397,7 @@ fn each_choice_option_draws_differently() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
 fn extremes_draw_cleanly() {
     let mut cases = vec![];
     for kind in ["Circle", "Ellipse", "Parabola", "Hyperbola"] {
@@ -676,6 +678,7 @@ fn check_labels(m: &mut Meter, case: &str, s: &str) -> usize {
 }
 
 #[test]
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
 fn every_label_is_clear_and_by_its_own_thing() {
     let mut m = Meter::new();
     let (mut labels, mut figs, mut dropped) = (0, 0, 0);

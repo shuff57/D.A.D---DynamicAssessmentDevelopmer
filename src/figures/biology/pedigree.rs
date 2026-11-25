@@ -1046,6 +1046,7 @@ mod tests {
     /// generations on their own rows, nobody overlapping, numbering left to right; every
     /// intermediate family survives the text round trip.
     #[test]
+    #[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
     fn edits_keep_a_tidy_layout() {
         for seed in 1..40u64 {
             let mut p = params_with(&[("seed", Value::I(seed as i64)), ("gens", Value::I(2 + (seed % 3) as i64)), ("size", s(["Small", "Medium", "Large"][seed as usize % 3]))]);

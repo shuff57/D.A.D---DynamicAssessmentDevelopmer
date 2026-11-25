@@ -274,6 +274,7 @@ fn hard() -> Vec<Params> {
 }
 
 #[test]
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
 fn crowded_labels_clear_of_everything() {
     let d = def();
     let mut cases = hard();
@@ -613,6 +614,7 @@ fn family() -> Vec<(String, Params)> {
 
 /// Item 1: nothing addressed to the teacher is drawn, on the key or the student copy: notes go to the panel only.
 #[test]
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
 fn no_teacher_note_is_drawn() {
     let d = def();
     let mut cases: Vec<Params> = vec![open(&[("v2_ang", "90"), ("v2_comps", "true"), ("show_answers", "false")]), open(&[("v2_ang", "90"), ("v2_comps", "true")])];
@@ -685,6 +687,7 @@ fn plain_figures_use_no_leader() {
 /// Item 5: the layout is worked out once per figure (drawing, notes, handles and both copies share it) and the work
 /// is bounded, over the realistic family and the crowded four-vector figures.
 #[test]
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
 fn layout_is_shared_and_bounded() {
     let d = def();
     let p = open(&[("n", "3"), ("v1_ang", "37"), ("v2_ang", "151"), ("v3_ang", "263"), ("v1_mark", "true"), ("v2_comps", "true"), ("mark_angle", "true")]);
@@ -946,6 +949,7 @@ fn own_sweep() -> Vec<(String, Params)> {
 /// The hard rules over my sweep (3,000+ figures) and the checker's 15,534: no placement fault in any; the share left
 /// off reported by number of vectors, and small for one and two.
 #[test]
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
 fn placement_rules_hold_over_the_sweeps() {
     let d = def();
     let mine = own_sweep();
@@ -1007,6 +1011,7 @@ fn textbook_two_vector_figures_draw_in_full() {
 /// Item 3: the drawing depends on the params alone: A, then B (A with vector 1 turned 4 degrees), then A again, and A
 /// drawn cold after the layouts are forgotten, all byte-identical; over many figures.
 #[test]
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
 fn the_drawing_depends_on_the_params_alone() {
     let d = def();
     for (_, a) in own_sweep().into_iter().step_by(17).take(200) {

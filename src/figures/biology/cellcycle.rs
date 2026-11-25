@@ -1841,6 +1841,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
     fn a_layout_refusal_is_true_and_drawable_advice_exists() {
         let mut r = Rng(0x1a70_07);
         let mut found = 0;
@@ -1919,6 +1920,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
     fn the_canvas_and_the_note_agree_and_nothing_panics_over_twelve_thousand_inputs() {
         let junk = ["", "abc", "0", "-1", "11", "5,5", "1e9", "0.0001", "1000", "1001", "NaN", "\u{feff}3", "9\u{0}9", "<b>&", "１１", "11 h", "٣", "\n", "0.05", "999.999", "3 3"];
         let mut r = Rng(0xfeed_beef_1234_5678);
@@ -1945,6 +1947,7 @@ mod tests {
 
     // ------------------------------------------------------------ layout
     #[test]
+    #[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
     fn nothing_collides_over_the_parameter_families() {
         let mut r = Rng(0xc311_c7c1e);
         let (mut checked, mut thin_g1, mut layout) = (0, 0, 0);
@@ -1972,6 +1975,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
     fn the_named_cases_and_every_example_are_collision_free() {
         let mut cases: Vec<Vec<(&'static str, Value)>> = vec![vec![], vec![b(SHOW_ANSWERS, false)]];
         for size in ["Small", "Medium", "Large"] {
@@ -2002,6 +2006,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
     fn the_student_copy_and_the_key_share_one_layout() {
         let mut r = Rng(0x57ad_e47);
         let mut n = 0;
@@ -2275,6 +2280,7 @@ mod tests {
     fn nasty(r: &mut Rng) -> String { let n = r.below(7); (0..n).map(|_| *r.pick(NASTY)).collect() }
 
     #[test]
+    #[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
     fn odd_letters_in_every_typed_field_never_panic() {
         // every string of up to three pieces, exhaustively, then random longer ones
         for a in NASTY { for b2 in NASTY { for c in NASTY {
@@ -2315,6 +2321,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
     fn advice_is_the_shortest_plan_and_gives_one_when_one_switch_draws() {
         let plan = |l: &[(&'static str, Value)]| -> Vec<String> {
             let p = with(l);
@@ -2455,6 +2462,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
     fn every_share_is_the_exact_share_rounded_half_up_and_nothing_is_adjusted() {
         // the cases the critics found, with the sums they make
         for (h, want, sum) in [
@@ -2851,6 +2859,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
     fn the_interphase_arc_fits_with_thin_wedges_g0_every_label_size_and_every_marker() {
         let mut cases: Vec<Vec<(&'static str, Value)>> = Vec::new();
         for size in ["Small", "Medium", "Large"] {

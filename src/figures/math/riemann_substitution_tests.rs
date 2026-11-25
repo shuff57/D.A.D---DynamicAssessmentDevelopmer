@@ -116,6 +116,7 @@ fn riemann_substitution_operands_preserve_precedence_in_every_position() {
     }
 }
 #[test]
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
 fn riemann_substitution_written_middle_expressions_are_true() {
     let mut checked=0; let mut renders=0;
     for template in cases() {for strips in ["Vertical","Horizontal"] {for rule in RULES {for n in [2,4,5,7] {for dec in -1..=8 {

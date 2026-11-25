@@ -576,6 +576,7 @@ fn every_new_option_draws_differently() {
 /// mass numbers, charges to 8− and 8+, every particle and form, serif and sans, Small to Large, a
 /// title and the key: no text on text or on a blank, none off the page or under 8 px.
 #[test]
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
 fn crowded_cases_stay_readable() {
     let mut n = 0;
     for font in FONTS {

@@ -60,6 +60,7 @@ fn params_for(c: &Pair, strips: &str, rule: &str, n: i64) -> Params {
     with(&[("region",s("Between f(x) and g(x)")),("f",s(c.f)),("g",s(c.g)),("bounds",s("Where f and g cross")),("strips",s(strips)),("rule",s(rule)),("n",Value::I(n)),("xmin",Value::F(c.xmin)),("xmax",Value::F(4.5)),("ymin",Value::F(-3.)),("ymax",Value::F(5.)),("sum_line",Value::B(true)),("integral_line",Value::B(true)),("exact_line",Value::B(true)),("error_line",Value::B(true)),("show_dx",Value::B(true)),("key_line",Value::B(true))])
 }
 #[test]
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
 fn riemann_crossing_textbook_pairs_never_equate_rounded_bounds() {
     let mut count = 0;
     for c in pairs() { for strips in ["Vertical","Horizontal"] { for rule in RULES { if strips == "Horizontal" && rule == "Trapezoid" { continue; } for n in [2,4,7,12] {
@@ -168,6 +169,7 @@ fn riemann_crossing_render_timing() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
 fn riemann_crossing_trig_horizontal_widths_by_hand() {
     let c = pairs().remove(16);
     // On [π/4,5π/4], cos x≤y≤sin x. For |y|≤√2/2 the

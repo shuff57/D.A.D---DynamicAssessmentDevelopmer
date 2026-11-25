@@ -232,6 +232,7 @@ fn did(before: &Params, after: &Params) -> Did {
 /// within 5 px of a line restyles that line, near a crossing or an end puts a point exactly there, between two arms near a
 /// crossing marks exactly that angle; every line, crossing, end and angle is reached by some pixel.
 #[test]
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
 fn every_pixel_does_what_is_under_it() {
     let d = def();
     for (name, p) in layouts() {

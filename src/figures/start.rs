@@ -137,6 +137,7 @@ mod tests {
     /// Every override names a declared param with a value of the right type and in range, and
     /// the opening state renders.
     #[test]
+    #[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
     fn overrides_are_valid_and_render() {
         for d in registry() {
             let defs = (d.params)();

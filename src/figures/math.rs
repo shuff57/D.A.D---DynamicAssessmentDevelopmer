@@ -6951,6 +6951,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
     fn empty_conics_and_odd_windows_do_not_panic() {
         let svg = grid_svg(&q("x^2 + y^2 = -1"));
         assert!(curve_lines(&svg).is_empty());
@@ -7082,6 +7083,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
     fn notes_go_to_the_editor_and_never_into_the_svg() {
         let five = "x^2+y^2=1; x^2+y^2=4; x^2+y^2=9; x^2+y^2=16; x^2+y^2=25";
         assert!(warns(five).iter().any(|w| w.contains("Only 4 curves are drawn")));
@@ -7181,6 +7183,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
     fn busy_curves_are_capped_in_size_and_time() {
         let (t, c) = (std::time::Instant::now(), thread_cpu_ms());
         let eq = "sin(40x)*sin(40y) < 0; sin(40x)*sin(40y) > 0.5; sin(40x+y) < 0; sin(30x)*sin(30y) < 0.2";
@@ -7534,6 +7537,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
     fn chains_work_with_every_mix_of_strictness_and_direction() {
         for eq in ["4<x^2+y^2<=25", "4<=x^2+y^2<25", "25>x^2+y^2>=4", "25>=x^2+y^2>4", "4<=x^2+y^2<=25", "4<x^2+y^2<25"] {
             let w = warns(eq);
@@ -7766,6 +7770,7 @@ mod tests {
     /// Long or deeply nested inequality rows used to cost 6 to 21 s: a row longer than 200 characters is refused before any
     /// evaluation, the rest share one work budget (rows x characters x cells).
     #[test]
+    #[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
     fn long_nested_and_many_inequality_rows_stay_within_the_time_bound() {
         let limit = if cfg!(debug_assertions) { 120_000 } else { 6_000 };
         let long = format!("x^2+y^2<{}1;", "1+".repeat(490));
@@ -7819,6 +7824,7 @@ mod tests {
 
     /// Each limit of a chain keeps its own strictness: the excluded ring is dashed, the included one solid.
     #[test]
+    #[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
     fn mixed_strictness_chains_dash_only_the_excluded_limit() {
         // (row, the inner ring (radius 2, ~96 px wide) is dashed, the outer ring (radius 5, ~240 px) is dashed)
         for (row, inner, outer) in [("4 < x^2 + y^2 <= 25", true, false), ("4 <= x^2 + y^2 < 25", false, true), ("25 > x^2 + y^2 >= 4", false, true), ("25 >= x^2 + y^2 > 4", true, false), ("4 < x^2 + y^2 < 25", true, true), ("4 <= x^2 + y^2 <= 25", false, false)] {
@@ -8176,6 +8182,7 @@ mod tests {
 
     /// Print rows are heavier and darker than the grid on every row; the Colour grid is lighter than the curves.
     #[test]
+    #[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
     fn print_rows_outweigh_the_grid_and_the_colour_grid_gives_way_to_conics() {
         for lw in ["Thin", "Normal", "Thick"] {
             for grid in ["Standard", "Bold", "Light"] {
@@ -8254,6 +8261,7 @@ mod tests {
     /// No tick number is struck by a curve: its box meets no drawn curve, or (when no free spot exists) its plate is painted over
     /// the curve and marked so.
     #[test]
+    #[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
     fn tick_numbers_are_clear_of_every_curve() {
         let mut cases: Vec<(String, Vec<(&'static str, Value)>)> = vec![];
         for style in ["Colour", "Print"] {
@@ -8440,6 +8448,7 @@ mod tests {
     /// equals the plain figure's); (g) the editor's thinning note appears exactly when an axis shows fewer numbers than it has ticks;
     /// and every shown number has a gridline under it.
     #[test]
+    #[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
     fn number_rule_holds_in_every_window_shape() {
         let rows = ["x^2 + y^2 = 25", "x^2 - y^2 = 1", "x^2/16 + y^2/9 = 1"];
         let halves = [2.0, 3.0, 4.0, 5.0, 6.0, 8.0, 10.0, 15.0, 20.0, 30.0];
@@ -8559,6 +8568,7 @@ mod tests {
     /// complete and only the corner x number drops below its row; in a tall window with 16 px rows nothing fits between the y numbers,
     /// so the x axis is thinned evenly (symmetric) and the editor says so. Nothing overlaps either way.
     #[test]
+    #[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
     fn corner_x_number_drops_below_its_row_and_tall_windows_thin_evenly() {
         let d = defs().into_iter().find(|d| d.id == "coordinate-grid").unwrap();
         for (hx, hy, complete) in [(10.0, 10.0, true), (8.0, 10.0, true), (5.0, 8.0, true), (5.0, 15.0, false), (8.0, 15.0, false)] { for style in ["Colour", "Print"] { for r in ["x^2 + y^2 = 4", "x^2 + y^2 = 25", "x^2 - y^2 = 1", "x^2/16 + y^2/9 = 1"] {

@@ -669,6 +669,7 @@ fn nothing_labelled_is_said_in_the_note_and_the_advice_draws() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
 fn nothing_collides_in_any_mode_at_any_size() {
     let mut n = 0;
     let mut worst: Vec<String> = Vec::new();
@@ -693,6 +694,7 @@ fn nothing_collides_in_any_mode_at_any_size() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
 fn every_pointer_ends_on_exactly_one_structure_with_room_to_spare() {
     let mut n = 0;
     for mask in 0..32u32 {
@@ -712,6 +714,7 @@ fn every_pointer_ends_on_exactly_one_structure_with_room_to_spare() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
 fn every_arrow_ends_on_one_structure_and_crosses_only_the_membranes() {
     for mask in 0..32u32 {
         for size in SIZES {
@@ -726,6 +729,7 @@ fn every_arrow_ends_on_one_structure_and_crosses_only_the_membranes() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
 fn leaders_cross_only_the_membranes_and_nothing_else() {
     for mask in 0..32u32 {
         for key in [true, false] {
@@ -742,6 +746,7 @@ fn leaders_cross_only_the_membranes_and_nothing_else() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
 fn the_key_and_the_student_copy_share_one_layout() {
     for mask in 0..64u32 {
         for size in SIZES {
@@ -829,6 +834,7 @@ fn answer_words() -> Vec<String> {
 }
 
 #[test]
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
 fn a_student_copy_prints_no_answer_anywhere_in_its_source() {
     let words = answer_words();
     let mut checked = 0;
@@ -907,6 +913,7 @@ fn the_graph_axis_that_names_light_or_co2_prints_that_arrow_in_the_student_copy_
 }
 
 #[test]
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
 fn every_blank_is_in_the_table_once_and_has_one_answer_the_key_names() {
     for mask in 0..32u32 {
         let l = toggle_list(mask);
@@ -1003,6 +1010,7 @@ fn dec_round_half_up(n: i128, d: i128, dec: u32) -> String {
 }
 
 #[test]
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
 fn the_drawn_curve_is_the_formula_and_the_guides_land_on_the_axes() {
     let mut n = 0;
     for ax in AXES_ALL {
@@ -1049,6 +1057,7 @@ fn the_drawn_curve_is_the_formula_and_the_guides_land_on_the_axes() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
 fn the_rate_at_p_is_rounded_half_up_and_exact() {
     // exact halves: the hyperbola with decimal inputs, counted in integers
     let cases = [("1", "3", "1", 1u32, "0.3"), ("10", "10", "10", 0, "5"), ("7", "20", "13", 1, "2.8"), ("3", "10", "5", 0, "1"), ("5", "10", "10", 0, "3"), ("1", "5", "5", 3, "0.500"), ("9", "8", "8", 1, "4.5")];
@@ -1100,6 +1109,7 @@ fn the_rate_at_p_is_rounded_half_up_and_exact() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
 fn the_letter_p_always_finds_a_clear_place_and_the_graph_never_collides() {
     let mut r = Rng::new(11);
     let mut n = 0;
@@ -1197,6 +1207,7 @@ fn each_switch_adds_or_removes_exactly_its_own_part() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
 fn nothing_panics_on_ten_thousand_hostile_inputs_and_every_output_is_well_formed_xml() {
     let mut r = Rng::new(2026);
     let bits = ["", "1", "9", "10", "20", "-", "\u{2212}", ",", ".", "e", " ", "\u{663}", "\u{ff11}\u{ff12}", "\u{202e}", "\u{0}", "\u{1f33f}", "<script>", "&amp;", "\"", "'", "\u{fffe}", "\u{200b}", "%", "ppm", "\u{b0}C", "au", "NaN", "inf", "99999999999999999999", "0.0000000000001", "\u{301}", "\u{4e2d}\u{6587}", "\n", "\t", "\u{feff}", "x".repeat(600).leak() as &str];
@@ -1490,6 +1501,7 @@ fn cv_rate(axis: Axis, q: &Parsed, dot: &Ci) -> f64 { let pl = plot_of(q, axis, 
 
 /// MED 1: the labelled and the fine gridlines, and the range the key accepts, over the whole option space.
 #[test]
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
 fn the_rate_axis_has_fine_gridlines_and_the_key_states_the_range_to_accept() {
     for pmax in ["1", "1.5", "2.5", "3", "7.5", "10", "13", "25", "42", "60", "99.9", "100"] {
         let pm: f64 = pmax.parse().unwrap();
@@ -1595,6 +1607,7 @@ fn the_rate_axis_has_fine_gridlines_and_the_key_states_the_range_to_accept() {
 /// decimals setting from 0 to 3, so the key never refuses its own number and a student reading either neighbouring
 /// gridline is always inside.
 #[test]
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
 fn the_accepted_range_holds_both_fine_gridlines_a_student_could_read() {
     let mut r = Rng::new(4242);
     let mut checked = 0;
@@ -1817,6 +1830,7 @@ fn print_gridlines_are_darker_than_sixty_six_percent_grey_and_the_two_kinds_diff
 
 /// L5: the letter P and the Plateau and Peak labels never have a gridline through them: each sits on a white pad that is drawn after the gridlines and clear of the curve.
 #[test]
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
 fn the_letter_p_and_the_plateau_and_peak_labels_have_no_gridline_through_them() {
     let mut n = 0;
     for ax in AXES_ALL {
@@ -1858,6 +1872,7 @@ fn the_letter_p_and_the_plateau_and_peak_labels_have_no_gridline_through_them() 
 
 /// MED 6 (M06): a student copy prints no number that is not a disc number, an axis value, or the x of P: the rate at P is never printed.
 #[test]
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
 fn a_student_copy_prints_no_number_but_discs_axis_values_and_the_x_of_p() {
     let mut checked = 0;
     for ax in AXES_ALL {
@@ -1902,6 +1917,7 @@ fn a_student_copy_prints_no_number_but_discs_axis_values_and_the_x_of_p() {
 
 /// MED 6 (M04): every number is on one blank: figure and table (twice) or the equation or the rate (once), with the graph on too.
 #[test]
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
 fn the_numbers_of_the_blanks_are_each_used_once_with_the_graph_and_the_equation() {
     for mask in 0..64u32 {
         for mark in ["auto", ""] {
@@ -1929,6 +1945,7 @@ fn the_numbers_of_the_blanks_are_each_used_once_with_the_graph_and_the_equation(
 
 /// MED 6 (M05, M15, M21, M12, M11): the student instructions are all there, word for word, exactly when they apply.
 #[test]
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
 fn the_student_instructions_are_exact_and_appear_exactly_when_they_apply() {
     for mask in 0..64u32 {
         let l = [&toggle_list(mask)[..], &[b(SHOW_ANSWERS, false)]].concat();
@@ -1989,6 +2006,7 @@ fn the_key_refuses_water_on_both_sides_and_the_student_copy_asks_for_the_net_equ
 
 /// MED 3 and the key captions' numbers (M11, M12), all three axes, a spread of values.
 #[test]
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
 fn the_key_captions_quote_the_numbers_of_the_curve_and_the_temperature_biology_is_right() {
     for opt in ["15", "16.5", "22", "30", "40"] {
         for pmax in ["1", "7.5", "10", "100"] {
@@ -2144,6 +2162,7 @@ fn every_documented_unit_is_read_and_a_wrong_one_is_refused() {
 
 /// M13 and its relatives: no two arrows come near each other, in any mode and size.
 #[test]
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
 fn no_two_arrows_cross_or_come_within_a_few_pixels_of_each_other() {
     let mut n = 0;
     for mask in 0..32u32 {
@@ -2295,6 +2314,7 @@ fn in_print_each_membrane_ring_sits_on_a_white_pad_that_clears_the_hatching() {
 
 /// The key's Plateau and Peak labels print the plateau or the peak (not the half-saturation or the optimum), and the rate axis has 4 to 8 labelled steps.
 #[test]
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
 fn the_plateau_and_peak_labels_quote_the_right_number_and_the_rate_axis_has_a_readable_number_of_steps() {
     for ax in AXES_ALL {
         for pmax in ["1", "2.5", "7.5", "10", "37", "100"] {

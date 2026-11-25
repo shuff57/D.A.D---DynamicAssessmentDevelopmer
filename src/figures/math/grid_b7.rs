@@ -591,6 +591,7 @@ pub(crate) mod frozen {
 
     /// Writes the fixture (only with VERSHION_GRID_OLD_BLESS=1, once, on the code before batch 7), else checks it.
     #[test]
+    #[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
     fn old_saved_figures_and_links_render_as_before() {
         use crate::figures::{share, spec, start_params};
         let d = def();
@@ -824,6 +825,7 @@ mod tests {
     /// Every arrowhead lies wholly inside the grid, its tip and the middle of its base lie on its own curve, it points
     /// out of the grid along the curve, and the row's line stops under it (masked from inside the head out).
     #[test]
+    #[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
     fn row_arrowheads_follow_the_curve_and_stay_inside_the_grid() {
         let curves = ["y = x^2 - 4", "y = 2x + 1", "x = 3", "y = tan(x)", "y = 1/x", "y = sqrt(x)", "y = -0.05x^3 + x", "y = 0.01x + 9.9", "y = arccot(x)", "y = e^x", "y = x + 2, x < 1", "x^2/9 - y^2/4 = 1", "y = 3sin(x) + 5", "x = y^2 - 6", "y > x - 2"];
         let mut total = 0;

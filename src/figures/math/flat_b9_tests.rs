@@ -286,6 +286,7 @@ fn crowded(id: &str) -> Vec<Vec<(&'static str, Value)>> {
 }
 
 #[test]
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
 fn named_points_sit_clear_by_their_own_point_inside_the_page() {
     let mut drawn = 0;
     let mut left = 0;
@@ -570,6 +571,7 @@ fn without(svg: &str, id: &str) -> String {
 }
 
 #[test]
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
 fn a_named_points_letter_touches_no_other_ink_as_rasterized() {
     // measured from pixels, not boxes: the letter's own dark pixels (there with it, white without it) have no other ink within
     // 2 px (the dot, lines, marks and every other label), at 2x

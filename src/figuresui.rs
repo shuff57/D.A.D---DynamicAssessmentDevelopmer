@@ -5220,6 +5220,7 @@ mod tests {
 
     /// Every real figure opens in the workspace and draws its handle overlay without panicking.
     #[test]
+    #[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
     fn every_figure_opens_with_overlay() {
         let ctx = egui::Context::default();
         theme::setup(&ctx);

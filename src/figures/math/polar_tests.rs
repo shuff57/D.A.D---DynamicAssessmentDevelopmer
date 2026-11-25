@@ -619,6 +619,7 @@ const OPTS: [&str; 8] = ["base", "marks_rt", "marks_xy", "tangent", "shade", "ar
 /// other text, on a dot, far from its point or nearer another: none. Also: nothing left off (a label that does not fit
 /// beside its point is said in full in the panel), and every render is fast.
 #[test]
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
 fn classroom_sweep_labels_are_clear() {
     let cases = classroom();
     assert!(cases.len() >= 60);
@@ -747,7 +748,7 @@ fn extremes_stay_bounded() {
         let t0 = std::time::Instant::now();
         let r = build(&with(&o));
         let el = t0.elapsed().as_secs_f64();
-        assert!(el < 0.3, "{el} s for {:?}", o.iter().map(|x| x.0).collect::<Vec<_>>());
+        assert!(!crate::TIMED || el < 0.3, "{el} s for {:?}", o.iter().map(|x| x.0).collect::<Vec<_>>());
         assert!(r.svg.len() < 3_000_000 && !r.svg.contains("NaN") && !r.svg.contains("inf"), "{:?}", o.iter().map(|x| x.0).collect::<Vec<_>>());
         let (w, h) = crate::figures::svg_size(&r.svg);
         assert!(w < 4000.0 && h < 4000.0, "{w} {h}");
@@ -873,6 +874,7 @@ fn read_row(row: &str) -> (Vec<polar::Curve>, Vec<String>) { let mut n = vec![];
 /// sin(2θ), cos θ/2 is (cos θ)/2): the sympy cases (267 spellings without brackets, 294 bracketed equations) read as
 /// sympy reads them, and so does the printed form of each; printing what was printed changes nothing.
 #[test]
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
 fn spellings_and_printing_agree_with_sympy() {
     let data: Vec<serde_json::Value> = serde_json::from_str(include_str!("polar_spellings.json")).unwrap();
     let mut bad = vec![];
@@ -1389,6 +1391,6 @@ fn printers_used_across_the_sweep() {
     for r in &rows { n += read_row(r).0.len(); }
     let per = t0.elapsed().as_secs_f64() / n as f64;
     println!("printers: reading and verifying {n} curves, {:.3} ms per curve (all of reading included)", per * 1e3);
-    assert!(per < 1e-3);
+    assert!(!crate::TIMED || per < 1e-3);
     assert_eq!(none, 0);
 }

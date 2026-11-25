@@ -25,6 +25,11 @@ path = "src/web_main.rs"
 # Development only: typed pool server addresses in a release build. OFF by default; never ship
 # with it (anyone at the keyboard could point the app at their own server).
 pool-custom-server = []
+# Tests only: also run the slow figure sweeps and the tests that time a render (each marked
+# `cfg_attr(not(feature = "slow-tests"), ignore)`). A plain `cargo test --lib` skips them; the whole
+# suite is `cargo test --profile figtest --lib --features slow-tests` (optimised: the timed tests
+# set limits for optimised code, and several sweeps take minutes even then).
+slow-tests = []
 
 [build-dependencies]
 url = "2"   # build.rs checks VERSHION_POOL_URL

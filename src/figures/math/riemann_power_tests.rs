@@ -45,6 +45,7 @@ fn cases() -> Vec<Case> {
 }
 
 #[test]
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
 fn riemann_inflections_and_high_vertices_at_levels() {
     let cs = cases();
     let mut states = vec![];
@@ -113,6 +114,7 @@ fn riemann_check13_by_hand() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
 fn riemann_meet_lists_on_wide_windows() {
     let p = |f: &str, g: &str, x0: f64, x1: f64| with(&[("region", s("Between f(x) and g(x)")), ("f", s(f)), ("g", s(g)), ("bounds", s("Where f and g cross")), ("xmin", Value::F(x0)), ("xmax", Value::F(x1)), ("ymin", Value::F(-2.)), ("ymax", Value::F(3.)), ("strips", s("Vertical")), ("rule", s("Left")), ("n", Value::I(4))]);
     // sin πx = sin²πx ⇔ sin πx (1 − sin πx) = 0: every integer, and the touches where sin πx = 1: x = 1/2 + 2k.
@@ -161,6 +163,7 @@ fn riemann_check13_evidence() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
 fn riemann_flat_contacts_are_one_meet() {
     let p = |f: &str, g: &str, w: f64| with(&[("region", s("Between f(x) and g(x)")), ("f", s(f)), ("g", s(g)), ("bounds", s("Where f and g cross")), ("xmin", Value::F(-w)), ("xmax", Value::F(w)), ("ymin", Value::F(-2.)), ("ymax", Value::F(6.)), ("strips", s("Vertical")), ("rule", s("Left")), ("n", Value::I(4))]);
     // f − g keeps one sign and is 0 only at r (an even-order contact): a single touch, said as such, no region

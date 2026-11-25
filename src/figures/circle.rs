@@ -2816,6 +2816,7 @@ mod tests {
 
     /// Thousands of random layouts (long units, big radii, every size, parts on or off): no label overlaps another or leaves the canvas.
     #[test]
+    #[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
     fn random_layouts_never_overprint_or_leave_the_canvas() {
         let mut seed: u64 = 0x9e3779b97f4a7c15;
         let mut next = move || { seed ^= seed << 13; seed ^= seed >> 7; seed ^= seed << 17; (seed >> 11) as f64 / (1u64 << 53) as f64 };
@@ -3039,6 +3040,7 @@ mod tests {
 
     /// A reflex central angle: the student copy names the minor angle (360 minus the answer) only when the central angle is Given.
     #[test]
+    #[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
     fn a_reflex_student_sheet_never_prints_the_minor_angle_unless_central_is_given() {
         let mut checked = 0;
         for theta in (181..=359).step_by(2) {
@@ -3068,6 +3070,7 @@ mod tests {
 
     /// Every Ask blank on a student sheet is accompanied by a row or a label that names what it asks, and angle blanks carry a unit.
     #[test]
+    #[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
     fn every_asked_blank_has_a_row_or_label_that_names_it() {
         let tangent = examples("circle").unwrap().into_iter().find(|e| e.name.starts_with("Tangent meets")).unwrap();
         let st = render_of(&student(&tangent.params));
@@ -3140,6 +3143,7 @@ mod tests {
 
     /// With the right-angle marks on the key only (or shown always), the blank and the key's value stay put: the room for the marks is kept on both copies.
     #[test]
+    #[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
     fn key_only_marks_keep_the_blank_and_the_answer_together() {
         let mut seed: u64 = 0x0bad_cafe_1234_5678;
         let mut next = move || { seed ^= seed << 13; seed ^= seed >> 7; seed ^= seed << 17; (seed >> 11) as f64 / (1u64 << 53) as f64 };
@@ -3206,6 +3210,7 @@ mod tests {
     /// Leaders: none crosses a drawn line in the shipped examples and the single-topic cases (tested above), and the seeded sweep below
     /// counts what is left. A leader never passes through another label's box, never runs over another leader, and a plate never hides one.
     #[test]
+    #[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
     fn leaders_in_a_random_sweep_avoid_labels_and_other_leaders() {
         let mut seed: u64 = 0xfeed_beef_dead_1234;
         let mut next = move || { seed ^= seed << 13; seed ^= seed >> 7; seed ^= seed << 17; (seed >> 11) as f64 / (1u64 << 53) as f64 };

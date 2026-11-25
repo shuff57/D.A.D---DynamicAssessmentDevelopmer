@@ -264,6 +264,7 @@ fn refuses_and_falls_back_to_the_slider() {
 
 /// The ends of the typed range draw a bounded figure with clean numbers.
 #[test]
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
 fn typed_extremes_stay_bounded() {
     for id in IDS {
         for (a, bb) in [("100", "0.1"), ("0.1", "100"), ("1/10", "100"), ("100", "100")] {
