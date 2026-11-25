@@ -218,7 +218,7 @@ impl App {
             let how = match ext.as_str() {
                 "heic" | "heif" => "iPhone photos: share it as a JPEG (Photos: Export, or AirDrop with Most Compatible), then drop that.".to_string(),
                 "doc" => "Old Word files: open it in Word or Google Docs and save it as .docx.".to_string(),
-                "xlsx" | "xls" | "csv" => "Spreadsheets of questions go into a question bank: Home, then Import to a bank.".to_string(),
+                "xlsx" | "xls" | "csv" => "Spreadsheets aren't read here. Save the sheet as a PDF and drop that to convert it, or paste a question's words into Import.".to_string(),
                 "pptx" | "ppt" | "odt" => "Save or print it as a PDF, then drop the PDF.".to_string(),
                 "html" | "htm" | "rtf" | "md" => "If it holds MyOpenMath question code, rename it to end in .txt and drop it again. A worksheet: save it as a PDF.".to_string(),
                 _ => "D.A.D reads MyOpenMath question code (.php, .txt), D.A.D packages and backups (.json), and worksheets (PDF, Word .docx, photos).".to_string(),

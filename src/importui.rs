@@ -1036,7 +1036,7 @@ fn formats_panel(ui: &mut egui::Ui) {
         let inner = ui.available_width();
         // The heading and its sentence: one line with a clear gap where both fit, else the
         // sentence on a line of its own under the heading.
-        let intro = "Detected from the file itself — nothing is converted until you press Convert.";
+        let intro = "Detected from the file itself — nothing is converted until you press Convert with AI.";
         let size = |t: egui::RichText| {
             egui::WidgetText::from(t).into_galley(ui, Some(egui::TextWrapMode::Extend), f32::INFINITY, egui::TextStyle::Body).size()
         };
@@ -1197,7 +1197,7 @@ fn page(app: &mut crate::App, ui: &mut egui::Ui, ctx: &egui::Context, st: &mut S
             // pages that promise different things.
             kit::page_header(
                 ui,
-                &["Home", "Import to a bank"],
+                &[],
                 "Import into a question bank",
                 Some("For exams and question banks: pasted text, files, spreadsheets or a photo of a worksheet. We work out the format for you."),
             );
@@ -1413,10 +1413,10 @@ fn privacy_text(app: &crate::App) -> String {
     let (dest, leaves) = provider_label(&app.settings);
     if leaves {
         format!(
-            "Text and spreadsheets are read on this computer. Nothing leaves it until you press Convert, and then only the photo goes to {dest}."
+            "Text and spreadsheets are read on this computer. Nothing leaves it until you press Convert with AI, and then only the photo goes to {dest}."
         )
     } else {
-        format!("Everything is read on this computer. When you press Convert, the photo goes to {dest}, which runs here too.")
+        format!("Everything is read on this computer. When you press Convert with AI, the photo goes to {dest}, which runs here too.")
     }
 }
 

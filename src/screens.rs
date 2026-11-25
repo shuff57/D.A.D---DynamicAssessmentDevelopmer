@@ -1571,52 +1571,24 @@ impl crate::App {
     fn draw_home_body(&mut self, ui: &mut egui::Ui) {
         use crate::kit;
         let fresh = self.store.banks.is_empty() && self.store.exams.is_empty();
-        // A first-run page holds far less than a full window; sit it in the upper middle
-        // instead of stacking everything against the top edge.
-        if fresh {
-            ui.add_space((ui.available_height() * 0.14).clamp(0.0, 96.0));
-        }
         let n_banks = self.store.banks.len();
         let n_exams = self.store.exams.len();
         let n_q: usize = self.store.banks.iter().map(|b| b.questions.len()).sum();
-        ui.horizontal(|ui| {
-            ui.vertical(|ui| {
-                kit::page_header(
-                    ui,
-                    &["Home"],
-                    if fresh { "Welcome." } else { "Welcome back." },
-                    None,
-                );
-            });
-            // Three zeros on a fresh store were the first thing the eye met: counts appear once
-            // there is something to count.
-            if n_q + n_exams + n_banks > 0 {
-            ui.with_layout(egui::Layout::right_to_left(egui::Align::Min), |ui| {
-                ui.spacing_mut().item_spacing.x = 8.0;
-                for (n, one, many) in [(n_q, "question", "questions"), (n_exams, "exam", "exams"), (n_banks, "bank", "banks")] {
-                    let label = if n == 1 { one } else { many };
-                    // Fixed-size slot owns the direction (the parent row is right-to-left).
-                    ui.allocate_ui_with_layout(
-                        Vec2::new(92.0, 58.0),
-                        egui::Layout::top_down(egui::Align::Min),
-                        |ui| {
-                            Frame::new()
-                                .fill(theme::card())
-                                .stroke(Stroke::new(1.0, theme::border()))
-                                .corner_radius(CornerRadius::same(14))
-                                .inner_margin(Margin::symmetric(14, 7))
-                                .show(ui, |ui| {
-                                    ui.set_min_width(62.0);
-                                    ui.spacing_mut().item_spacing.y = 0.0;
-                                    ui.label(theme::serif(n.to_string()).size(kit::ty::SECTION));
-                                    ui.label(kit::meta_muted(label));
-                                });
-                        },
-                    );
-                }
-            });
-            }
-        });
+        // The title at the height every dock page has it, with no breadcrumb (there is nothing above
+        // Home to go back to). What is saved reads as one subtitle line, as Banks and Exams give
+        // theirs, and a count that is zero is left out (three cards of "0" were the first thing
+        // the eye met, and "0 questions" beside "1 bank" read as something missing).
+        let counts: Vec<String> = [(n_banks, "bank", "banks"), (n_exams, "exam", "exams"), (n_q, "question", "questions")]
+            .into_iter()
+            .filter(|(n, _, _)| *n > 0)
+            .map(|(n, one, many)| format!("{n} {}", if n == 1 { one } else { many }))
+            .collect();
+        let sub = if counts.is_empty() {
+            "Question banks and printed exams, saved on this machine.".to_string()
+        } else {
+            format!("Saved on this machine: {}", counts.join(" · "))
+        };
+        kit::page_header(ui, &[], if fresh { "Welcome." } else { "Welcome back." }, Some(&sub));
         ui.add_space(14.0);
 
         // Action tiles.
@@ -1633,12 +1605,8 @@ impl crate::App {
         let mut tile_hit: Option<usize> = None;
         // A narrow window keeps the three actions on one row of equal compact tiles, so the
         // recent work still starts near the top instead of under three full-width slabs.
-        let widths: Vec<f32> = if stacked {
-            vec![((avail - 2.0 * gap) / 3.0).floor(); 3]
-        } else {
-            let unit = (avail - 2.0 * gap) / 3.25;
-            vec![unit * 1.25, unit, unit]
-        };
+        // Three equal tiles: a wider first one competed with the filled one for "first".
+        let widths: Vec<f32> = vec![((avail - 2.0 * gap) / 3.0).floor(); 3];
         let mut tile_row = |ui: &mut egui::Ui, range: std::ops::Range<usize>| {
             ui.horizontal(|ui| {
                 ui.spacing_mut().item_spacing.x = gap;

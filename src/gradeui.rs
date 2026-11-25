@@ -498,7 +498,7 @@ fn exam_chooser(ui: &mut egui::Ui, exams: &[(String, String, usize, usize)], sta
 }
 
 /// Beside the chooser: what happens on this screen, in three steps.
-fn how_it_works(ui: &mut egui::Ui, min_h: f32) {
+fn how_it_works(ui: &mut egui::Ui, min_h: f32, keys: bool) {
     let _ = min_h;
     pageshell::card_min(ui, 0.0, |ui| {
         // An aside, not a second page title: the task's heading keeps the larger serif.
@@ -523,6 +523,10 @@ fn how_it_works(ui: &mut egui::Ui, min_h: f32) {
             ui.add_space(14.0);
         }
         // The keys for the checking screen follow the third step directly: the card hugs them.
+        // With no exam there is nothing to check yet, so they wait until there is.
+        if !keys {
+            return;
+        }
         let keys = [("\u{2191} \u{2193}", "move between lines"), ("T", "open the word panel"), ("P / F", "plain or corrected text"), ("Esc", "close the panel")];
         ui.spacing_mut().item_spacing.y = 4.0;
         ui.separator();
@@ -1354,7 +1358,7 @@ impl crate::App {
         shell_frame(self, ctx, true, |_app, ui| {
             kit::page_header(
                 ui,
-                &["Home", "Grade"],
+                &[],
                 "Grade",
                 Some("Check each student's transcribed work word by word, then mark it against the exam's answer key."),
             );
@@ -1404,12 +1408,12 @@ impl crate::App {
                         ui.allocate_ui_with_layout(Vec2::new(w - side - 16.0, card_h), egui::Layout::top_down(egui::Align::Min), |ui| {
                             exam_chooser(ui, &exams, &mut state, card_h)
                         });
-                        ui.allocate_ui_with_layout(Vec2::new(side, card_h), egui::Layout::top_down(egui::Align::Min), |ui| how_it_works(ui, card_h));
+                        ui.allocate_ui_with_layout(Vec2::new(side, card_h), egui::Layout::top_down(egui::Align::Min), |ui| how_it_works(ui, card_h, !exams.is_empty()));
                     });
                 } else {
                     exam_chooser(ui, &exams, &mut state, 0.0);
                     ui.add_space(14.0);
-                    how_it_works(ui, 0.0);
+                    how_it_works(ui, 0.0, !exams.is_empty());
                 }
                 pageshell::footer(ui, "D.A.D · student work stays on this machine");
                 return;

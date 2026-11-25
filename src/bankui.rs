@@ -437,14 +437,15 @@ impl App {
         );
         ui.horizontal(|ui| {
             ui.vertical(|ui| {
-                kit::page_header(ui, &["Home", "Banks"], "Question banks", Some(&sub));
+                kit::page_header(ui, &[], "Question banks", Some(&sub));
             });
             ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
                 if crate::pageshell::primary(ui, "New bank").clicked() {
                     let id = self.new_bank("Untitled Question Bank");
                     self.open_bank(&id);
                 }
-                if crate::pageshell::outline(ui, "Import").clicked() {
+                // Named as Home's tile names it: the dock's Import is the MyOpenMath one.
+                if crate::pageshell::outline(ui, "Import to a bank").clicked() {
                     self.screen = crate::Screen::Imports;
                 }
             });
