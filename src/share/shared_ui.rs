@@ -284,7 +284,6 @@ impl SharedUi {
                 }
             }
             ui.add_space(if compact { 8.0 } else { 14.0 });
-            let mut legal_done = false;
             match guide {
                 Guide::Ready => changed |= self.tabs(ui, account, browse, mine, banks, exams, false),
                 // The waiting card says what an approval is for, and the two tabs a pending account may use follow it.
@@ -295,8 +294,11 @@ impl SharedUi {
                 }
                 // A form keeps a form's width, and what sharing is for sits beside it, as Grade's
                 // steps sit beside its chooser: the card no longer stops two thirds across the
-                // page, and the legal links end the aside instead of ending the page.
-                g if ui.available_width() >= 900.0 => {
+                // page. Only on the way in: a build without sharing, a blocked account or a lost
+                // connection has nothing for the aside to promise.
+                g if ui.available_width() >= 900.0
+                    && !matches!(g, Guide::NotSetUp | Guide::Blocked(_) | Guide::Offline) =>
+                {
                     let w = ui.available_width();
                     let side = (w * 0.34).clamp(300.0, 380.0);
                     ui.horizontal_top(|ui| {
@@ -306,15 +308,15 @@ impl SharedUi {
                         });
                         ui.allocate_ui_with_layout(egui::Vec2::new(side, 0.0), egui::Layout::top_down(egui::Align::Min), sharing_aside);
                     });
-                    legal_done = true;
                 }
                 g => self.guide_card(ui, &g, account),
             }
             ui.add_space(12.0);
             // Legal pages are a footnote, not a card of their own, but they sit on a quiet field:
-            // over bare grid paper the small grey links lost contrast (named on both tabs).
-            let lw = ui.available_width().min(FORM_CARD_W);
-            if !legal_done {
+            // over bare grid paper the small grey links lost contrast (named on both tabs). The
+            // field runs the page's width, so the four links keep one line and the strip reads as
+            // the page's floor, not as a last card.
+            let lw = ui.available_width();
             ui.allocate_ui_with_layout(
                 egui::Vec2::new(lw, 0.0),
                 egui::Layout::top_down(egui::Align::Min),
@@ -331,7 +333,6 @@ impl SharedUi {
                         });
                 },
             );
-            }
             ui.add_space(20.0);
             pageshell::footer(
                 ui,
@@ -725,8 +726,8 @@ pub fn gate_of(account: &AccountUi) -> Gate {
     snapshot_of(&account.model).gate
 }
 
-/// Beside a guide card on a wide window: what sharing gives a teacher, in three steps, and the legal
-/// pages at its foot (small print inside the aside, not a grey box closing the page).
+/// Beside a guide card on a wide window: what sharing gives a teacher, in two steps, and that it
+/// is optional.
 fn sharing_aside(ui: &mut Ui) {
     use egui::{Align2, FontId, RichText, Sense, Vec2};
     pageshell::card(ui, |ui| {
@@ -735,7 +736,6 @@ fn sharing_aside(ui: &mut Ui) {
         let steps = [
             ("Find", "Browse questions other teachers shared and copy the ones you want into your banks."),
             ("Share", "Send one of your banks to everyone, or only to a circle of teachers you choose."),
-            ("Optional", "Writing, converting and adding questions to MyOpenMath all work without it."),
         ];
         for (i, (title, body)) in steps.iter().enumerate() {
             ui.horizontal_top(|ui| {
@@ -752,9 +752,6 @@ fn sharing_aside(ui: &mut Ui) {
         }
         ui.separator();
         ui.add_space(4.0);
-        crate::kit::small_caps(ui, "Legal pages (drafts)");
-        ui.add_space(2.0);
-        super::mine_ui::legal_links_for(ui, &super::ShareSettings::legal_base());
+        ui.add(egui::Label::new(theme::muted("Optional: writing, converting and adding questions to MyOpenMath all work without it.").size(12.5)).wrap());
     });
 }
-
