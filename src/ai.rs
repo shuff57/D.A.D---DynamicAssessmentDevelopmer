@@ -2539,6 +2539,11 @@ pub mod cli {
         if !status.success() && stdout.trim().is_empty() {
             let err = String::from_utf8_lossy(&stderr);
             let line = err.lines().rev().find(|l| !l.trim().is_empty()).unwrap_or("it stopped with an error");
+            // Checked first: Codex's usage-limit message comes with other stderr lines that mention
+            // "auth", and it read as "isn't signed in".
+            if err.to_ascii_lowercase().contains("usage limit") {
+                return Err(format!("The AI tool has reached its usage limit. ({line})"));
+            }
             if err.contains("login") || err.contains("auth") || err.contains("API key") {
                 return Err(format!("The AI tool isn't signed in. Open a terminal and run it once to sign in. ({line})"));
             }

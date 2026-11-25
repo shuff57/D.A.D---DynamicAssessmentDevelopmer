@@ -1395,7 +1395,11 @@ fn start_preview(st: &mut State, ctx: &egui::Context) {
     let name = if c.q.name.trim().is_empty() { "Practice question".to_string() } else { c.q.name.clone() };
     st.preview_html = None;
     st.preview_for = src.clone();
+    // Drawn on its own as Try it opens, not at the teacher's press: what the last job said stays
+    // (such as "Saved as a new question" after revising a published one).
+    let (note, lib_note) = (st.note.take(), st.lib_note.take());
     let job = start(st, "Drawing the preview");
+    (st.note, st.lib_note) = (note, lib_note);
     let (engine, ctx) = (st.engine.clone(), ctx.clone());
     run_bg(async move {
         // The page's own Check Answers / New Version calls go to the same engine: "bundled" makes the
@@ -2929,9 +2933,14 @@ fn try_it(ui: &mut Ui, ctx: &egui::Context, st: &mut State, cfg: &crate::ai::AiC
         ui.add_space(14.0);
         let (seen, reviewed) = st.current.as_ref().map(|c| (c.preview_opened, c.reviewed)).unwrap_or_default();
         if reviewed {
+            // Already published: say so and lead to its finish, not to adding it a second time.
+            if st.published.is_none() { st.published = Some(published_ids()); }
+            let in_mom = st.current.as_ref().and_then(|c| c.saved_id.as_ref())
+                .is_some_and(|id| st.published.as_ref().is_some_and(|p| p.contains(id)));
+            let (done, next) = if in_mom { ("✔ In MyOpenMath", "See Where It Is") } else { ("✔ Approved and saved", "Add It to MyOpenMath") };
             ui.horizontal(|ui| {
-                ui.label(RichText::new("✔ Approved and saved").color(theme::green()));
-                if pageshell::primary(ui, "Add It to MyOpenMath").clicked() { st.step = Step::Copy; }
+                ui.label(RichText::new(done).color(theme::green()));
+                if pageshell::primary(ui, next).clicked() { st.step = Step::Copy; }
             });
         } else {
             ui.label(theme::strong("Happy with it?").size(15.0));
@@ -3331,6 +3340,7 @@ fn copy_step(ui: &mut Ui, ctx: &egui::Context, st: &mut State) {
     if in_mom && !st.add_elsewhere {
         let receipt = c.saved_id.as_deref().and_then(receipt_for);
         let name = c.q.name.trim().to_string();
+        st.poster.load();
         pageshell::card(ui, |ui| {
             ui.label(RichText::new("✔ It's in MyOpenMath").color(theme::green()).family(theme::bold_family()).size(20.0));
             let place = receipt.as_ref().and_then(|p| st.poster.place_name(p.course, p.assessment));
@@ -3992,7 +4002,50 @@ mod autoadd {
 
     #[derive(Serialize, Deserialize, Default, Clone)]
     #[serde(default)]
-    struct Prefs { course: Option<u64>, assessment: Option<u64>, place: Option<(u64, u64, String)> }
+    struct Prefs {
+        course: Option<u64>,
+        assessment: Option<u64>,
+        /// The last place published to (files from before `places`).
+        place: Option<(u64, u64, String)>,
+        /// Every place published to, by name, so each finish can name its own place.
+        places: Vec<(u64, u64, String)>,
+    }
+
+    impl Prefs {
+        fn remember(&mut self, cid: u64, aid: u64, name: String) {
+            self.places.retain(|(c, a, _)| (*c, *a) != (cid, aid));
+            self.places.push((cid, aid, name.clone()));
+            self.place = Some((cid, aid, name));
+        }
+
+        fn name_of(&self, cid: u64, aid: u64) -> Option<String> {
+            self.places.iter().chain(self.place.as_ref())
+                .find(|(c, a, _)| (*c, *a) == (cid, aid)).map(|(_, _, name)| name.clone())
+        }
+    }
+
+    #[cfg(test)]
+    mod place_tests {
+        use super::Prefs;
+
+        #[test]
+        fn each_place_keeps_its_name_after_publishing_elsewhere() {
+            let mut prefs = Prefs::default();
+            prefs.remember(1, 10, "Algebra · Quiz 1".into());
+            prefs.remember(2, 20, "Geometry · Test".into());
+            prefs.remember(1, 10, "Algebra · Quiz 1 (renamed)".into());
+            assert_eq!(prefs.name_of(1, 10).as_deref(), Some("Algebra · Quiz 1 (renamed)"));
+            assert_eq!(prefs.name_of(2, 20).as_deref(), Some("Geometry · Test"));
+            assert_eq!(prefs.name_of(3, 30), None);
+            assert_eq!(prefs.places.len(), 2);
+        }
+
+        #[test]
+        fn a_file_from_before_the_list_still_names_its_place() {
+            let prefs: Prefs = serde_json::from_str(r#"{"course":5,"assessment":6,"place":[5,6,"Stats · Review"]}"#).unwrap();
+            assert_eq!(prefs.name_of(5, 6).as_deref(), Some("Stats · Review"));
+        }
+    }
 
     fn publication_path(st: &State, cid: u64, aid: u64) -> Option<String> {
         let id = st.current.as_ref()?.saved_id.as_deref()?;
@@ -4017,6 +4070,13 @@ mod autoadd {
     impl Poster {
         pub(super) fn clear_result(&mut self) { self.result = None; }
 
+        /// The saved picks and place names. The finish needs them without the step-3 card having
+        /// been drawn (a published question opened after a restart shows only the finish).
+        pub(super) fn load(&mut self) {
+            if std::mem::replace(&mut self.loaded, true) { return; }
+            self.prefs = crate::store::load_json(PREFS).unwrap_or_default();
+        }
+
         pub(super) fn message(&self) -> Option<&str> {
             self.result.as_ref().map(|result| match result { Ok(message) | Err(message) => message.as_str() })
         }
@@ -4028,8 +4088,8 @@ mod autoadd {
                 let assessment = self.assessments.iter().find(|assessment| assessment.id == aid && self.assessments_for == Some(cid))?;
                 Some(format!("{} · {}", course.name, assessment.name))
             })();
-            // Not connected this session: the names saved when the teacher last published there.
-            live.or_else(|| self.prefs.place.as_ref().filter(|(c, a, _)| *c == cid && *a == aid).map(|(_, _, name)| name.clone()))
+            // Not connected this session: the names saved when the teacher published there.
+            live.or_else(|| self.prefs.name_of(cid, aid))
         }
 
         pub(super) fn destination(&self) -> Option<String> {
@@ -4111,7 +4171,7 @@ mod autoadd {
         st.browser.open(Surface::Transfer);
         poster::STOP_BEFORE_SAVE.store(false, std::sync::atomic::Ordering::SeqCst);
         // The names the pickers show now, kept with the ids so the finish can name the place later.
-        if let Some(place) = st.poster.place_name(cid, aid) { st.poster.prefs.place = Some((cid, aid, place)); let _ = crate::store::save_json(PREFS, &st.poster.prefs); }
+        if let Some(place) = st.poster.place_name(cid, aid) { st.poster.prefs.remember(cid, aid, place); let _ = crate::store::save_json(PREFS, &st.poster.prefs); }
         let job = start(st, "MyOpenMath");
         let ctx = ctx.clone();
         run_bg(async move {
@@ -4143,7 +4203,13 @@ mod autoadd {
         match r {
             Ok(c) => {
                 st.poster.courses = c;
-                if st.poster.courses.is_empty() { st.poster.result = Some(Err("No courses you teach were found on MyOpenMath.".into())); }
+                if st.poster.courses.is_empty() {
+                    st.poster.result = Some(Err("No courses you teach were found on MyOpenMath.".into()));
+                } else {
+                    // Connected: back to the card, where the course and assessment are picked. The
+                    // panel was left on MyOpenMath's home page with only "Back to transfer" to press.
+                    st.browser.close();
+                }
             }
             Err(e) => st.poster.result = Some(Err(e)),
         }
@@ -4172,10 +4238,7 @@ mod autoadd {
     }
 
     pub fn card(ui: &mut Ui, ctx: &egui::Context, st: &mut State) {
-        if !st.poster.loaded {
-            st.poster.loaded = true;
-            st.poster.prefs = crate::store::load_json(PREFS).unwrap_or_default();
-        }
+        st.poster.load();
         let working = busy(st);
         let mine = st.job.lock().map(|j| j.what == "MyOpenMath").unwrap_or(false);
         pageshell::card(ui, |ui| {
