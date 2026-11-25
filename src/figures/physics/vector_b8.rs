@@ -160,6 +160,7 @@ impl Bx {
 }
 
 /// Whether segment a-b comes within `m` of the box (for the tests).
+#[cfg(test)]
 pub fn seg_hits_box_pub(a: Pt, b: Pt, bx: &Bx, m: f64) -> bool { seg_hits_box(a, b, bx, m) }
 
 /// Whether segment a-b comes within `m` of the box.
@@ -273,9 +274,6 @@ pub struct Spec {
     pub cands: Vec<Pt>,
     /// points on its own mark a leader may start from
     pub anchors: Vec<Pt>,
-    /// an angle's second choice, tried only when nothing inside the angle is free: beside its arc just past its
-    /// reference line (never across its own arrow), nearest its own arc
-    pub beside: Vec<Pt>,
     /// a label whose arrow is a point (a zero vector) or an axis letter: no line to be nearest
     pub zero: bool,
 }
@@ -1134,9 +1132,11 @@ thread_local! {
 }
 
 /// Forgets the layouts worked out (the tests draw a figure cold).
+#[cfg(test)]
 pub fn forget_layouts() { SEEN.with(|c| c.borrow_mut().clear()); }
 
 /// How many layouts this thread has worked out so far (the tests check the drawing, notes and handles share one).
+#[cfg(test)]
 pub fn layouts_built() -> usize { BUILT.with(|b| b.get()) }
 
 /// The batch 8 drawing's layout, worked out once per figure (both copies, the notes and the handles share it).
@@ -1428,7 +1428,7 @@ fn build(p: &Params, bump: &[f64; 5], mode: u8, zoom: f64, page: f64, flip: [boo
                 cands.push((bx.c.0 + dx, bx.c.1 + dy));
             }
         }
-        specs.push(Spec { mark: None, lab, own: Own::Axis, reach: 1e9, cands, anchors: vec![], beside: vec![], zero: true });
+        specs.push(Spec { mark: None, lab, own: Own::Axis, reach: 1e9, cands, anchors: vec![], zero: true });
     }
     let (vl, rl) = vlabel_pos_b7(p, &lay);
     for i in 0..=n {
@@ -1440,14 +1440,14 @@ fn build(p: &Params, bump: &[f64; 5], mode: u8, zoom: f64, page: f64, flip: [boo
             // a zero vector is a point: its name beside it
             let (hw, hh) = lab.half();
             let cands = (0..8).flat_map(|k| [8.0, 16.0].map(move |r: f64| { let t = (k as f64 * 45.0 + 45.0).to_radians(); (a.0 + t.cos() * (hw + r), a.1 + t.sin() * (hh + r)) })).collect();
-            specs.push(Spec { mark: None, lab, own: Own::Arrow(i), reach: 0.0, cands, anchors: vec![], beside: vec![], zero: true });
+            specs.push(Spec { mark: None, lab, own: Own::Arrow(i), reach: 0.0, cands, anchors: vec![], zero: true });
             continue;
         }
         let mut cands: Vec<Pt> = vec![];
         cands.push(pref);
         cands.extend(beside(a, b, side_of(a, b, pref), &lab, vsw / 2.0, &[0.5, 0.4, 0.6, 0.3, 0.7, 0.2, 0.8, 0.12, 0.88, 0.05, 0.95]));
         let anchors = [0.5, 0.35, 0.65].iter().map(|t| (a.0 + (b.0 - a.0) * t, a.1 + (b.1 - a.1) * t)).collect();
-        specs.push(Spec { mark: None, lab, own: Own::Arrow(i), reach: 0.7 * fs, cands, anchors, beside: vec![], zero: false });
+        specs.push(Spec { mark: None, lab, own: Own::Arrow(i), reach: 0.7 * fs, cands, anchors, zero: false });
     }
     for (mi, m) in sc.plans.clone().into_iter().enumerate() {
         let Some(lab) = mark_label(p, m.arrow, n, m.d) else {
@@ -1455,7 +1455,7 @@ fn build(p: &Params, bump: &[f64; 5], mode: u8, zoom: f64, page: f64, flip: [boo
         };
         // its spots depend on its arc's radius: worked out while placing (the warm spot first)
         let cands: Vec<Pt> = vec![];
-        specs.push(Spec { mark: Some(mi), lab, own: Own::Mark(m.arrow), reach: 0.0, cands, anchors: vec![], beside: vec![], zero: false });
+        specs.push(Spec { mark: Some(mi), lab, own: Own::Mark(m.arrow), reach: 0.0, cands, anchors: vec![], zero: false });
     }
     let ccol: &'static str = if col { "#7c3aed" } else { GREY };
     let cfs = (fs * 0.5).clamp(16.0, 20.0);
@@ -1470,7 +1470,7 @@ fn build(p: &Params, bump: &[f64; 5], mode: u8, zoom: f64, page: f64, flip: [boo
         let (pt, pp) = (pxy(tail), pxy(tip));
         let third = if seg_dist(pt, a, b) > seg_dist(pp, a, b) { pt } else { pp };
         let anchors = vec![third];
-        specs.push(Spec { mark: None, lab, own: Own::Comp(arrow, x), reach: 18.0, cands, anchors, beside: vec![], zero: false });
+        specs.push(Spec { mark: None, lab, own: Own::Comp(arrow, x), reach: 18.0, cands, anchors, zero: false });
     }
     sc.place(specs);
     if !sc.misses.is_empty() {

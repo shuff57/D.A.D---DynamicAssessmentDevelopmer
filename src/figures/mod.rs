@@ -1402,6 +1402,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
     fn all_figures_render_with_defaults() {
         for d in registry() {
             let p = Params::defaults(&(d.params)());
@@ -1421,6 +1422,7 @@ mod tests {
     /// Every figure, with every number control set to an extreme the way a corrupt or hostile saved spec could (through the load
     /// path, which clamps to each control's range): none panics, none renders for more than 12 s of CPU, and each still draws SVG.
     #[test]
+    #[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
     fn every_figure_survives_extreme_numbers_through_the_load_path() {
         for d in registry() {
             let defs = (d.params)();

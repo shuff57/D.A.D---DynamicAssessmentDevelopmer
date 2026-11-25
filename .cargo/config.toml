@@ -22,6 +22,8 @@ opt-level = 1
 panic = "unwind"
 
 # Test runs that need optimised code (the figure sweeps): `cargo test --profile figtest --lib figures`.
+# The slow sweeps and the time limits run only with `--features slow-tests` (Cargo.toml); a plain
+# `cargo test --lib` skips them.
 # Use it instead of `cargo test --release`, which rebuilds with fat LTO, one codegen unit and the
 # wasm-size opt-level "z" on every edit. Measured 2026-11-08 on this box: rebuild after editing one
 # figure 17 s (incremental), figure suite 1154 s against 1243 s with --release, census identical.

@@ -300,6 +300,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
     fn every_figure_defaults_render_nonempty_svg() {
         for d in registry() {
             let p = Params::defaults(&(d.params)());
@@ -313,6 +314,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
     fn params_clamp_and_snap() {
         for d in registry() {
             let defs = (d.params)();
@@ -340,6 +342,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
     fn every_handle_round_trips_and_stays_in_range() {
         let mut total = 0;
         for d in registry() {

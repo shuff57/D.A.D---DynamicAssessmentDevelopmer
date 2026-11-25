@@ -724,6 +724,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
     fn continuity_test_keeps_flat_tails_and_drops_poles_across_windows() {
         use std::f64::consts::PI;
         let tan_ys = |x: f64| (-12..=12).map(|k| x.atan() + k as f64 * PI).collect::<Vec<_>>();
@@ -790,6 +791,7 @@ mod tests {
     /// The wide windows of a plot only ~48 px tall: the flat tails of tan, cot and sec curves run all the way
     /// to the edge, at most 1% of the true points are more than 2 cells (2.4 px) from the drawing, none more than 6.
     #[test]
+    #[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
     fn tails_reach_the_window_edge_in_wide_flat_windows() {
         use std::f64::consts::PI;
         let tan_ys = |x: f64| (-40..=40).map(|k| x.atan() + k as f64 * PI).collect::<Vec<_>>();

@@ -1670,7 +1670,8 @@ const PAGE_SETUP_R31: bool = true;
 enum PageSetupSep {
     /// The meta lines' middle dot, centred in the gap.
     Dot,
-    /// Nothing: the gap alone.
+    /// Nothing: the gap alone (the other look, kept selectable through `PAGE_SETUP_SEP`).
+    #[allow(dead_code)]
     Space,
 }
 const PAGE_SETUP_SEP: PageSetupSep = PageSetupSep::Dot;
@@ -9586,7 +9587,7 @@ mod system_pass_tests {
             page_setup_button(ui, &values, false);
         });
         h.run_steps(3);
-        use egui_kittest::kittest::{by, NodeT, Queryable};
+        use egui_kittest::kittest::{by, Queryable};
         let btn = h.query_all(by().label("Page setup: Standard, 12 pt, 1 in margins")).next().expect("the button").rect();
         let mut texts = vec![];
         let mut lines = 0;

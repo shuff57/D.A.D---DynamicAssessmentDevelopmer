@@ -1815,6 +1815,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
     fn the_family_never_overlaps_and_never_leaves_the_canvas() {
         let mut checked = 0;
         let mut refused = 0;
@@ -1848,6 +1849,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
     fn placement_never_fails_for_any_valid_trace() {
         // a wide grid of valid traces: if the values read, the figure is drawn
         let mut n = 0;
@@ -2219,6 +2221,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
     fn the_editor_note_carries_what_was_left_out_and_the_canvas_never_does_over_ten_thousand_inputs() {
         let mut r = Rng(0x9e3779b97f4a7c15);
         let (mut refused, mut figures, mut noted, mut silent) = (0, 0, 0, 0);
@@ -2519,6 +2522,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
     fn no_leader_comes_near_another_leader_or_another_pointers_dot_in_the_whole_family() {
         // There is no leader-against-leader or leader-against-dot rule in the planner: each one was once there and a sweep
         // with it switched off showed it never changed a drawing, because a pointer's dot and its disc are already kept
@@ -2572,6 +2576,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
     fn a_dip_too_shallow_for_the_return_pointer_is_refused_only_when_no_dot_fits_and_the_advice_works() {
         // The rule: the return dot sits halfway up the recovery, so at least 4 px off the rest line only if the dip is at
         // least 8 px deep. Walk the dip from 3 mV in 0.1 mV steps on a grid of scales: every refusal before the first dip
@@ -2661,6 +2666,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
     fn the_resting_pointer_is_always_before_the_stimulus_on_the_resting_level_and_a_stimulus_with_no_room_is_refused() {
         // the typical-values grid (rest -70/-65/-60, threshold -55/-50, peak 30/40/50, undershoot -75/-80/-90), every
         // stimulus time from 0.5 ms to the last allowed, totals 5.2 to 12, all sizes, the stimulus arrow on and off
@@ -2731,6 +2737,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
     fn the_advice_for_a_stimulus_with_no_room_is_the_least_that_works_and_is_applied() {
         // the default scale (a dot that does not fit) and a crowded one (rest -30: the 0 mV line is close above the threshold,
         // so the disc has no room above the dot, and the arrow leaves none below)

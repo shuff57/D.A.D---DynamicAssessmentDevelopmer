@@ -355,7 +355,6 @@ pub struct Report {
 pub fn build(p: &Params) -> (String, Report) {
     let (p0, n, gens, sel, show_counts) = given(p);
     let g = generations(p);
-    let dec = p.i("dec").clamp(1, 3);
     let print = p.s("style") == "Print";
     let ans = p.b(SHOW_ANSWERS);
     let f = svg::label_factor(p.s("label_size"));
@@ -843,6 +842,7 @@ mod tests {
     fn decimals(tok: &str) -> usize { tok.split('.').nth(1).map(|d| d.chars().take_while(char::is_ascii_digit).count()).unwrap_or(0) }
 
     #[test]
+    #[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
     fn the_page_is_never_coarser_than_typed_and_never_rewrites_the_given_p() {
         // (round 8 blocker) the strict pass tried COARSER precisions before the minimum-error rule ran, and a count tie
         // broken on float noise made a coarser one "agree": p = 0.5, N = 10 at two decimals printed 0.3 / 0.5 / 0.2 for a

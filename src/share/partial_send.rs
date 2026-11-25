@@ -23,7 +23,7 @@ use serde_json::Value;
 use super::circle_links::{CircleLink, SEND_SCHEMA, published_block, sha_of_file};
 use super::merge::same_question;
 use super::question_history::picture_sha_on_circle;
-use crate::model::{ImageRef, Question, QuestionBank, is_keyless};
+use crate::model::{Question, QuestionBank, is_keyless};
 
 /// The base body could not be read, so which questions changed can not be told.
 const UNREADABLE: &str = "The version this copy is based on could not be read.";
@@ -263,16 +263,6 @@ fn picture_matches(link: &CircleLink, ours: &Question, base_file: &str, base_w: 
     let Some(a) = ours.image.as_ref() else { return false };
     let Some(base_sha) = sha_of_file(base_file) else { return false };
     u64::from(a.width) == base_w && u64::from(a.height) == base_h && picture_sha_on_circle(link, ours).as_deref() == Some(base_sha.as_str())
-}
-
-/// The picture as the server hashes it: its name on the server and its size (an absent one is a change from a
-/// picture, and the other way round).
-fn same_image(a: Option<&ImageRef>, b: Option<&ImageRef>) -> bool {
-    match (a, b) {
-        (None, None) => true,
-        (Some(a), Some(b)) => a.file == b.file && a.width == b.width && a.height == b.height,
-        _ => false,
-    }
 }
 
 /// The payload for a partial send: this bank in order, with every unticked change left as the base has it.

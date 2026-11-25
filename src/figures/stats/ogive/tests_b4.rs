@@ -793,6 +793,7 @@ fn audit(svg: &str, what: &str) {
 }
 
 #[test]
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
 fn nothing_collides_with_the_new_options() {
     let tables = [DEFAULT_TABLE, "0, 10, 4\n10, 20, 9\n20, 40, 14\n40, 60, 8\n60, 100, 5", "0, 5, 0\n5, 10, 0\n10, 15, 6\n15, 20, 0\n20, 25, 4\n25, 30, 0"];
     let mut n = 0;

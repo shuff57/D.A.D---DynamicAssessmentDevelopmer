@@ -1042,6 +1042,7 @@ fn tw(s: &str, size: f64) -> f64 { text_w(s, size) }
 
 struct Slot { side: i8, x: f64, y: f64 }
 
+#[cfg(test)]
 fn viol(a: &(P, P, P), b: &(P, P, P), disc: f64) -> u32 { viol4(a, a.0, b, b.0, disc) }
 
 /// `viol` where each label's pointed-at place may differ from where its leader starts (a ribosome's leader stops
@@ -1895,6 +1896,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
     fn an_empty_label_list_is_drawn_bare_and_the_note_says_why_and_the_advice_draws() {
         for t in TYPES {
             for mask in 0u8..32 {
@@ -1932,6 +1934,7 @@ mod tests {
 
     // ------------------------------------------------------------ layout and collisions
     #[test]
+    #[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
     fn nothing_collides_across_every_cell_group_function_size_and_copy() {
         let mut n = 0;
         let mut worst = 0usize;
@@ -1962,6 +1965,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
     fn the_student_copy_and_the_key_share_one_layout() {
         for t in TYPES {
             for funcs in [false, true] {
@@ -2043,6 +2047,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
     fn each_pointer_in_the_picture_lands_on_exactly_its_structure() {
         let mut ribo = 0;
         for t in TYPES {
@@ -2170,6 +2175,7 @@ mod tests {
     const LEN_BOUND: f64 = 420.0;
 
     #[test]
+    #[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
     fn leaders_run_over_nothing_they_do_not_point_at() {
         let mut rasters: HashMap<(CellType, bool), (DrawnRaster, P)> = HashMap::new();
         let (mut renders, mut total, mut crossing, mut over_ribo) = (0, 0, 0, 0);
@@ -2259,6 +2265,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
     fn no_drawn_ribosome_lies_under_a_leader_it_is_not_the_target_of() {
         // invariant I1, read from the SVG alone: every drawn ribosome (free or a rough ER stud) keeps r + halo from every
         // leader, except the one ribosome a leader points at (from that leader); every cell, plasmodesmata, group set,
@@ -2306,6 +2313,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
     fn every_rough_er_pointer_ends_among_drawn_ribosomes() {
         // the dots are what tell rough ER from smooth ER. For every rough ER pointer in every layout, in Colour and Print:
         // (a) at least four drawn studs within 12 px of where the leader ends, on the very sac it points at;
@@ -2407,6 +2415,7 @@ mod tests {
     const ALLOWED: &[&str] = &["Not", "to", "scale", "the", "shapes", "are", "simplified", "Where", "a", "structure", "occurs", "more", "than", "once", "its", "pointer", "marks", "one", "of", "them", "Name", "each", "numbered"];
 
     #[test]
+    #[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
     fn a_student_copy_prints_no_answer_anywhere_in_its_source() {
         let mut checked = 0;
         for t in TYPES {
@@ -2615,6 +2624,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
     fn at_sixty_six_percent_grey_each_hatched_organelle_keeps_ink_and_none_is_solid() {
         // every pixel of the organelle's inside (2 px in from its edge) is counted, not a patch round the pointer
         for t in TYPES {
@@ -2829,6 +2839,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
     fn a_first_layout_is_fast_enough_to_follow_a_checkbox() {
         // measured per layout, worst case over every cell type and a spread of switches; the cache makes every later draw free.
         // The scenes (drawing, pixel map, pointer places) are built once per cell type at its first draw: timed apart.
@@ -2864,6 +2875,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
     fn the_layout_cache_tells_every_setting_apart() {
         // one thread, one cache: fetch a neighbour first, then the layout under test; it must equal a fresh computation
         let same = |a: &Layout, c: &Layout| format!("{:?}|{}|{}|{}", a.labs, a.fs, a.w, a.h) == format!("{:?}|{}|{}|{}", c.labs, c.fs, c.w, c.h);
@@ -3010,6 +3022,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
     fn ten_thousand_odd_inputs_never_panic_and_the_note_agrees_with_the_picture() {
         let mut r = Rng(0xce11_d1a9);
         let d = def();
@@ -3090,6 +3103,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
     fn leaders_stay_short_enough_to_follow() {
         // in the defaults, the opening state and every example, at every label size, with and without the function
         // captions (the longest case), no leader is longer than 40 % of the canvas diagonal nor than LEN_BOUND; the

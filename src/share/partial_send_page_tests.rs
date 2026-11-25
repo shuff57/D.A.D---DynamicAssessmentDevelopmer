@@ -946,7 +946,7 @@ fn d3_after_a_conflict_and_get_latest_an_unticked_change_is_still_unticked() {
         &[],
     );
     let link = m.edit.link_for_local(LOCAL).unwrap();
-    let (a, d) = (local(&link, QA), banks[0].questions[3].id.clone());
+    let a = local(&link, QA);
     m.edit.toggle_change(&a, false);
     s.on("Put", &super::bank_links_fix8_tests::put_path(), 409, json!({"error": "conflict", "head_version": 4, "head_at": super::circles_tests::NOW - 1000, "head_by": "Bob Teacher"}));
     m.edit.send();

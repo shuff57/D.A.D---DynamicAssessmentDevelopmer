@@ -161,6 +161,7 @@ fn multiply((a, b): (f64, f64), (c, d): (f64, f64)) -> (f64, f64) {
 }
 
 #[test]
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
 fn irrational_roots_powers_precision_sweep() {
     let radii = [
         ("sqrt(2)", 2f64.sqrt()),
@@ -499,7 +500,7 @@ fn corrected_irrational_render_time_and_pngs() {
         let svg = render(&p);
         let elapsed = start.elapsed();
         worst = worst.max(elapsed);
-        assert!(elapsed.as_secs_f64() < 0.2, "{name}: {elapsed:?}");
+        assert!(!crate::TIMED || elapsed.as_secs_f64() < 0.2, "{name}: {elapsed:?}");
         assert!(!svg.contains('×'));
         if let Ok(dir) = std::env::var("VERSHION_COMPLEX_PRECISION_PNG_DIR") {
             std::fs::write(format!("{dir}/{name}.svg"), &svg).unwrap();

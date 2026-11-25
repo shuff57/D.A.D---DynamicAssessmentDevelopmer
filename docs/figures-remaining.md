@@ -48,7 +48,7 @@ The owner asked to finish the running figures, then commit, merge to `main`, reb
 - The main checkout `/home/shuff57/Documents/GitHub/verSHion` is used by other sessions (branch `shared-pool-phase1`, uncommitted work). Do not check out or merge there; do the merge from a separate clone or worktree, or let the owner do it.
 - Which commits go: the other session's phase 5 chemistry commits are interleaved on this branch, so they go too unless split out.
 - What "redeploy" means is not recorded anywhere I could find: `README.md` and `NOTES.md` have no deploy section. The repo has `Trunk.toml` and `index.html` (a web build) and `server/worker/wrangler*.toml` (Cloudflare worker, `server/` is off-limits for the figures loop). Ask which target and which command.
-- Before any merge: the full lib suite on the merged tree (`systemd-run --user --scope -p MemoryMax=8G -p MemorySwapMax=0 cargo test --lib -j2`, known flake `absurd_windows_cannot_run_away`), then a release build.
+- Before any merge: the full lib suite on the merged tree (`systemd-run --user --scope -p MemoryMax=8G -p MemorySwapMax=0 cargo test --profile figtest --lib --features slow-tests -j2`; a plain `cargo test --lib` skips the slow sweeps and the time limits; known flake `absurd_windows_cannot_run_away`), then a release build.
 - Never type or store credentials; deploy auth must come from the owner.
 
 

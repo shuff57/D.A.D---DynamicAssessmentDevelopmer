@@ -21,7 +21,6 @@ const BLANK: &str = "_____";
 /// Coulomb's constant, in the units the readout prints.
 const K: f64 = 9.0e9;
 const W: f64 = 470.0;
-const H: f64 = 360.0;
 const CX: f64 = 235.0;
 const CY: f64 = 150.0;
 const RMAX: f64 = 120.0;

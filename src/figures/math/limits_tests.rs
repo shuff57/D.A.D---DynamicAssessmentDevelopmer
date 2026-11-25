@@ -528,6 +528,7 @@ const NAMED_UNDER: &[(&str, &str)] = &[
 ];
 
 #[test]
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
 fn every_label_on_the_classroom_list_is_clear_and_by_its_own_thing() {
     let mut m = Meter::new();
     let list = classroom();
@@ -595,6 +596,7 @@ fn bases() -> Vec<J> {
 
 /// Each switch and choice is shown exactly where changing it changes the drawing; the hidden ones change nothing.
 #[test]
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
 fn every_control_is_shown_exactly_where_it_draws() {
     let d = def();
     let defs = (d.params)();
@@ -852,7 +854,7 @@ fn the_ends_of_every_range_draw_cleanly_and_quickly() {
         let ms = t.elapsed().as_millis();
         let _ = warnings(&p);
         let _ = handles(&p);
-        assert!(ms < 500, "{c}: {ms} ms");
+        assert!(!crate::TIMED || ms < 500, "{c}: {ms} ms");
         assert!(s.len() < 3_000_000, "{c}: {} bytes", s.len());
         assert!(!s.contains("NaN") && !s.contains("inf\"") && !s.contains("e+") && !s.contains("e-1"), "{c}");
         assert!(!words(&s).contains("0000000") && !words(&s).contains("999999"), "{c}: float noise in {}", words(&s));
@@ -863,7 +865,7 @@ fn the_ends_of_every_range_draw_cleanly_and_quickly() {
     for e in std::iter::once(start_params(&def())).chain(crate::figures::examples_for(ID).iter().map(|e| { let mut p = start_params(&def()); for (k, v) in &e.params { p.0.insert(k.to_string(), v.clone()); } p })) {
         let t = std::time::Instant::now();
         let _ = (def().render)(&{ let mut q = e.clone(); q.set_s("title", &format!("{:?}", t)); q });
-        assert!(t.elapsed().as_millis() < 300);
+        assert!(!crate::TIMED || t.elapsed().as_millis() < 300);
     }
 }
 
@@ -992,6 +994,7 @@ fn every_example_is_what_its_title_says() {
 /// can have, no answer the key writes appears in it (as "= answer"), no kind label or asymptote equation the teacher has
 /// not kept, and no L beside a limit it asks for.
 #[test]
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
 fn no_student_copy_gives_an_answer_away() {
     let fns = [
         json!({}),
@@ -1164,6 +1167,7 @@ fn exact_values_are_written_in_textbook_form() {
 /// The third check's slow graphs (thousands of poles, or poles piling up at 0) draw in well under half a second: past a
 /// few hundred places the key says there are too many, and poles piling up are said to pile up.
 #[test]
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
 fn graphs_with_thousands_of_poles_draw_quickly_and_say_so() {
     for (pieces, x0, x1, says) in [
         ("y = tan(x^2)", -100.0, 100.0, "too many to work out one by one"),
@@ -1539,6 +1543,7 @@ fn every_zero_of_a_base_to_the_power_zero_is_a_hole() {
 /// timer) and takes under half a second (measured again once if the machine was busy); the analysis stops at its work
 /// budget, counted in steps of exact arithmetic, and the key then leaves its lines to fill in.
 #[test]
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
 fn adversarial_compositions_finish_quickly() {
     let fns = [
         "floor(tan(x^2))", "floor(tan(exp(x)))", "1/(sin(x)sin(2x)sin(3x))", "floor(exp(x^2))", "floor(tan(x)) + floor(1/x)", "floor(1/sin(x))",
@@ -1816,6 +1821,7 @@ fn tangent_quotient_retains_its_complete_discontinuity_list() {
 /// V09/V64 now use e^(±2x); V63 retains left-to-right division;
 /// V65 uses explicit multiplication outside sin(2); V66 is sin(1/2)*x.
 #[test]
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
 fn check_eight_spellings_and_products_match_hand_truths() {
     let cases: J = serde_json::from_str(r###"[
 {"name":"T01","p":{"pieces":"y = sin 3x / x","dots":"","ask_at":"0, pi/6","ask_inf":"Both","ask_disc":true,"asym_eqs":true,"kind_labels":true},"exp":{"at":{"0":[3,3,3,"u"],"pi/6":[1.909859317102744,1.909859317102744,1.909859317102744,1.909859317102744]},"inf":[0,0],"discs":[[0,"r"]],"va":[],"ha":[0]}},

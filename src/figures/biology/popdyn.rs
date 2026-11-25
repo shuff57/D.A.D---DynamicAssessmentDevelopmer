@@ -541,7 +541,7 @@ pub fn growth_render(p: &Params) -> String {
                     let (x, y, size) = (a.x + 8.0 + k_dx, a.py(k) + 21.7, 14.7 * growth_b9::label_scale(p));
                     (x - 2.0, y - size * 0.95 - 2.0, x + (bold_width(text, size) * 1.25).max(162.0) + 2.0, y + size * 0.3 + 2.0)
                 });
-                let room = growth_b9::InflRoom { a: &a, at: (cx, cy), curves, census: census.iter().map(|q| a.pt(*q)).collect(), phase_x, k_line: kd.then(|| a.py(k)), k_label, minor: minor_of(p.s("minor")) };
+                let room = growth_b9::InflRoom { a: &a, at: (cx, cy), curves, census: census.iter().map(|q| a.pt(*q)).collect(), phase_x, k_line: kd.then(|| a.py(k)), k_label };
                 growth_b9::infl_label(&mut d, p, (cx + 12.0).min(a.x + a.w - 170.0), cy + 18.0, &room);
             }
         }

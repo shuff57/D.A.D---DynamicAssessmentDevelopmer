@@ -633,7 +633,7 @@ fn atom_radius(sz: &str) -> f64 { match sz { "XS" => 6.0, "S" => 10.0, "M" => 15
 
 /// One particle kind: centre atom + outer atoms.
 #[derive(Clone, PartialEq)]
-struct Species { shape: String, r: f64, fill: &'static str, ch: String, ro: f64, fillo: &'static str, cho: String }
+pub(super) struct Species { shape: String, r: f64, fill: &'static str, ch: String, ro: f64, fillo: &'static str, cho: String }
 
 fn species(p: &Params, k: &str) -> Species {
     let g = |x: &str| p.s(&format!("{k}_{x}")).to_string();

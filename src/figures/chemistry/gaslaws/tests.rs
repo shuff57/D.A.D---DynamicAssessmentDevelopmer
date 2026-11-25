@@ -743,6 +743,7 @@ fn sweep_cases(n: usize, seed: u64) -> Vec<Vec<(&'static str, Value)>> {
 }
 
 #[test]
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
 fn labels_clear_and_attributed_across_twelve_thousand_cases_in_real_glyphs() {
     let mut g = Glyphs::new();
     let mut problems: BTreeMap<String, Vec<String>> = BTreeMap::new();
@@ -879,7 +880,7 @@ fn the_student_labels_and_marks_do_not_depend_on_where_the_answer_falls() {
 
 /// Distance from a point to the curves drawn (every stroke of kind curve), in px.
 fn dist_to_curves(g: &Geo, p: Pt) -> f64 {
-    g.strokes.iter().filter(|s| s.0 == "curve").map(|s| seg_box((s.2 .0), (s.2 .1), (p.0, p.0, p.1, p.1))).fold(f64::MAX, f64::min)
+    g.strokes.iter().filter(|s| s.0 == "curve").map(|s| seg_box(s.2 .0, s.2 .1, (p.0, p.0, p.1, p.1))).fold(f64::MAX, f64::min)
 }
 
 #[test]

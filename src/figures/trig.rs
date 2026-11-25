@@ -190,6 +190,7 @@ impl Ctx {
     /// The ratio's decimal as printed, for the student copy when the fraction is left out.
     fn ratio_decimal(&self, v: V) -> String { self.ratio_parts(v).2 }
     /// Every text that would give the value away: the number itself and, for a ratio, its fraction.
+    #[cfg(test)]
     fn tokens(&self, v: V) -> Vec<String> {
         if matches!(v, V::Sin | V::Cos | V::Tan) {
             let (a, b, q) = self.ratio_parts(v);

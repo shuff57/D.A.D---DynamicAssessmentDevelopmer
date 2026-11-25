@@ -388,7 +388,9 @@ fn c83_i2_what_a_send_carried_is_matched_to_the_version_it_made() {
     let mine = circle_theirs(&payload(&[(QA, "One"), (QB, "Two"), (QN, "Two")]), NOW);
     let mut base = link.base.clone();
     rebase_own_send(&mut base, &[QA], &[("", &c1), ("", &c2)], &mine, &pic, true);
-    let mut got: Vec<&str> = base.iter().filter(|b| b.local_id.starts_with('c')).map(|b| b.qid.as_str()).collect();
+    // by exact id: the bank's own question has a `model::new_id()` id, which starts with 'c' once the process has made
+    // 0xc00 ids (other tests running first), so a prefix test picked it up too now and then
+    let mut got: Vec<&str> = base.iter().filter(|b| b.local_id == "c1" || b.local_id == "c2").map(|b| b.qid.as_str()).collect();
     got.sort_unstable();
     assert_eq!(got, vec![QB, QN]);
     // a bank question the link already knows is not linked again

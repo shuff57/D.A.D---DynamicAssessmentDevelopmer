@@ -216,7 +216,15 @@ fn view_box_padded(content: Option<[f64; 4]>, (cw, ch): (f64, f64), fixed: Optio
 /// the reference's pixels per unit of ours (so a phone, where the reference never enlarges a figure
 /// past its natural size, can show the same size).
 #[derive(Clone, Copy)]
-struct PhysRef { fx: f64, fy: f64, fl: f64, ft: f64, u: f64 }
+struct PhysRef {
+    fx: f64,
+    fy: f64,
+    fl: f64,
+    ft: f64,
+    /// Measured for each figure but not read yet: nothing scales a phone's figure by it.
+    #[allow(dead_code)]
+    u: f64,
+}
 
 /// Figures whose phone svg box keeps the canvas aspect (it shrinks in height with its width); the
 /// rest keep their natural height while the width shrinks.
@@ -5222,6 +5230,7 @@ mod tests {
 
     /// Every real figure opens in the workspace and draws its handle overlay without panicking.
     #[test]
+    #[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
     fn every_figure_opens_with_overlay() {
         let ctx = egui::Context::default();
         theme::setup(&ctx);
@@ -5478,10 +5487,14 @@ mod tests {
         // a vertex knob next to a moved label still drags the vertex
         let (ctx, mut ws) = open_fig("rectangle");
         ws.params.set_s(figures::labels::KEY, "v2:20,-20");
+        // draw the moved label now instead of after the 150 ms debounce: the knob is found on this preview, and a
+        // debounce that ran out in the middle of the drag (a busy machine) redrew a larger canvas under the pointer
+        ws.live = true;
         for _ in 0..2 {
             comp_frame(&ctx, &mut ws, vec![]);
         }
         let def = &reg()[ws.sel.unwrap()];
+        assert_eq!(ws.shown.as_ref().map(|s| s.0), Some(hash_params(def.id, &ws.params)), "the preview shows the moved label");
         let hs = def.handles(&ws.params, ws.canvas);
         let knob = hs.iter().find(|h| !h.label_drag && h.tip.contains("width")).expect("width knob").pos;
         let ab = ws.params.s("m_ab").to_string();

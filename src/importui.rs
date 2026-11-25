@@ -17,9 +17,9 @@ use crate::examui::{paper_question, ptext, PAGE_H, PAGE_W, PAPER_RULE, PAPER_SOF
 use crate::screens::{fmt_time, import_how_label, mime_of, now_secs, remap_empty_bank_ids, shell_frame, ImportFile};
 use crate::theme;
 
-/// Bytes read asynchronously from browser file drops, drained on the next frame.
 #[cfg(target_arch = "wasm32")]
 thread_local! {
+    /// Bytes read asynchronously from browser file drops, drained on the next frame.
     static DROPPED_BYTES: RefCell<Vec<Result<(String, Vec<u8>), String>>> = const { RefCell::new(Vec::new()) };
     static RESOLVE_BYTES: RefCell<Vec<Result<(String, Vec<u8>), String>>> = const { RefCell::new(Vec::new()) };
 }

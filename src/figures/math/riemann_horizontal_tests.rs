@@ -82,6 +82,7 @@ fn truth(c: &Case, n: usize, rule: &str) -> Vec<f64> {
     }).collect()
 }
 #[test]
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
 fn riemann_horizontal_textbook_sweep() {
     let mut count = 0;
     for c in cases() { for n in 2..=12 { for rule in ["Left", "Right", "Midpoint", "Upper", "Lower"] {

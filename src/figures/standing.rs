@@ -17,7 +17,6 @@ const ENVELOPE_PRINT: &str = "#777777";
 const NODE_PRINT: &str = "#333333";
 const BLANK: &str = "_____";
 const W: f64 = 470.0;
-const H: f64 = 330.0;
 const X0: f64 = 60.0;
 const X1: f64 = W - 60.0;
 const MID: f64 = 130.0;

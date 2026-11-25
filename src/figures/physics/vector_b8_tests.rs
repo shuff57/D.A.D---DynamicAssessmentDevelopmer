@@ -27,7 +27,7 @@ fn open(over: &[(&str, &str)]) -> Params {
 // ------------------------------------------------------------------ reading the drawn SVG
 
 #[derive(Debug, Clone)]
-struct Text { content: String, x0: f64, x1: f64, y0: f64, y1: f64, fill: String }
+struct Text { content: String, x0: f64, x1: f64, y0: f64, y1: f64 }
 #[derive(Debug, Clone)]
 struct Line { a: (f64, f64), b: (f64, f64), sw: f64, dashed: bool, stroke: String }
 
@@ -76,7 +76,7 @@ fn read(svg: &str) -> (Vec<Text>, Vec<Line>, Vec<[(f64, f64); 3]>) {
             let (x0, x1) = match anchor.as_str() { "start" => (x, x + w), "end" => (x - w, x), _ => (x - w / 2.0, x + w / 2.0) };
             let top = if sup { 0.92 } else { 0.74 } * fs;
             let bot = if sub { 0.46 } else { 0.24 } * fs;
-            texts.push(Text { content, x0, x1, y0: y - top, y1: y + bot, fill: attr(tag, "fill").unwrap_or_default() });
+            texts.push(Text { content, x0, x1, y0: y - top, y1: y + bot });
             rest = &rest[close + 7..];
             continue;
         }
@@ -127,19 +127,6 @@ fn crosses(a: (f64, f64), b: (f64, f64), c: (f64, f64), d: (f64, f64)) -> bool {
     ((d1 > 0.0) != (d2 > 0.0)) && ((d3 > 0.0) != (d4 > 0.0))
 }
 
-/// The start of the leader line ending at text `t` (the one ending nearest its box, within 6 px), if any.
-fn leader_to(lines: &[Line], t: &Text) -> Option<(f64, f64)> {
-    let gap = |q: (f64, f64)| (t.x0 - q.0).max(q.0 - t.x1).max(0.0).hypot((t.y0 - q.1).max(q.1 - t.y1).max(0.0));
-    // a leader points at the centre of its own text
-    let c = centre(t);
-    let aims = |l: &Line| {
-        let (dx, dy) = (l.b.0 - l.a.0, l.b.1 - l.a.1);
-        let len = dx.hypot(dy).max(1e-9);
-        ((c.0 - l.a.0) * dy - (c.1 - l.a.1) * dx).abs() / len < 1.0
-    };
-    lines.iter().filter(|l| (l.sw - 0.9).abs() < 1e-9 && gap(l.b) < 6.0 && aims(l)).min_by(|a, b| gap(a.b).total_cmp(&gap(b.b))).map(|l| l.a)
-}
-
 fn in_tri(q: (f64, f64), t: &[(f64, f64); 3]) -> bool {
     let s = |a: (f64, f64), b: (f64, f64)| (b.0 - a.0) * (q.1 - a.1) - (b.1 - a.1) * (q.0 - a.0);
     let (d1, d2, d3) = (s(t[0], t[1]), s(t[1], t[2]), s(t[2], t[0]));
@@ -156,7 +143,7 @@ fn is_grid(l: &Line) -> bool { l.stroke == "#cdd1d8" }
 fn label_faults(svg: &str) -> Vec<String> {
     let (mut texts, lines, tris) = read(svg);
     for l in lines.iter().filter(|l| is_blank(l)) {
-        texts.push(Text { content: "__".into(), x0: l.a.0.min(l.b.0), x1: l.a.0.max(l.b.0), y0: l.a.1 - 1.5, y1: l.a.1 + 1.5, fill: String::new() });
+        texts.push(Text { content: "__".into(), x0: l.a.0.min(l.b.0), x1: l.a.0.max(l.b.0), y0: l.a.1 - 1.5, y1: l.a.1 + 1.5 });
     }
     let (pw, ph) = crate::figures::svg_size(svg);
     let mut out = vec![];
@@ -287,6 +274,7 @@ fn hard() -> Vec<Params> {
 }
 
 #[test]
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
 fn crowded_labels_clear_of_everything() {
     let d = def();
     let mut cases = hard();
@@ -580,10 +568,6 @@ fn textbook_figures_leave_nothing_off() {
 
 // ------------------------------------------------------------------ batch 8 round 2: the realistic worksheet family
 
-/// Figures of the realistic family still leaving an angle value / a component name off at this commit (of 9,267).
-const ANG_OFF: usize = 33;
-const COMP_OFF: usize = 25;
-
 const FAM_ANGS: [f64; 11] = [0.0, 30.0, 45.0, 60.0, 90.0, 120.0, 135.0, 180.0, 210.0, 270.0, 300.0];
 const FAM_LENS: [f64; 3] = [2.0, 4.0, 6.0];
 
@@ -628,60 +612,9 @@ fn family() -> Vec<(String, Params)> {
     out
 }
 
-/// The drawn sweep's problems for one figure, by the checker's rules: a vector's name not drawn; an arc with no value;
-/// a component with no name; a value outside its own angle's sector widened by 10 degrees, further from its arc's
-/// centre than the radius and 1.5 text heights, or not plainly nearer its own arc (the one whose span it states) than
-/// any other. Returns (problems, leaders drawn).
-fn sweep_problems(p: &Params, svg: &str) -> (Vec<String>, usize) {
-    let (texts, lines, _) = read(svg);
-    let mut out = vec![];
-    let n = p.i("n") as usize;
-    for i in 0..n {
-        let name = ["A", "B", "C", "D"][i];
-        if !texts.iter().any(|t| t.content == name) { out.push(format!("NAME {name}")); }
-    }
-    let drawn_arcs = arcs(svg);
-    let degs: Vec<&Text> = texts.iter().filter(|t| t.content.ends_with('\u{b0}')).collect();
-    if degs.len() < drawn_arcs.len() { out.push(format!("MISSING_DEG {}", drawn_arcs.len() - degs.len())); }
-    let comp_lines = lines.iter().filter(|l| l.dashed && (l.sw - 2.2).abs() < 1e-9).count();
-    let names = texts.iter().filter(|t| t.fill == "#6b7280").count();
-    if names < comp_lines { out.push(format!("MISSING_COMP {}", comp_lines - names)); }
-    // each arc's centre (the start of its own reference line) and span
-    let refs: Vec<(f64, f64)> = lines.iter().filter(|l| l.dashed && (l.sw - 1.3).abs() < 1e-9).map(|l| l.a).collect();
-    let geo: Vec<((f64, f64), f64, f64, f64, f64)> = drawn_arcs.iter().filter_map(|arc| {
-        let (p1, p3) = (arc[0], *arc.last().unwrap());
-        let o = refs.iter().copied().find(|&o| { let r = dist_seg(o, p1, p1); arc.iter().all(|&a| (dist_seg(o, a, a) - r).abs() < 0.3) })?;
-        let ang = |a: (f64, f64)| (o.1 - a.1).atan2(a.0 - o.0).to_degrees();
-        let (a0, a1) = (ang(p1), ang(p3));
-        let mut span = (a1 - a0).rem_euclid(360.0);
-        let dir = if span > 180.0 { span = 360.0 - span; -1.0 } else { 1.0 };
-        Some((o, dist_seg(o, p1, p1), a0, dir * span, span))
-    }).collect();
-    let arc_dist = |c: (f64, f64), k: usize| drawn_arcs[k].windows(2).map(|w| dist_seg(c, w[0], w[1])).fold(f64::MAX, f64::min);
-    let leaders = lines.iter().filter(|l| (l.sw - 0.9).abs() < 1e-9).count();
-    for t in &degs {
-        let said: f64 = t.content.trim_end_matches('\u{b0}').parse().unwrap();
-        let c = leader_to(&lines, t).unwrap_or(centre(t));
-        let own: Vec<usize> = (0..geo.len()).filter(|&k| (geo[k].4 - said).abs() < 0.15).collect();
-        let Some(&k) = own.iter().min_by(|&&a, &&b| arc_dist(c, a).total_cmp(&arc_dist(c, b))) else { out.push(format!("NO_ARC {said}")); continue };
-        let (o, r, a0, sweep_, _) = geo[k];
-        let mine = arc_dist(c, k);
-        if (0..geo.len()).any(|j| j != k && !own.contains(&j) && arc_dist(c, j) < mine + 1.5) { out.push(format!("NEARER_OTHER {said}")); }
-        let th = (t.y1 - t.y0) - 0.0;
-        let cc = centre(t);
-        if (cc.0 - o.0).hypot(cc.1 - o.1) > r + 1.5 * th + 0.5 { out.push(format!("FAR {said}")); }
-        let a = (o.1 - cc.1).atan2(cc.0 - o.0).to_degrees();
-        let mut tt = (a - a0).rem_euclid(360.0);
-        if sweep_ < 0.0 { tt = (360.0 - tt).rem_euclid(360.0); }
-        if tt > 180.0 { tt -= 360.0; }
-        if tt < -10.0 - 0.5 || tt > sweep_.abs() + 10.0 + 0.5 { out.push(format!("OUTSIDE {said}")); }
-    }
-    for f in label_faults(svg) { out.push(format!("FAULT {f}")); }
-    (out, leaders)
-}
-
 /// Item 1: nothing addressed to the teacher is drawn, on the key or the student copy: notes go to the panel only.
 #[test]
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
 fn no_teacher_note_is_drawn() {
     let d = def();
     let mut cases: Vec<Params> = vec![open(&[("v2_ang", "90"), ("v2_comps", "true"), ("show_answers", "false")]), open(&[("v2_ang", "90"), ("v2_comps", "true")])];
@@ -754,6 +687,7 @@ fn plain_figures_use_no_leader() {
 /// Item 5: the layout is worked out once per figure (drawing, notes, handles and both copies share it) and the work
 /// is bounded, over the realistic family and the crowded four-vector figures.
 #[test]
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
 fn layout_is_shared_and_bounded() {
     let d = def();
     let p = open(&[("n", "3"), ("v1_ang", "37"), ("v2_ang", "151"), ("v3_ang", "263"), ("v1_mark", "true"), ("v2_comps", "true"), ("mark_angle", "true")]);
@@ -962,7 +896,7 @@ fn own_sweep() -> Vec<(String, Params)> {
     let mut seed: u64 = 0x5eed_b8_04;
     let mut next = |n: u64| { seed = seed.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407); (seed >> 33) % n };
     let mut out = vec![];
-    let mut one = |n: usize, bits: u32, next: &mut dyn FnMut(u64) -> u64| -> Params {
+    let one = |n: usize, bits: u32, next: &mut dyn FnMut(u64) -> u64| -> Params {
         let mut p = open(&[]);
         p.set_i("n", n as i64);
         let mut prev = next(360) as f64;
@@ -1015,6 +949,7 @@ fn own_sweep() -> Vec<(String, Params)> {
 /// The hard rules over my sweep (3,000+ figures) and the checker's 15,534: no placement fault in any; the share left
 /// off reported by number of vectors, and small for one and two.
 #[test]
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
 fn placement_rules_hold_over_the_sweeps() {
     let d = def();
     let mine = own_sweep();
@@ -1076,6 +1011,7 @@ fn textbook_two_vector_figures_draw_in_full() {
 /// Item 3: the drawing depends on the params alone: A, then B (A with vector 1 turned 4 degrees), then A again, and A
 /// drawn cold after the layouts are forgotten, all byte-identical; over many figures.
 #[test]
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
 fn the_drawing_depends_on_the_params_alone() {
     let d = def();
     for (_, a) in own_sweep().into_iter().step_by(17).take(200) {

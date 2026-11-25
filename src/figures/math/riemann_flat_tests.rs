@@ -31,15 +31,6 @@ impl Case {
         out.push(r);
         out
     }
-    /// The crossings of f and g in the window (where f − g changes sign, or is 0 at a corner it does not stay at).
-    fn crossings(&self) -> Vec<f64> {
-        let k = self.knots(self.window.0, self.window.1);
-        let d = |x: f64| self.fv(x) - self.gv(x);
-        let mut out: Vec<f64> = k.windows(2).filter(|w| d(w[0]) * d(w[1]) < 0.).map(|w| w[0] + (w[1] - w[0]) * d(w[0]) / (d(w[0]) - d(w[1]))).collect();
-        out.extend(k.iter().filter(|x| d(**x) == 0.));
-        out.sort_by(f64::total_cmp); out.dedup();
-        out
-    }
     fn lohi(&self, x: f64) -> (f64, f64) { let (f, g) = (self.fv(x), self.gv(x)); (f.min(g), f.max(g)) }
     /// The width at y: on each piece lo and hi are straight, so {lo ≤ y} and {hi ≥ y} are each an
     /// interval of it, closed.
@@ -212,6 +203,7 @@ fn check(c: &Case, strips: &str, rule: &str, n: usize) -> Vec<String> {
 }
 
 #[test]
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
 fn riemann_flat_pieces_on_strip_levels() {
     let cs = cases();
     assert!(cs.len() >= 48, "{} cases", cs.len());

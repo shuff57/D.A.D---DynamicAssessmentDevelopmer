@@ -260,6 +260,7 @@ fn print_is_grey_only() {
 
 /// Each control is shown in the panel exactly when changing it changes the drawing (hidden: no effect at all).
 #[test]
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
 fn controls_show_exactly_when_they_change_the_drawing() {
     let defs = params();
     let mut states: Vec<Params> = vec![
@@ -591,6 +592,7 @@ const LARGE_EXCEPTIONS: &[&str] = &[
 const SMALL_MEDIUM_EXCEPTIONS: &[&str] = &["between x and x^2 Vertical Left / student / Medium"];
 
 #[test]
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
 fn label_sweep_over_the_classroom_list() {
     let list = classroom();
     assert!(list.len() >= 60, "{} cases", list.len());
@@ -649,7 +651,7 @@ fn ends_of_the_ranges() {
         p.set_s("rule", rule);
         let t = std::time::Instant::now();
         let (svg, notes) = build(&p);
-        assert!(t.elapsed().as_secs_f64() < 5.0, "{rule}: {:?}", t.elapsed());
+        assert!(!crate::TIMED || t.elapsed().as_secs_f64() < 5.0, "{rule}: {:?}", t.elapsed());
         assert_eq!(svg.matches(r#"data-rs="strip""#).count(), if rule == "Trapezoid" { 100 } else { 100 });
         assert!(notes.iter().any(|n| n.contains("strip labels do not fit")), "{notes:?}");
         assert!(label_faults(&svg).is_empty(), "{:?}", label_faults(&svg));
@@ -660,7 +662,7 @@ fn ends_of_the_ranges() {
         h.set_s("rule", rule);
         let t = std::time::Instant::now();
         let _ = build(&h);
-        assert!(t.elapsed().as_secs_f64() < 1.0, "horizontal {rule}: {:?}", t.elapsed());
+        assert!(!crate::TIMED || t.elapsed().as_secs_f64() < 1.0, "horizontal {rule}: {:?}", t.elapsed());
     }
     let big = with(&[("xmin", fl(-1000.0)), ("xmax", fl(1000.0)), ("xstep", fl(0.05)), ("a", s("-999")), ("b", s("999")), ("n", i(MAX_N))]);
     assert!(render(&big).contains("<svg"));
@@ -843,6 +845,7 @@ fn values_large_typed_and_ends() {
 /// exact heights at exact sample points and the exact Δx, agrees with an independent floating-point sum to 1e-12, and
 /// holds no irrational that is not in a height, Δx or the bounds; an integral written exactly agrees with quadrature.
 #[test]
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
 fn exact_values_are_derived_never_guessed() {
     let fns: Vec<(&str, &str, &str)> = vec![
         ("x^2", "0", "4"), ("x^3", "0", "3"), ("sqrt(x)", "0", "9"), ("sqrt(x) + 1", "0", "4"), ("2sqrt(x)", "1", "4"), ("1/x", "1", "5"), ("2/x", "1", "3"),
@@ -927,6 +930,7 @@ fn exact_values_are_derived_never_guessed() {
 /// and write an exact form only where the extreme's place is exactly known. Checked against an independent dense search
 /// of every strip, and by hand on the fourth checker's cases.
 #[test]
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
 fn upper_and_lower_find_the_true_extreme_everywhere() {
     // 4x − x² on [0, 4.01], 2 strips: the vertex x = 2 lies in the first strip [0, 2.005], so M₁ = 4, not f(2.005)
     let p = with(&[("f", s("4x - x^2")), ("a", s("0")), ("b", s("4.01")), ("rule", s("Upper")), ("n", i(2)), ("xmax", fl(5.0))]);
@@ -1150,6 +1154,7 @@ pub(super) fn read_form(t: &str, greedy: bool) -> Option<f64> {
 /// The self-check, tested: every exact form the figure writes (sums, heights, Δx, integrals, errors, areas) over logs, e,
 /// π, roots and rationals, every rule, n from 1 to 100, read back and evaluated, equals the value to 1e-9.
 #[test]
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
 fn every_exact_form_written_evaluates_to_its_value() {
     let fns: Vec<(&str, &str, &str)> = vec![
         ("ln(x)", "1", "2"), ("ln(x) + x", "1", "4"), ("ln(x)", "1", "7"), ("ln(x)", "1/2", "3"), ("ln(x^2 + 1)", "0", "2"), ("ln(x + 1)", "0", "3"), ("ln(2x)", "1", "3"),
@@ -1227,7 +1232,7 @@ fn fifth_check_cases() {
         let p = with(&[("f", s(f)), ("a", s("0")), ("b", s("3")), ("rule", s(rule)), ("n", i(n)), ("sum_line", bo(true)), ("key_line", bo(true))]);
         let t0 = std::time::Instant::now();
         let t = all(&p);
-        assert!(t0.elapsed().as_secs_f64() < 0.5, "{f} {rule} {n}: {:?}", t0.elapsed());
+        assert!(!crate::TIMED || t0.elapsed().as_secs_f64() < 0.5, "{f} {rule} {n}: {:?}", t0.elapsed());
         assert!(!t.contains("1.0000"), "a flat strip is written exactly: {t}");
     }
     // the hidden rule is inert on the curve-and-bounds copy
@@ -1287,6 +1292,7 @@ fn rat_cmp(a: Rat, b: Rat) -> std::cmp::Ordering {
 /// the greater (or lesser) of the strip's ends and of the function's critical points and kinks inside it (each listed
 /// here by hand). Bounds typed with up to ten decimals put a turning point 10⁻⁶ … 10⁻⁹ from a strip end.
 #[test]
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
 fn upper_and_lower_are_exactly_right_near_strip_ends() {
     type F = Box<dyn Fn(Rat) -> Rat>;
     let poly = |c: Vec<Rat>| -> F { Box::new(move |x: Rat| c.iter().rev().fold(Rat::zero(), |acc, k| acc.mul(x).unwrap().add(*k).unwrap())) };

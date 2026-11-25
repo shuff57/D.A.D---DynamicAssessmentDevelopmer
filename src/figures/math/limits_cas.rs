@@ -247,7 +247,6 @@ impl K {
             }
         }
     }
-    pub fn same(&self, o: &K) -> bool { self.sub(o).sign() == Some(0) }
     /// k^r for a rational r (a real odd root of a negative number; NoVal for an even root of one or 0 to a power ≤ 0).
     pub fn powq(&self, r: Q) -> KR {
         if r.is_zero() { return KR::Ok(K::one()); }
@@ -319,7 +318,6 @@ impl K {
                         AK::Prime(pr) => K::atom(Atom::ln(pr)).mulq(*p),
                         AK::Ln(_) | AK::Pi | AK::Fun => K::atom(Atom::fun("ln", &K::atom(a.clone()), a.val.ln())).mulq(*p),
                         AK::E => K::q(*p),
-                        _ => K::atom(Atom::fun("ln", &K::atom(a.clone()), a.val.ln())).mulq(*p),
                     };
                     out = out.add(&piece);
                 }
@@ -798,8 +796,6 @@ impl<'a> P<'a> {
 /// A rational exponent of a constant subtree (2, 1/3, -1/2).
 fn const_q(e: &X) -> Option<Q> { if let X::C(k) = e { return k.rational(); } if e.has_x() { return None; } match exact(e, &K::zero()) { EV::Val(k) => k.rational(), _ => None } }
 
-/// The formula's value at x as a number (an odd root of a negative number is real: (-8)^(1/3) = -2); None where it has
-/// no value.
 thread_local! { static OVER: std::cell::Cell<bool> = const { std::cell::Cell::new(false) }; }
 /// The value at x, or None where a part of it overflowed on the way and the result is not itself an overflow
 /// (MAX/MAX in (2e^x + 3)/(e^x + 1) far out is no value at all).
@@ -809,6 +805,8 @@ fn ev_sure(e: &X, x: f64) -> Option<f64> {
     if OVER.with(|o| o.get()) && v.is_some_and(|v| v.abs() < 1e200) { None } else { v }
 }
 
+/// The formula's value at x as a number (an odd root of a negative number is real: (-8)^(1/3) = -2); None where it has
+/// no value.
 pub fn ev(e: &X, x: f64) -> Option<f64> {
     let v = match e {
         X::C(k) => k.value(),
@@ -1504,6 +1502,7 @@ pub fn budget_reset() { WORK.with(|w| w.set(0)); }
 /// Whether the budget is spent.
 pub fn spent() -> bool { WORK.with(|w| w.get()) > BUDGET }
 /// The work done so far.
+#[cfg(test)]
 pub fn work() -> u64 { WORK.with(|w| w.get()) }
 
 fn ser_of(e: &X, at: &At, n: usize) -> S {

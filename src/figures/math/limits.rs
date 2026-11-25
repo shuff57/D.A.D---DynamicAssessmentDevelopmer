@@ -5,8 +5,7 @@
 //! curve lifted out of the grid's drawing), so a piece looks exactly as the same row does on the coordinate grid. The
 //! circles, points, asymptotes, the x = a markers, the labels and the questions are drawn here. The limits are worked out
 //! from the typed pieces with the same expression reader (`eval`).
-use super::flat::eval_typed;
-use super::{coordinate_grid_build, coordinate_grid_params, eval, grid_layout, math_tspans, parse_row, split_domain, GridL, Row};
+use super::{coordinate_grid_build, coordinate_grid_params, grid_layout, math_tspans, parse_row, split_domain, GridL, Row};
 /// The figure's own text face: Source Serif 4 has every sign the key writes (≈, ≠, ∞, √, ε, δ), so a line never falls back
 /// to another face part way.
 const SERIF: &str = super::LABEL_SERIF;
@@ -126,7 +125,6 @@ impl Num {
         if !v.is_finite() || v.abs() > 1e6 { return None; }
         Some(Num { v, text: k.show(), k })
     }
-    fn of(k: K) -> Num { Num { v: k.value(), text: k.show(), k } }
 }
 
 // ───────────────────────── the typed function ─────────────────────────
@@ -433,7 +431,7 @@ pub const UNSURE: &str = "cannot be determined";
 
 /// The function the params describe, with every answer about it.
 #[derive(Clone, Debug)]
-pub struct Model { pub pieces: Vec<Piece>, pub dots: Vec<Dot>, pub asks: Vec<Num>, pub notes: Vec<String>, pub x0: f64, pub x1: f64, pub y0: f64, pub y1: f64, pub xs: f64, cands: std::cell::OnceCell<(Vec<K>, bool)>, discs: std::cell::OnceCell<(Vec<Disc>, bool)>, many: std::cell::OnceCell<bool>, piles: std::cell::OnceCell<Vec<K>>, sides: std::cell::RefCell<std::collections::HashMap<(u64, bool, bool), Lim>> }
+pub struct Model { pub pieces: Vec<Piece>, pub dots: Vec<Dot>, pub asks: Vec<Num>, pub notes: Vec<String>, pub x0: f64, pub x1: f64, cands: std::cell::OnceCell<(Vec<K>, bool)>, discs: std::cell::OnceCell<(Vec<Disc>, bool)>, many: std::cell::OnceCell<bool>, piles: std::cell::OnceCell<Vec<K>>, sides: std::cell::RefCell<std::collections::HashMap<(u64, bool, bool), Lim>> }
 
 /// More places where something may happen in the window than are worked out one by one (tan(x²) on -100..100 has
 /// thousands of poles): past this the key says there are too many instead of listing them.
@@ -468,7 +466,7 @@ impl Model {
         }
         let mut dots = read_dots(p.s("dots"), &mut notes);
         let asks = read_asks(p.s("ask_at"), &mut notes);
-        let mut m = Model { pieces, dots: vec![], asks, notes, x0: g.x0, x1: g.x1, y0: g.y0, y1: g.y1, xs: g.xs, cands: std::cell::OnceCell::new(), discs: std::cell::OnceCell::new(), many: std::cell::OnceCell::new(), piles: std::cell::OnceCell::new(), sides: Default::default() };
+        let mut m = Model { pieces, dots: vec![], asks, notes, x0: g.x0, x1: g.x1, cands: std::cell::OnceCell::new(), discs: std::cell::OnceCell::new(), many: std::cell::OnceCell::new(), piles: std::cell::OnceCell::new(), sides: Default::default() };
         // a single point where a piece already has a different value would give f two values: it is not drawn
         dots.retain(|d| {
             match m.piece_value(&d.x.k) {
@@ -1010,7 +1008,6 @@ impl Board {
             && !self.dots.iter().chain(self.markers.iter()).any(|(q, r)| box_pt(b, *q) < *r + 1.5)
             && !self.boxes.iter().any(|o| hit(*o, b))
     }
-    fn add_poly(&mut self, pts: &[Pt]) { for w in pts.windows(2) { self.segs.push((w[0], w[1])); } }
 }
 
 /// A label's box: the text's width, and the ink from the cap height down to the descenders.
@@ -1030,7 +1027,6 @@ pub enum Spot { Beside(Pt), Leader(Pt, Pt, Pt), Off }
 struct Req { text: String, own: Vec<(Pt, Pt)>, tries: Vec<Pt>, anchor: Pt, rivals: Vec<(Pt, Pt)>, gap: f64 }
 
 fn place(board: &mut Board, r: &Req, size: f64) -> Spot {
-    let w = tw(&r.text, size);
     // beside its own thing, and nearer it than any other thing on the board
     let near_own = |b: Bx| -> f64 { r.own.iter().map(|(a, c)| seg_box_dist(*a, *c, b)).fold(f64::MAX, f64::min) };
     let own_pts: Vec<Pt> = r.own.iter().flat_map(|(a, c)| [*a, *c]).collect();

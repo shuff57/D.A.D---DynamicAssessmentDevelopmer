@@ -228,6 +228,7 @@ fn growth_labels_text_is_the_old_drawing() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
 fn growth_inflection_and_phase_labels_blank_or_none_leave_nothing_of_the_words() {
     let d = def(PG);
     let mut n = 0;
@@ -314,6 +315,7 @@ const VIEWS: [&str; 9] = ["Population size over time", "Growth rate over time", 
 /// tied to it by a leader starting at the point; each phase's line over its own bracket and nearer it than any other,
 /// or tied to it by a leader standing on its own bracket.
 #[test]
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
 fn growth_blank_lines_always_drawn_long_clear_and_own() {
     let d = def(PG);
     let mut cases: Vec<Vec<(&'static str, Value)>> = vec![];

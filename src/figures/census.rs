@@ -284,6 +284,7 @@ fn print_style_is_grey_only() {
 /// The coordinate grid is held to exactly neutral greys (spread 0) in Print, over every example and over the states
 /// that change its inks: the answer layer off and on, labels, notes, both shadings, every grid weight, minor lines, asymptotes.
 #[test]
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
 fn print_style_coordinate_grid_is_exactly_neutral_in_every_example_and_state() {
     let d = registry().into_iter().find(|d| d.id == "coordinate-grid").unwrap();
     let defs = (d.params)();

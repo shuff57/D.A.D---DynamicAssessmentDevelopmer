@@ -621,6 +621,7 @@ fn total_word(c: &str) -> bool {
 /// line with no numbers is a header and is skipped. The classes are sorted by their lower
 /// boundary and must meet exactly: every refusal says how to fix the table, with an example line
 /// built from the line's own numbers.
+#[cfg(test)]
 pub fn parse_table(text: &str) -> Result<Vec<Class>, String> {
     parse_table_notes(text).map(|(list, _)| list)
 }

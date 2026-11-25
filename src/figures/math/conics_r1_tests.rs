@@ -35,6 +35,7 @@ fn same(a: &N, b: &N) -> bool { (a.v - b.v).abs() < 1e-9 && a.ex.is_some() && a.
 const VALUES: [&str; 5] = ["1/3", "5/2", "\u{221a}2", "2\u{221a}3", "(\u{221a}5)/2"];
 
 #[test]
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
 fn a_value_set_under_a_typed_equation_is_kept_exactly() {
     // (kind, typed standard form, the same in general form (worked by hand), the boxes to set, a box to set first)
     let cases: [(&str, &str, &str, &[&str], Option<(&str, &str)>); 6] = [
@@ -404,6 +405,7 @@ impl Tally {
 }
 
 #[test]
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
 fn the_classroom_conics_keep_every_point_label() {
     let mut m = Meter::new();
     let mut t = Tally::default();
@@ -470,6 +472,7 @@ fn dump_classroom_pngs() {
 /// The checker's sweep: its 38 geometries with the parts as set, P off, every part on and the lines only, at three sizes and
 /// three label modes, in colour, Print, student copies and the key: label kinds left off or cut to their letter, by size.
 #[test]
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
 fn the_sweep_keeps_point_labels() {
     let mut m = Meter::new();
     let mut t = Tally::default();

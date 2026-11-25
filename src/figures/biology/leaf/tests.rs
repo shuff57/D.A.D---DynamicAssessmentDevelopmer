@@ -468,6 +468,7 @@ fn sweep() -> Vec<(Vec<(&'static str, Value)>, Cfg)> {
 }
 
 #[test]
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
 fn nothing_collides_in_any_mode_at_any_size() {
     let mut n = 0;
     for (l, c) in sweep() {
@@ -480,6 +481,7 @@ fn nothing_collides_in_any_mode_at_any_size() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
 fn every_pointer_ends_inside_its_part_and_crosses_nothing_named() {
     let mut n = 0;
     for (l, c) in sweep() {
@@ -575,6 +577,7 @@ fn answer_words() -> Vec<String> {
 }
 
 #[test]
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
 fn a_student_copy_prints_no_answer_anywhere_in_its_source() {
     let words = answer_words();
     let mut checked = 0;
@@ -613,6 +616,7 @@ fn a_student_copy_prints_no_answer_anywhere_in_its_source() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
 fn every_blank_is_in_the_table_once_and_the_key_names_each_once() {
     for mask in 0..64u32 {
         for open in ["Open", "Closed"] {
@@ -895,6 +899,7 @@ fn the_student_caption_explains_only_the_pointers_drawn() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
 fn nothing_panics_on_ten_thousand_hostile_inputs_and_every_output_is_well_formed_xml() {
     let mut r = Rng::new(2026);
     let junk = ["", "Open", "Closed", "closed", "CLOSED", "Large", "Huge", "Print", "\u{0}", "<script>", "&amp;", "\u{1f33f}", "\u{202e}", "x".repeat(400).leak() as &str];

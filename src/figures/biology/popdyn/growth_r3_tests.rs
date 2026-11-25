@@ -37,7 +37,7 @@ fn checker_cases() -> Vec<Case> {
 pub(super) fn sweep(seed: u64, modes: &[&'static str]) -> Vec<Case> {
     let mut g = Rng(seed);
     let mut out = vec![];
-    let mut dress = |c: &mut Case, g: &mut Rng, tspan: f64| {
+    let dress = |c: &mut Case, g: &mut Rng, tspan: f64| {
         c.extend([
             ("graph", s(if g.next(3) == 0 { "Population size over time" } else { g.pick(&VIEWS) })),
             ("label_size", s(g.pick(&["Small", "Medium", "Large"]))),
@@ -134,6 +134,7 @@ fn with(c: &Case, extra: &[(&'static str, Value)]) -> Case { let mut v = c.clone
 /// curve, the K line, a word or number, another blank line or leader, or a census dot; inside the page, leaders that
 /// run into the plot inside it. A phase Text mode leaves unlabelled is named in the same panel note in both modes.
 #[test]
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
 fn phase_blanks_match_the_names_text_draws() {
     let d = def(PG);
     let mut cases = checker_cases();
@@ -216,6 +217,7 @@ fn phase_blanks_match_the_names_text_draws() {
 /// A point past the span shown (or outside fixed axes): Blank line mode draws neither the mark nor its blank line; a
 /// panel note says where the point is, in every mode, and only then.
 #[test]
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
 fn inflection_off_the_graph_is_not_marked() {
     let d = def(PG);
     let mut cases = checker_cases();
@@ -257,6 +259,7 @@ fn inflection_off_the_graph_is_not_marked() {
 /// The point's leader keeps clear of census dots (6.7 px from a dot's centre: 1.5 px from its edge) wherever a clear
 /// route exists: the checker's graph with 400 counts, and the sweep.
 #[test]
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
 fn infl_leader_clear_of_census_dots() {
     let d = def(PG);
     let mut cases = checker_cases();

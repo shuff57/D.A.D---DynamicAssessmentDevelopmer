@@ -309,9 +309,6 @@ fn texts(t: &str) -> Vec<(usize, usize)> {
     t.match_indices("<text ").map(|(i, _)| (i, i + t[i..].find("</text>").unwrap() + 7)).collect()
 }
 
-/// Lines and polylines' segments, with their stroke colour.
-fn segments(t: &str) -> Vec<((f64, f64), (f64, f64), String)> { segments_w(t).into_iter().map(|x| (x.0, x.1, x.2)).collect() }
-
 /// The drawn strokes: lines and every polygon's edges, with colour (teal = the contact pair) and half width.
 fn segments_w(t: &str) -> Vec<((f64, f64), (f64, f64), String, f64)> {
     let sw = |h: &str| h.split("stroke-width=\"").nth(1).and_then(|x| x.split('"').next()).and_then(|x| x.parse::<f64>().ok()).unwrap_or(1.0) / 2.0;
@@ -339,13 +336,6 @@ fn plain(e: &str) -> String {
         match c { '<' => tag = true, '>' => tag = false, c if !tag && c.is_alphanumeric() => out.push(c), _ => {} }
     }
     out
-}
-
-fn seg_dist(p: (f64, f64), a: (f64, f64), b: (f64, f64)) -> f64 {
-    let (dx, dy) = (b.0 - a.0, b.1 - a.1);
-    let l = (dx * dx + dy * dy).max(1e-9);
-    let t = (((p.0 - a.0) * dx + (p.1 - a.1) * dy) / l).clamp(0.0, 1.0);
-    ((p.0 - a.0 - t * dx).powi(2) + (p.1 - a.1 - t * dy).powi(2)).sqrt()
 }
 
 /// Where text element `t[i0..i1]` touches other ink (2 px at 2x) or leaves the page, if it does.
@@ -386,6 +376,7 @@ fn without_leader(p: &crate::figures::Params, t: &str) -> String {
 }
 
 #[test]
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
 fn every_label_touches_no_other_ink_as_rasterized() {
     // measured from pixels, not boxes: each text's own dark pixels (there with it, white without it) have no other
     // ink within 2 px, and lie inside the page, at 2x, over the crowded touching states. Every label in the figure
@@ -438,6 +429,7 @@ fn every_label_touches_no_other_ink_as_rasterized() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
 fn the_contact_arrows_touch_no_other_ink_as_rasterized() {
     // the pair's own ink (taken out by colour) keeps 2 px from every other stroke and text, at 2x
     let mut n = 0;
@@ -483,6 +475,7 @@ fn the_contact_arrows_touch_no_other_ink_as_rasterized() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
 fn the_contact_label_is_nearest_its_own_pair() {
     // read from the drawn glyph box (the label's ink, rasterized at 2x with and without it, boxed): the nearest stroke
     // edge to the pair's label is the pair's own (an arrow, or the leader to it), by 2 px over any other stroke
@@ -525,6 +518,7 @@ fn contact_texts<'a>(t: &'a str, lab: &str) -> Vec<&'a str> {
 }
 
 #[test]
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
 fn a_typed_contact_label_is_drawn_or_the_panel_says_it_was_left_off() {
     // checker round 1: "F_{contact}" on a ramp drew no label and said nothing. Over the table and ramps of 10 to 60
     // degrees, every force switch together, object sizes and labels from P to F_{1 on 2}: the pair's label is in the
@@ -770,6 +764,7 @@ fn ink(t: &str) -> (Vec<(super::pulley_b10::Seg, bool)>, Vec<(String, (f64, f64,
 }
 
 #[test]
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
 fn the_contact_label_is_clear_of_every_stroke_however_long() {
     // checker round 2: on 50 and 60 degree ramps the string from the post up to the wheel ran through the pair's
     // label, because the placer kept only strokes whose bounding box's top-left corner was within 220 px of the pair

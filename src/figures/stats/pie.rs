@@ -761,7 +761,6 @@ fn render(p: &Params) -> String {
 
     // labels: inside the sector when they fit, otherwise outside with a short leader
     let mut placed: Vec<Placed> = Vec::new();
-    let (cx0, cy0) = (0.0, 0.0);
     let line_h = fl * 1.25;
     if !all_blank {
         for &i in &idx {

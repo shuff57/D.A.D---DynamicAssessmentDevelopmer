@@ -240,6 +240,7 @@ fn sweep(sets: Vec<(i64, Vec<Case>)>, rules_n: &[(&'static str, &'static str, us
 }
 
 #[test]
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
 fn riemann_float_edge_class_is_closed() {
     let base = cases_for(&constants());
     assert!(base.len() >= 150, "{} pairs", base.len());
@@ -253,6 +254,7 @@ fn riemann_float_edge_class_is_closed() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
 fn riemann_float_edge_class_survives_moved_constants() {
     let mut h = vec![];
     for strips in ["Horizontal", "Vertical"] { for rule in RULES { if strips == "Horizontal" && rule == "Trapezoid" { continue; } for n in [1, 4] { if strips == "Vertical" && n == 4 { continue; } h.push((strips, rule, n)); } } }

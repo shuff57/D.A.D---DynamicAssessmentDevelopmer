@@ -1294,6 +1294,7 @@ impl Rng {
 }
 
 #[test]
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
 fn ten_thousand_hostile_inputs_render_deterministically() {
     let defs = (def().params)();
     let blocks: Vec<Value> = vec![
@@ -1608,6 +1609,7 @@ fn the_panel_reserves_the_longer_of_the_key_and_student_lines() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
 fn no_note_names_the_highlighted_element_on_the_student_copy() {
     let notes_of = |svg: &str| -> String {
         let d = svg.split("<desc>").nth(1).and_then(|x| x.split("</desc>").next()).unwrap_or("");

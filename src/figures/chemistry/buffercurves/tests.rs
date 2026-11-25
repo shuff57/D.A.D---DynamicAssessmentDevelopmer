@@ -1045,6 +1045,7 @@ fn audit_cases(n: usize) -> Vec<(L, bool)> {
 }
 
 #[test]
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
 fn the_label_audit_finds_nothing_over_twelve_thousand_cases() {
     let cases = audit_cases(12_000);
     let chunk = cases.len().div_ceil(4);
@@ -1099,6 +1100,7 @@ fn the_audit_catches_what_it_is_meant_to_catch() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
 fn large_labels_never_clip() {
     let mut g = Glyphs::new();
     for l in student_cases() {
@@ -1119,6 +1121,7 @@ fn large_labels_never_clip() {
 /// from another font, which changes the look and the width of the line. The super- and subscripts of formulas and
 /// charges fall back, as in the sibling chemistry figures, and look right.
 #[test]
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
 fn every_drawn_character_is_in_the_figure_font() {
     let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("assets/fonts/NotoSans-Regular.ttf");
     let bytes = std::fs::read(&path).expect("the figure font is bundled");

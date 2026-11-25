@@ -13,6 +13,7 @@ pub use crate::Settings;
 
 use serde_json::{Value, json};
 use std::sync::mpsc::{Receiver, TryRecvError, channel};
+#[cfg(not(target_arch = "wasm32"))]
 use std::time::Duration;
 
 const OLLAMA_DEFAULT_BASE: &str = "http://127.0.0.1:11434";
@@ -30,6 +31,7 @@ const CUSTOM_DEFAULT_MODEL: &str = "gemma4:31b";
 const WORKERS_DEFAULT_MODEL: &str = "@cf/google/gemma-4-26b-a4b-it";
 const WORKERS_KEY_ENV: &str = "VERSHION_RELAY_KEY";
 /// Images are slow, on small local GPUs especially.
+#[cfg(not(target_arch = "wasm32"))]
 const TIMEOUT: Duration = Duration::from_secs(300);
 
 const OPENROUTER_KEY_ENV: &str = "OPENROUTER_API_KEY";
@@ -243,10 +245,10 @@ fn home_dir() -> Option<std::path::PathBuf> {
     std::env::var_os("HOME").map(std::path::PathBuf::from)
 }
 
-/// Browser keys live in memory for the page's lifetime: a page cannot write a protected file,
-/// and a key must never land in IndexedDB/localStorage.
 #[cfg(target_arch = "wasm32")]
 thread_local! {
+    /// Browser keys live in memory for the page's lifetime: a page cannot write a protected file,
+    /// and a key must never land in IndexedDB/localStorage.
     static WEB_KEYS: std::cell::RefCell<Keys> = std::cell::RefCell::new(Keys::default());
 }
 

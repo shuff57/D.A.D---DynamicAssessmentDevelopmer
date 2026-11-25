@@ -211,6 +211,7 @@ fn leader_fault(r: &Report, i: usize) -> Option<String> {
 /// Large and Medium, in Print and colour, key and student copy: every leader runs from its own mark to the edge of its own text,
 /// through no text, point or other leader and not along a line, and every sided label is on the figure.
 #[test]
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
 fn every_leader_is_clean_whatever_side_is_chosen() {
     let mut choices: Vec<String> = vec![ROWS.iter().map(|r| format!("{r} right")).collect::<Vec<_>>().join("; "), ROWS.iter().map(|r| format!("{r} left")).collect::<Vec<_>>().join("; ")];
     for r in ROWS { for sd in ["left", "right"] { choices.push(format!("{r} {sd}")); } }

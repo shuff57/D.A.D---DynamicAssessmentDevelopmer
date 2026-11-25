@@ -145,7 +145,6 @@ impl Ctx {
 }
 fn ex_sub(a: &Num, b: &Num) -> Option<Ex> { a.ex.as_ref()?.sub(b.ex.as_ref()?) }
 fn ex_mul(a: &Num, b: &Num) -> Option<Ex> { a.ex.as_ref()?.mul(b.ex.as_ref()?) }
-fn ex_div(a: &Num, b: &Num) -> Option<Ex> { a.ex.as_ref()?.div(b.ex.as_ref()?) }
 
 /// A number written with more than one term (1 + √2): bracketed wherever it is multiplied, divided or subtracted.
 /// A value of more than one term (√2 − 1, typed as sqrt(2)-1 or written 1 + √2): read from how it is built — a binary + or
@@ -311,6 +310,7 @@ pub(crate) fn slope_at(f: &dyn Fn(f64) -> Option<f64>, df: &dyn Fn(f64) -> Optio
 }
 
 /// The slope of an expression in x (the reader's spelling) at a: its tree's derivative, classified as `slope_at` does.
+#[cfg(test)]
 pub(crate) fn slope_of(expr: &str, a: f64) -> Slope {
     let Some(f) = ex::parse(expr) else { return Slope::Undefined };
     let df = ex::deriv(&f);
@@ -516,6 +516,7 @@ fn no_space_at_powers(s: &str) -> String {
     out
 }
 /// The typed function for the grid's reader: as `expr_plain`, odd roots made real.
+#[cfg(test)]
 pub(crate) fn expr_in_x(typed: &str, fname: &str, var: char) -> Result<String, String> { expr_plain(typed, fname, var).map(|e| real_odd_roots(&e)) }
 
 /// The function as the panel writes it: √ and π for sqrt and pi, |x| for abs(x), a binary + or − between spaces and no
@@ -602,8 +603,6 @@ fn fraction_brackets(s: &str) -> String {
     out
 }
 
-fn plain_typed(s: &str) -> bool { let t = s.trim(); !t.is_empty() && t.chars().all(|c| c.is_ascii_digit() || c == '.' || c == '-' || c == '\u{2212}' || c == '+') }
-
 /// A typed number: its value, how it is written (a decimal as typed, anything else in √ and π), and its exact value.
 /// Numbers, fractions, roots, π and e are read (and ln(2) and the like, as the reader reads them).
 pub(crate) fn typed_num(raw: &str) -> Option<Num> {
@@ -652,7 +651,7 @@ fn typed_list(s: &str) -> (Vec<(Num, String)>, Vec<String>) {
 
 // ───────────────────────── the model ─────────────────────────
 
-pub(crate) struct Secant { pub h: f64, pub hn: Num, pub qx: Num, pub fb: Num, pub m: Num, pub b: Num, pub ctx: Ctx, pub gap: bool }
+pub(crate) struct Secant { pub h: f64, pub hn: Num, pub qx: Num, pub fb: Num, pub m: Num, pub b: Num, pub ctx: Ctx }
 pub(crate) struct Tangent { pub a: f64, pub an: Num, pub fan: Num, pub slope: Slope, pub m: Option<Num>, pub b: Option<Num>, pub ctx: Ctx }
 
 /// What a note is about: said always, or only while the secants (or the more tangents) are drawn.
@@ -855,7 +854,7 @@ pub(crate) fn model(p: &Params) -> Model {
                     let bn = ctx.make(bex, fa - mn.v * t.a);
                     let gap = gap_between(&f, t.a, x);
                     if gap { gaps.push(hn.s.clone()); }
-                    m.secants.push(Secant { h, hn, qx, fb: fbn, m: mn, b: bn, ctx, gap });
+                    m.secants.push(Secant { h, hn, qx, fb: fbn, m: mn, b: bn, ctx });
                 }
                 if !gaps.is_empty() {
                     notes.push((About::Secant, format!("{fname} is undefined or jumps between P and Q for {step} = {}: the secant joins points on separate pieces of the curve", gaps.join(", "))));
@@ -891,9 +890,8 @@ pub(super) struct Out {
     pub q_px: Option<Pt>,
     pub layout: Option<GridL>,
     /// Labels drawn without a clear place (kind, text).
+    #[cfg_attr(not(test), allow(dead_code))]
     pub crowded: Vec<(&'static str, String)>,
-    /// Labels on the graph that were asked for: (kind, text).
-    pub asked: Vec<(&'static str, String)>,
 }
 
 pub(crate) fn lscale(p: &Params) -> f64 { match p.s("label_size") { "Large" => 1.4, "Small" => 0.8, _ => 1.0 } }
@@ -1250,7 +1248,6 @@ pub(super) fn build(p0: &Params) -> Out {
 
     let mut over = String::new();
     let mut crowded = vec![];
-    let mut asked: Vec<(&'static str, String)> = vec![];
     let mut reqs: Vec<Req> = vec![];
     // other places along a leg (a third and two thirds, a fifth and four fifths of the way)
     let along = |a: Pt, b: Pt| -> Vec<Pt> { [0.35, 0.65, 0.2, 0.8].iter().map(|t| (a.0 + (b.0 - a.0) * t, a.1 + (b.1 - a.1) * t)).collect() };
@@ -1501,13 +1498,11 @@ pub(super) fn build(p0: &Params) -> Out {
     }
     // the points first, then the triangles' and the h mark's labels
     reqs.sort_by_key(|r| !matches!(r.own, Own::Dot(_)));
-    for r in &reqs { asked.push((r.kind, r.text.clone())); }
     let mut to_panel: Vec<String> = vec![];
     for r in &reqs { let (_, s) = place(&mut sc, r, &mut crowded, &mut to_panel); over += &s; }
     for (k, t) in &crowded { notes.push(format!("The label \u{201c}{t}\u{201d} ({k}) has no clear place: drag it on the figure to where you want it")); }
 
     // ── the panel beside the graph ──
-    let fx = |v: &Num| format!("{}({})", m.fname, v.s);
     let fp = |v: &Num| format!("{}\u{2032}({})", m.fname, v.s);
     let mut lines: Vec<PLine> = vec![];
     if m.expr.is_some() { lines.push(pl(Some((ink.curve, "")), vec![mt(&format!("{}({}) = {}", m.fname, m.var, shown_func(p.s("func"))))])); }
@@ -1726,7 +1721,7 @@ pub(super) fn build(p0: &Params) -> Out {
     d.raw(&over);
     d.raw(&panel);
     d.raw(&keysvg);
-    Out { svg: d.finish(), notes, p_px, q_px, layout: Some(g), crowded, asked }
+    Out { svg: d.finish(), notes, p_px, q_px, layout: Some(g), crowded }
 }
 
 // ───────────────────────── handles ─────────────────────────

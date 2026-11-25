@@ -578,6 +578,7 @@ fn sweep() -> Vec<(Vec<(&'static str, Value)>, Cfg)> {
 }
 
 #[test]
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
 fn nothing_collides_in_any_state_at_any_size() {
     let mut n = 0;
     let mut fails = Vec::new();
@@ -594,6 +595,7 @@ fn nothing_collides_in_any_state_at_any_size() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
 fn every_pointer_ends_inside_its_part_and_crosses_nothing_named() {
     let mut n = 0;
     for (l, c) in sweep() {
@@ -609,6 +611,7 @@ fn every_pointer_ends_inside_its_part_and_crosses_nothing_named() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
 fn the_student_copy_draws_every_pointer_where_the_key_does() {
     for (l, c) in sweep().into_iter().filter(|(_, c)| !c.key && c.lab == 1.0) {
         let stu = fig(&render_of(&l), &c);
@@ -683,6 +686,7 @@ fn answer_words() -> Vec<String> {
 }
 
 #[test]
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
 fn a_student_copy_prints_no_answer_anywhere_in_its_source() {
     let words = answer_words();
     let mut checked = 0;
@@ -720,6 +724,7 @@ fn a_student_copy_prints_no_answer_anywhere_in_its_source() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
 fn every_blank_is_in_the_table_once_and_the_key_names_each_once() {
     for mask in 0..32u32 {
         for view in VIEWS {
@@ -965,6 +970,7 @@ fn the_student_caption_explains_only_the_pointers_drawn() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
 fn nothing_panics_on_ten_thousand_hostile_inputs_and_every_output_is_well_formed_xml() {
     let mut r = Rng::new(2026);
     let junk = ["", "Stem", "Root", "Both", "root", "STEM", "Large", "Huge", "Print", "\u{0}", "<script>", "&amp;", "\u{1f33f}", "\u{202e}", "x".repeat(400).leak() as &str];
@@ -1151,6 +1157,7 @@ fn own_print_pt(svg: &str, lab: f64) -> f64 {
 }
 
 #[test]
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
 fn each_arrow_blank_ends_on_its_own_arrow_in_both_copies_at_every_size_and_style() {
     let mut n = 0;
     for view in VIEWS {
@@ -1204,6 +1211,7 @@ fn each_arrow_blank_ends_on_its_own_arrow_in_both_copies_at_every_size_and_style
 }
 
 #[test]
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
 fn the_key_states_the_biology_in_these_exact_sentences() {
     const STEM: &str = "Stem: the vascular bundles form a ring; in each, xylem is toward the pith, phloem toward the epidermis, and the vascular cambium lies between them.";
     const ROOT: &str = "Root: the xylem forms an X in the centre with phloem between its arms, at the edge of the stele; four arms are drawn, and dicot roots have two to six. The endodermis, with the Casparian strip in its radial and end walls (a cross-section shows the radial walls), surrounds the pericycle. Root hairs are outgrowths of epidermal cells.";
@@ -1316,6 +1324,7 @@ fn print_advice(note: &str) -> Vec<((&'static str, Value), f64)> {
 }
 
 #[test]
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
 fn the_small_print_note_is_true_and_its_advice_prints_larger() {
     let mut followed = 0;
     for view in VIEWS {

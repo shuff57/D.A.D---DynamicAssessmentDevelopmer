@@ -329,9 +329,8 @@ mod tests {
 
     #[test]
     fn retries_give_up_after_the_number_of_tries() {
-        let mut calls = 0;
         for tries in [1, 2, 3] {
-            calls = 0;
+            let mut calls = 0;
             let r = retry_fit(tries, |_| {
                 calls += 1;
                 Ok(Fitted::Miss("no generator fits".to_string()))

@@ -926,6 +926,7 @@ fn clamps_and_refusals_come_with_a_note() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
 fn odd_inputs_never_panic_or_print_nan() {
     let mut cases: Vec<Params> = Vec::new();
     for v in [f64::NAN, f64::INFINITY, f64::NEG_INFINITY, -1e300, 1e300, 0.0, -0.0, 1e-300, 7e-7] {
@@ -1003,6 +1004,7 @@ fn sweep_cases() -> Vec<Vec<(&'static str, Value)>> {
 }
 
 #[test]
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
 fn labels_clear_and_attributed_across_ten_thousand_cases_in_real_glyphs() {
     let cases = sweep_cases();
     assert!(cases.len() >= 10_000);

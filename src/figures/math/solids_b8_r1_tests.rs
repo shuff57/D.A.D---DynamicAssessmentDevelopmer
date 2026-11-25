@@ -335,6 +335,7 @@ pub(super) fn json_list(j: &str) -> Vec<(&'static str, Value)> {
 
 /// Every label of every swept figure stays by its own line, clear of the others and of the outlines, on the page.
 #[test]
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
 fn every_label_sits_by_its_own_line() {
     let mut bad = Vec::new();
     let cs = cases();
@@ -366,6 +367,7 @@ fn every_label_sits_by_its_own_line() {
 /// The checker's five figures, one by one: the height label by its dashed height line, the lean label against the lean line and
 /// apart from the base edge's label, the lying prism's triangle height by its own dashed line.
 #[test]
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
 fn the_checkers_figures() {
     for (id, j) in [
         ("pyramid", r#"{"stands":"Oblique","height_t":"17/3","slant_lab":"Measure","label_size":"Large"}"#),
@@ -387,6 +389,7 @@ fn the_checkers_figures() {
 /// The checker's round 3 figures: an oblique cylinder whose height line lies under the top face shows that line by its label; a
 /// radius label beside its line, off its dot; a regular-polygon prism's short leaders.
 #[test]
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
 fn the_checkers_round3_figures() {
     for (id, j) in [
         ("cylinder", r#"{"stands":"Oblique","radius_t":"5sqrt(13)","height_t":"4","lean_t":"-3/2","diam_t":"17/3","r_lab":"Measure","d_lab":"Measure","h_lab":"Measure","lean_lab":"Measure","edge_lab":"Measure","label_size":"Medium","fill":"Tinted"}"#),

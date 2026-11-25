@@ -2413,6 +2413,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
     fn nothing_collides_with_a_sample_near_every_vertex_and_boundary_at_every_size() {
         let pts = sweep_points();
         let (mut n, mut worst) = (0, 0usize);
@@ -2547,6 +2548,7 @@ mod tests {
         format!("{t} {d}").to_lowercase()
     }
 
+    #[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
     #[test]
     fn a_student_copy_prints_no_answer_anywhere_in_its_source() {
         let mut checked = 0;
@@ -2627,6 +2629,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
     fn a_guide_that_lands_in_the_bottom_label_gaps_keeps_every_leader_clear() {
         let mut n = 0;
         for size in ["Small", "Medium", "Large"] {
@@ -2676,6 +2679,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
     fn no_label_is_ever_on_a_construction_line_in_the_silty_band_or_anywhere_on_the_grid() {
         let mut cases: Vec<(String, String, &'static str, bool)> = Vec::new();
         for size in ["Small", "Medium", "Large"] {
@@ -2705,6 +2709,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
     fn number_tags_stay_beside_their_own_marker_over_close_pairs_and_random_pairs() {
         // pairs within 4 % (the critic's 8/7 + 2/2 and 3/97 + 57/38 among them) and random pairs, every size, guides on
         let mut r = Rng(0x7a95);
@@ -2739,6 +2744,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
     fn two_sample_tags_seldom_sit_on_a_construction_line_and_then_on_an_opaque_plate() {
         let pts = ["40", "20", "10", "5", "60", "30", "85", "5", "52", "20", "45", "55", "0", "0", "0", "100", "5", "45", "27", "26"];
         let mut n = 0;
@@ -3330,6 +3336,7 @@ mod tests {
     ];
 
     #[test]
+    #[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
     fn with_two_samples_every_sample_has_its_tag_and_every_answer_class_its_label() {
         // the critic's repros, pairs round every corner, vertex and edge at every size, and 5,000 pairs at Large (half of
         // them within 4 %); every render is read back from the SVG: two tags (or one shared "1, 2"), and the region of each
@@ -3403,6 +3410,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
     fn a_student_copy_warns_when_the_dot_covers_a_line_by_the_manuals_limits() {
         // the test's own geometry (600 px side) and the Manual's limits (`manual`), at the 33 points the module samples
         let (mut warned, mut checked) = (0, 0);

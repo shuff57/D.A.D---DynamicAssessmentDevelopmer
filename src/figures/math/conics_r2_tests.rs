@@ -267,7 +267,7 @@ fn note_list(p: &Params, head: &str, tail: &str) -> Vec<String> {
 }
 
 #[derive(Default)]
-struct Tally { figs: usize, labels: usize, by: BTreeMap<String, [usize; 5]>, issues: BTreeMap<String, usize>, leaders: usize, leaders_curve: usize, leaders_line: usize, unlabelled_figs: usize, far: f64, min_margin: f64 }
+struct Tally { figs: usize, labels: usize, by: BTreeMap<String, [usize; 5]>, issues: BTreeMap<String, usize>, leaders: usize, leaders_curve: usize, leaders_line: usize, far: f64, min_margin: f64 }
 impl Tally {
     fn add(&mut self, r: &Res, size: &str) {
         self.figs += 1; self.labels += r.labels; self.leaders += r.leaders; self.leaders_curve += r.leaders_curve; self.leaders_line += r.leaders_line;
@@ -316,6 +316,7 @@ fn nothing_silent(o: &J) -> Result<(), String> {
 }
 
 #[test]
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
 fn the_checkers_classroom_keeps_every_label() {
     let mut m = Meter::new();
     let mut t = Tally::default();
@@ -343,6 +344,7 @@ fn the_checkers_classroom_keeps_every_label() {
 
 /// One part at a time, P on and off, every classroom conic: that part's label and every point's, at Small and Medium.
 #[test]
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
 fn one_part_at_a_time_keeps_its_label() {
     let mut m = Meter::new();
     let mut t = Tally::default();
@@ -376,6 +378,7 @@ fn one_part_at_a_time_keeps_its_label() {
 /// The checker's parts list (latus, directrices, axes with rectangle and symmetry, eccentricity and working, all parts,
 /// letters only with all parts, decimal coordinates only, Print), P on and off, Medium and Large.
 #[test]
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
 fn the_checkers_parts_sweep() {
     let mut m = Meter::new();
     let mut t = Tally::default();
@@ -605,6 +608,7 @@ fn dump_round2_examples() {
 /// Checker round 3: with one part on (latus rectum, the axes' lengths 2a and 2b, the directrices), P on and off, at Small and
 /// Medium, a part's label goes to the list beside the figure only on the named tiny conics; counted per part and size.
 #[test]
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
 fn a_part_label_goes_beside_the_figure_only_on_tiny_conics() {
     // Conics too small in the default window (24 px a unit) for a part's label on or round them, each looked at in a PNG:
     // semi-axes of at most 2.5 and 1.5 units (60 x 36 px, every point already on a leader), or a parabola with p = 1/4 (its

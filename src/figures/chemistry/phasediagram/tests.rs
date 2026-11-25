@@ -522,6 +522,7 @@ fn the_phase_at_a_point_follows_the_real_diagram() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
 fn the_phase_sequences_along_a_line_match_a_brute_force_scan() {
     let mut seed = 99u64;
     let mut r = move || { seed = seed.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407); (seed >> 11) as f64 / (1u64 << 53) as f64 };
@@ -725,6 +726,7 @@ fn points_a_to_d_have_their_phase_on_the_key_and_a_blank_for_students() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
 fn every_printed_reading_is_recomputed_from_the_printed_givens() {
     let mut seed = 321u64;
     let mut rnd = move || { seed = seed.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407); (seed >> 11) as f64 / (1u64 << 53) as f64 };
@@ -1002,6 +1004,7 @@ fn student_cases() -> Vec<Vec<(&'static str, Value)>> {
 }
 
 #[test]
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
 fn the_student_copy_has_no_computed_value_anywhere() {
     let mut n = 0;
     let mut with_answers = 0;
@@ -1109,6 +1112,7 @@ fn the_student_copy_hides_or_shows_what_the_toggles_say() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
 fn the_description_is_short_ascii_and_answer_free() {
     for c in student_cases().into_iter().step_by(11) {
         for ans in [true, false] {
@@ -1199,6 +1203,7 @@ fn clamps_and_refusals_come_with_a_note() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
 fn odd_inputs_never_panic_or_print_nan() {
     let mut cases: Vec<Params> = Vec::new();
     let keys = ["tt", "pt", "tc", "pc", "p_line", "t_line", "a_t", "a_p", "b_t", "b_p", "c_t", "c_p", "d_t", "d_p"];
@@ -1323,6 +1328,7 @@ fn sweep_cases() -> Vec<Vec<(&'static str, Value)>> {
 }
 
 #[test]
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
 fn labels_clear_and_attributed_across_ten_thousand_cases_in_real_glyphs() {
     let cases = sweep_cases();
     assert!(cases.len() >= 10_000);
@@ -1361,6 +1367,7 @@ fn labels_clear_and_attributed_across_ten_thousand_cases_in_real_glyphs() {
 /// How often a label had to be left out for want of room: every default has all of its labels, and the cases that
 /// drop one say so.
 #[test]
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
 fn the_defaults_label_everything_and_a_dropped_label_is_reported() {
     for name in [WATER, CO2, TYPICAL] {
         for size in ["Small", "Medium", "Large"] {
@@ -1662,6 +1669,7 @@ fn classroom_cases() -> Vec<Vec<(&'static str, Value)>> {
 }
 
 #[test]
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
 fn the_region_and_special_point_labels_survive_the_sweep() {
     let cases = classroom_cases();
     assert!(cases.len() >= 2000);
@@ -1754,6 +1762,7 @@ fn every_blank_on_a_student_copy_is_numbered_and_listed_in_the_working() {
 /// Over a sweep, the student copy's list has exactly one line for each label the key has, and a label that could
 /// not be put on the plot says so in its line instead of vanishing.
 #[test]
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
 fn a_dropped_blank_still_has_its_numbered_line() {
     let cases: Vec<_> = sweep_cases().into_iter().step_by(7).take(1200).collect();
     for c in cases {

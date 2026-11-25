@@ -169,13 +169,6 @@ pub fn add_point(p: &mut Params, deg: f64) {
     set_rows(p, "more_points", &r);
 }
 
-/// Moves More point `i` to `deg`, keeping its letter (a point that had the next free letter keeps the one it was drawn with).
-#[cfg_attr(not(test), allow(dead_code))]
-pub fn move_extra(p: &mut Params, i: usize, deg: f64) {
-    let d = extras_all(p).get(i).map(|e| e.2).unwrap_or(1.0);
-    move_extra_to(p, i, deg, d);
-}
-
 /// A distance in radii as a row writes it: `1.8r`.
 pub fn fmt_dist(d: f64) -> String {
     let s = format!("{:.2}", d);
@@ -911,7 +904,7 @@ pub fn faces(segs: &[(V, V)]) -> Vec<Vec<V>> {
     for i in 0..ring.len() { all.push((ring[i], ring[(i + 1) % ring.len()])); }
     // the corners (merged when closer than 1e-6) and the edges between them
     let mut pts: Vec<V> = vec![];
-    let mut id = |q: V, pts: &mut Vec<V>| -> usize {
+    let id = |q: V, pts: &mut Vec<V>| -> usize {
         if let Some(i) = pts.iter().position(|r| (r.0 - q.0).hypot(r.1 - q.1) < 1e-6) { return i; }
         pts.push(q);
         pts.len() - 1

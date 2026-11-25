@@ -369,7 +369,7 @@ fn audit(svg: &str, g: &mut Glyphs, lab: f64) -> Vec<String> {
             let own_c: Vec<Pt> = gm.marks.iter().filter(|m| m.0 == *own && !ring(&m.1)).map(|m| mark_centre(&m.2)).collect();
             let rival = gm.marks.iter().filter(|m| (m.0.starts_with("pt") || m.0.starts_with("rd")) && !(m.0 == *own && !ring(&m.1)) && !own_c.iter().any(|c| (c.0 - mark_centre(&m.2).0).hypot(c.1 - mark_centre(&m.2).1) <= 7.0)).map(|m| pt_box(mark_centre(&m.2), *bx)).fold(f64::MAX, f64::min);
             if d_own + 0.25 > rival {
-                let which: Vec<String> = gm.marks.iter().filter(|m| (m.0.starts_with("pt") || m.0.starts_with("rd"))).map(|m| format!("{}:{}@{:.0},{:.0}", m.0, m.1, mark_centre(&m.2).0, mark_centre(&m.2).1)).collect();
+                let which: Vec<String> = gm.marks.iter().filter(|m| m.0.starts_with("pt") || m.0.starts_with("rd")).map(|m| format!("{}:{}@{:.0},{:.0}", m.0, m.1, mark_centre(&m.2).0, mark_centre(&m.2).1)).collect();
                 bad.push(format!("{name:?} is {d_own:.1} px from its dot but {rival:.1} px from another mark, with no leader line: it is nearer another mark {which:?} label {:.0?}", bx));
             }
         }
@@ -752,6 +752,7 @@ fn temp_list(name: &str, m: f64, w: f64, dec: i64) -> Vec<(&'static str, Value)>
 }
 
 #[test]
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
 fn the_saturation_temperature_is_read_back_from_the_curve() {
     for r in DATA.iter() {
         let (lo, hi) = (r.3[0].0, r.3[r.3.len() - 1].0);
@@ -1055,6 +1056,7 @@ fn clamps_and_refusals_come_with_a_note() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
 fn odd_inputs_never_panic_or_print_nan() {
     let nan = f64::NAN;
     let inf = f64::INFINITY;
@@ -1146,6 +1148,7 @@ fn sweep_cases() -> Vec<Vec<(&'static str, Value)>> {
 }
 
 #[test]
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
 fn labels_clear_and_attributed_across_ten_thousand_cases_in_real_glyphs() {
     let step: usize = std::env::var("VERSHION_SWEEP_STEP").ok().and_then(|v| v.parse().ok()).unwrap_or(1);
     let cases: Vec<_> = sweep_cases().into_iter().step_by(step).collect();
@@ -1185,6 +1188,7 @@ fn labels_clear_and_attributed_across_ten_thousand_cases_in_real_glyphs() {
 
 /// Every name of every swept case is placed (a leader line where it has no room beside its curve).
 #[test]
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
 fn no_name_is_left_out_in_any_swept_case() {
     let mut lost: Vec<String> = Vec::new();
     let mut total = 0;
@@ -1200,6 +1204,7 @@ fn no_name_is_left_out_in_any_swept_case() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
 fn the_defaults_name_every_curve_and_a_dropped_label_is_reported() {
     for size in ["Small", "Medium", "Large"] {
         for ans in [true, false] {
@@ -1541,6 +1546,7 @@ fn audit_case(l: &[(&'static str, Value)]) -> Vec<String> {
 }
 
 #[test]
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
 fn the_default_six_curves_are_named_by_colour_marker_and_a_leader_where_the_end_is_crowded() {
     for size in ["Small", "Medium", "Large"] {
         for style in ["Colour", "Print"] {
@@ -1608,6 +1614,7 @@ fn contrast(r: u8, g: u8, b: u8) -> f64 {
 }
 
 #[test]
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
 fn crystallising_with_every_curve_on_keeps_the_temperature_leaders_clear_of_other_markers() {
     for (t1, t2) in [(40.0, 20.0), (60.0, 20.0), (80.0, 20.0), (50.0, 10.0), (40.0, 30.0)] {
         for size in ["Small", "Medium", "Large"] {
@@ -1757,6 +1764,7 @@ fn the_values_at_the_axes_are_in_order_written_once_and_joined_to_their_marks_in
 }
 
 #[test]
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
 fn the_values_at_the_axes_keep_order_and_are_written_once_over_two_thousand_cases() {
     let mut g = Glyphs::new();
     let mut n = 0;

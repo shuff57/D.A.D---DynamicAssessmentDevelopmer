@@ -249,6 +249,7 @@ mod tests {
     /// drawn SVG) at steep launches (75 to 89 degrees) and shallow ones (5 to 15) at every ball size, from the ground and
     /// off a cliff, mirrored or not; it stays beside its own arrow, nearer it than the range mark.
     #[test]
+    #[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
     fn projectile_height_blank_line_clear_of_the_path() {
         let d = def();
         let mut n = 0;

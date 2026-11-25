@@ -1062,6 +1062,7 @@ fn refusals_name_the_box_the_reason_and_a_fixed_value() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
 fn ten_thousand_odd_inputs_never_panic_or_print_nan() {
     let keys = ["molecule", "lone", "angles", "labels", "turn", "tilt", "style", "label_size", SHOW_ANSWERS, "bogus"];
     let vals = [

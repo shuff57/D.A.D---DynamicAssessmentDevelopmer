@@ -63,6 +63,7 @@ fn check(d: &FigureDef, list: &[(&'static str, Value)], same: bool, full: bool, 
 /// touching and spaced apart; then three and four kinds, seeded. No overlap, inside the box,
 /// touching or a uniform gap as asked.
 #[test]
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
 fn lattice_sweep_never_overlaps() {
     let d = def();
     let mut fails: Vec<String> = Vec::new();

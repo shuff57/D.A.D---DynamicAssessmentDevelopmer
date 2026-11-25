@@ -6,7 +6,7 @@
 //! answers is off; the axes, their numbers and the givens stay, so the student can sketch the curve and mark the two
 //! constants themselves.
 use super::super::circle::num;
-use super::super::chart::{fmt, nice_step, ticks, Frame};
+use super::super::chart::{nice_step, ticks, Frame};
 use super::*;
 use crate::figures::interact::Handle;
 
@@ -1169,6 +1169,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
     fn no_label_overprints_another_label_the_point_or_a_tick_across_a_sweep() {
         // (round 8 major) when no rate-label row was clear, the fallback took the first row merely inside the plot,
         // with no test against the Km label: a point dragged to the origin under a strong noncompetitive inhibitor
@@ -1262,6 +1263,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
     fn the_km_label_stays_beside_its_marker_across_a_sweep() {
         // (round 9 major) round 8 tested the dashed lines as full em boxes, so a line through the empty space above the
         // digits rejected the label's own place and the next clear candidate was beside the POINT: "Km′ = 3.3" printed
@@ -1399,6 +1401,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
     fn the_half_rate_label_stays_above_the_axis_and_clear_across_a_sweep() {
         // (round 10 major) round 9 let the half-rate label take any place under the asymptote: with a strong
         // noncompetitive inhibitor its line sits a few px above the axis, and the label was drawn on the axis line or

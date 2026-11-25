@@ -1186,6 +1186,7 @@ fn overlap(a: Bx, c: Bx, pad: f64) -> bool {
 }
 
 #[test]
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
 fn resvg_ink_boxes_never_collide_clip_or_leave_a_cell_over_the_option_space_and_sizes() {
     let sets = [(RAW, DEFAULT_DATA), (GROUPED, DEFAULT_GROUPED), (GROUPED, "\u{2212}5, \u{2212}1, 0, 0.25, 0.25, 3.75, 8.5")];
     let mut renders = 0;

@@ -1430,6 +1430,7 @@ fn truncated_axis_and_cut_off_bars_are_flagged() {
 // ───────────────────────── layout ─────────────────────────
 
 #[test]
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
 fn nothing_collides_or_leaves_the_canvas_over_the_option_space() {
     let mut n = 0;
     let mut bad = Vec::new();
@@ -1453,6 +1454,7 @@ fn nothing_collides_or_leaves_the_canvas_over_the_option_space() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
 fn print_and_extremes_do_not_collide() {
     let mut bad = Vec::new();
     let long_title = "Very long title ".repeat(12);
@@ -2352,6 +2354,7 @@ fn count_by_numbered_lines_gridline_weight_and_minor_lines() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
 fn new_options_never_collide_over_data_and_sizes() {
     let sets: Vec<Vec<(&str, &str)>> = vec![
         vec![("layout", "Stacked"), ("values_at", "Inside")],

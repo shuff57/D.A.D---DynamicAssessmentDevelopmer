@@ -1158,6 +1158,7 @@ fn datasets() -> Vec<(&'static str, Vec<(String, Value)>)> {
 }
 
 #[test]
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
 fn nothing_collides_and_every_guide_ends_on_the_curve_and_the_axes_over_the_option_space() {
     let mut n = 0;
     for (name, base) in datasets() {
@@ -1185,6 +1186,7 @@ fn nothing_collides_and_every_guide_ends_on_the_curve_and_the_axes_over_the_opti
 }
 
 #[test]
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
 fn every_percentile_draws_cleanly_at_every_size() {
     for size in ["Small", "Medium", "Large"] {
         for marks in ["None", "Median and quartiles"] {
@@ -1626,6 +1628,7 @@ fn label_sizes_scale_the_text() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
 fn odd_input_never_panics() {
     let mut rng = data::Rng::new(7);
     let pieces = ["", "1", "-1", "0", "1e12", "1e13", "NaN", "inf", "-inf", "1e400", "\u{2212}5", "5%", "7.5", "x", "\u{1F600}", "\u{4E2D}\u{6587}", "+", "90+", "under", "-", "--", ",", ";", "\t", " ", "\n", "\r\n", "\u{0}", "<", "&", "\"", "10-20", "\u{2013}"];

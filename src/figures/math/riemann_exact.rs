@@ -44,6 +44,7 @@ impl Rat {
         (k1 > 0 && (h1 as f64 / k1 as f64 - v).abs() <= tol).then(|| Rat::new(h1, k1)).flatten()
     }
     /// "15/4", "−3", "0" (a minus sign, not a hyphen).
+    #[cfg(test)]
     pub fn text(self) -> String {
         let s = if self.n < 0 { "\u{2212}" } else { "" };
         if self.d == 1 { format!("{s}{}", self.n.abs()) } else { format!("{s}{}/{}", self.n.abs(), self.d) }
