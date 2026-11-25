@@ -224,7 +224,7 @@ fn gate_page(ui: &mut Ui, m: &mut BrowseModel) {
         }
         Gate::NotSetUp => para(ui, crate::share::NOT_SET_UP),
         Gate::NoServer => {
-            para(ui, "No pool server is set up yet. Open the Account window to enter one.");
+            para(ui, "No pool server is set up yet. Open Settings, then D.A.D account, to enter one.");
             open_account = kit::primary_button(ui, "Open account...").clicked();
         }
         Gate::SignedOut => {
@@ -234,7 +234,7 @@ fn gate_page(ui: &mut Ui, m: &mut BrowseModel) {
         }
         Gate::Unreachable => {
             body(ui, "Your sign-in could not be checked. You may be offline.");
-            para(ui, "Open the Account window to try again. You can still use everything else in verSHion.");
+            para(ui, "Open Settings, then D.A.D account, to try again. You can still use everything else in D.A.D.");
             open_account = kit::primary_button(ui, "Open account...").clicked();
         }
         Gate::NotApproved(status) => {
@@ -896,7 +896,7 @@ fn done_panel(ui: &mut Ui, m: &mut BrowseModel, d: &ImportDone) {
     kit::card().inner_margin(Margin::same(12)).show(ui, |ui| {
         ui.set_min_width(ui.available_width());
         ui.label(theme::strong(format!("Imported {} into \"{}\"", text::count(d.added as u32), text::shown(&d.bank_name))).size(14.5));
-        line(ui, if d.new_bank { "A new bank was made. Nothing else in verSHion was changed." } else { "They were added at the end of the bank. Nothing that was there was changed." });
+        line(ui, if d.new_bank { "A new bank was made. Nothing else in D.A.D was changed." } else { "They were added at the end of the bank. Nothing that was there was changed." });
         ui.add_space(4.0);
         ui.label(theme::text(format!("Licence of your copy: {}", text::license_name(&d.license))).size(12.5));
         ui.label(theme::text(format!("Credit that travels with it: by {}, version {}", d.author, d.version)).size(12.5));

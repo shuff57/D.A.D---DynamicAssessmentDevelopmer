@@ -4377,7 +4377,7 @@ pub fn draw_popover(app: &mut App, ctx: &egui::Context) {
     let exam_name = exam_id.as_ref().and_then(|id| app.store.exam(id)).map(|e| e.name.clone());
     let vid = egui::ViewportId::from_hash_of("qs_bank_popover_window");
     let builder = egui::ViewportBuilder::default()
-        .with_title(format!("{} · verSHion", bank.name))
+        .with_title(format!("{} · D.A.D", bank.name))
         .with_inner_size([460.0, 720.0])
         .with_min_inner_size([340.0, 380.0]);
     let mut close = false;

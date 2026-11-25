@@ -8,7 +8,7 @@
 // and the header rules are what the tests pin).
 import type { MailEnv } from "./mail.ts";
 
-export const SMTP_FROM_NAME_DEFAULT = "verSHion";
+export const SMTP_FROM_NAME_DEFAULT = "D.A.D";
 const TIMEOUT_MS = 20_000;
 
 /** Every setting the transport needs is present. Nothing else switches the pool onto SMTP. */

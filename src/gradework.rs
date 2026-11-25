@@ -188,7 +188,7 @@ pub fn unread_pages(subs: &[StudentSubmission], exam_id: &str, in_flight: &HashS
 /// Why a read cannot start with this AI set-up, in words for the person; None when it can.
 pub fn ai_problem(cfg: &AiCfg) -> Option<String> {
     if cfg.provider == "account" && !crate::ai::account_ai_ready() {
-        return Some("Sign in on the Account screen first: the hosted AI runs on your account.".to_string());
+        return Some("Sign in first: Settings, then D.A.D account. The hosted AI runs on your account.".to_string());
     }
     if !cfg.has_key_or_needs_none() {
         return Some("The AI needs a key. Add one in Settings.".to_string());
@@ -199,7 +199,7 @@ pub fn ai_problem(cfg: &AiCfg) -> Option<String> {
 fn provider_words(cfg: &AiCfg) -> &'static str {
     match cfg.provider.as_str() {
         "ollama" => "the Ollama on this machine",
-        "account" | "workers" => "the verSHion AI relay",
+        "account" | "workers" => "the D.A.D AI relay",
         "cloud" => "Ollama Cloud",
         "openrouter" => "OpenRouter",
         _ => "your custom AI endpoint",

@@ -178,7 +178,7 @@ fn issue_url(kind: usize, title: &str, desc: &str) -> String {
     let title = format!("[{}] {}", KINDS[kind.min(2)], title.trim());
     let desc: String = desc.trim().chars().take(1500).collect();
     let body = format!(
-        "{desc}\n\n---\n{}\nFiled from verSHion {}.",
+        "{desc}\n\n---\n{}\nFiled from D.A.D {}.",
         environment_line(),
         env!("CARGO_PKG_VERSION")
     );
@@ -328,7 +328,7 @@ fn hero_lead(ui: &mut egui::Ui, roomy: bool, w: f32) -> egui::Response {
 }
 
 const HERO_LEAD_TEXT: &str = "PDFs, scans, screenshots, old Word documents, questions you type \
-                              yourself: verSHion gathers them into Question Banks and lays \
+                              yourself: D.A.D gathers them into Question Banks and lays \
                               them out as a clean, printable exam.";
 
 /// "How it works" and its steps card in the column `ui` was given. Returns (heading, card).
@@ -2829,7 +2829,7 @@ impl crate::App {
     pub fn backup_now(&mut self) {
         let dest = crate::platform::save_path(
             &format!("vershion-backup-{}.zip", fmt_date(now_secs())),
-            "verSHion backups",
+            "D.A.D backups",
             &["zip"],
         );
         let Some(dest) = dest else { return };
@@ -2840,7 +2840,7 @@ impl crate::App {
     }
 
     pub fn start_restore(&mut self) {
-        let Some(path) = crate::platform::pick_file("verSHion backups", &["zip"])
+        let Some(path) = crate::platform::pick_file("D.A.D backups", &["zip"])
         else {
             return;
         };

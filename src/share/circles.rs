@@ -1380,7 +1380,7 @@ impl CirclesModel {
                         if let RefusalKind::DailyLimit { metric: Some(m) } = &r.kind
                             && m == "circle_join_tries"
                         {
-                            p.message = "You have tried as many circle codes today as verSHion allows. Try again tomorrow, or ask the owner to check the code.".into();
+                            p.message = "You have tried as many circle codes today as D.A.D allows. Try again tomorrow, or ask the owner to check the code.".into();
                         }
                     }
                     RefusalKind::RateLimited | RefusalKind::TooManyOpenReads | RefusalKind::TooManyUploads | RefusalKind::Busy | RefusalKind::HourlyLimit { .. } => {
@@ -1399,7 +1399,7 @@ impl CirclesModel {
                         }
                     }
                     RefusalKind::ModerationState { message } => {
-                        p.message = message.as_deref().map(api::plain).filter(|m| !m.is_empty()).unwrap_or_else(|| "verSHion does not allow that in this circle right now.".into());
+                        p.message = message.as_deref().map(api::plain).filter(|m| !m.is_empty()).unwrap_or_else(|| "D.A.D does not allow that in this circle right now.".into());
                     }
                     RefusalKind::InvalidRequest { field } => {
                         p.message = match field.as_deref() {
@@ -1410,16 +1410,16 @@ impl CirclesModel {
                             Some("max_uses") => "Choose how many people the code is for, from 1 to 50.".into(),
                             Some("expires_in_days") => "Choose how long the code works, from 1 to 30 days.".into(),
                             Some("note") => "The note can be at most 200 characters.".into(),
-                            Some("user_id") => "verSHion did not recognise that member. Reload the circle.".into(),
-                            Some("email") => "That is not an email address verSHion can send to. Check it for a typo.".into(),
-                            Some(f) => format!("verSHion did not accept the {}. Nothing was changed.", f.replace('_', " ")),
-                            None => "verSHion did not accept that. Nothing was changed.".into(),
+                            Some("user_id") => "D.A.D did not recognise that member. Reload the circle.".into(),
+                            Some("email") => "That is not an email address D.A.D can send to. Check it for a typo.".into(),
+                            Some(f) => format!("D.A.D did not accept the {}. Nothing was changed.", f.replace('_', " ")),
+                            None => "D.A.D did not accept that. Nothing was changed.".into(),
                         }
                     }
                     RefusalKind::Other => match (r.detail.status, r.detail.code.as_str()) {
                         (409, "conflict") => p.message = "Something changed at the same moment. Reload the page and try again.".into(),
                         (_, "pool_migrating") => {
-                            p.message = "verSHion's server is being upgraded. Try again in a few minutes.".into();
+                            p.message = "D.A.D's server is being upgraded. Try again in a few minutes.".into();
                             p.retry = true;
                             p.retry_at = wait;
                         }
@@ -1951,9 +1951,9 @@ impl CirclesModel {
                             Some(RefusalKind::NotFound) => p.message = "This circle is not available to you any more. Nothing was sent.".into(),
                             Some(RefusalKind::InvalidRequest { field }) => {
                                 p.message = match field.as_deref() {
-                                    Some("email") => "That is not an email address verSHion can send to. Check it for a typo. Nothing was sent.".into(),
+                                    Some("email") => "That is not an email address D.A.D can send to. Check it for a typo. Nothing was sent.".into(),
                                     Some("role") => "Choose whether the person can add banks or can only look and copy.".into(),
-                                    _ => "verSHion did not accept that invitation. Nothing was sent.".into(),
+                                    _ => "D.A.D did not accept that invitation. Nothing was sent.".into(),
                                 }
                             }
                             _ => {}
@@ -1998,7 +1998,7 @@ impl CirclesModel {
                                 reread = true;
                                 keep = false;
                             }
-                            Some(RefusalKind::InvalidRequest { .. }) => p.message = "verSHion did not accept that request. Nothing was changed.".into(),
+                            Some(RefusalKind::InvalidRequest { .. }) => p.message = "D.A.D did not accept that request. Nothing was changed.".into(),
                             Some(RefusalKind::BankRemoved | RefusalKind::NotFound | RefusalKind::CircleRoleRequired { .. } | RefusalKind::CircleClosed { .. }) => reread = true,
                             _ => {}
                         }

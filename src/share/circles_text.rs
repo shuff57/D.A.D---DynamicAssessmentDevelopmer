@@ -16,20 +16,20 @@ pub fn circle_words(note: &str) -> String {
         .replace("The shared pool is not available on this server yet.", "Circles are not available on this server yet.")
         .replace("The shared pool", "The circle")
         .replace("the shared pool", "the circle")
-        .replace("The pool server", "verSHion's server")
-        .replace("the pool server", "verSHion's server")
-        .replace("reach the pool", "reach verSHion's server")
-        .replace("The pool's", "verSHion's")
-        .replace("the pool's", "verSHion's")
-        .replace("The pool", "verSHion's server")
-        .replace("the pool", "verSHion")
+        .replace("The pool server", "D.A.D's server")
+        .replace("the pool server", "D.A.D's server")
+        .replace("reach the pool", "reach D.A.D's server")
+        .replace("The pool's", "D.A.D's")
+        .replace("the pool's", "D.A.D's")
+        .replace("The pool", "D.A.D's server")
+        .replace("the pool", "D.A.D")
 }
 
 /// The public pool's "invite code needed" sentence (`pool::INVITE_REQUIRED_TEXT`, without its last sentence).
-const POOL_INVITE_REQUIRED: &str = "The shared pool needs an invite code. Open the Account window, find \"Invite code\" and enter the code an admin gave you.";
+const POOL_INVITE_REQUIRED: &str = "The shared pool needs an invite code. Open Settings, then D.A.D account. Find \"Invite code\" and enter the code an admin gave you.";
 /// (critic 78 I3) The same on a circle screen; (critic 80 polish) in words that fit the join page, the Circles list and
 /// Create a circle alike: no "join", and no "the circle's code" where none was entered.
-const CIRCLE_INVITE_REQUIRED: &str = "Your verSHion account needs an invite code from an administrator before it can use circles. The code it needs is not a circle's code. Open the Account window, find \"Invite code\" and enter it.";
+const CIRCLE_INVITE_REQUIRED: &str = "Your D.A.D account needs an invite code from an administrator before it can use circles. The code it needs is not a circle's code. Open Settings, then D.A.D account. Find \"Invite code\" and enter it.";
 
 /// (critic 72 I1) The merge review's words (`merge.rs`, shared with the public pool's updates): there "the pool" is
 /// where the newer version came from, which for a circle bank is the circle and the colleagues in it, never
@@ -109,10 +109,10 @@ pub fn news_head(version: u64, n: usize, offered: bool, settled: bool) -> String
     let qs = if n == 1 { "1 question".to_string() } else { format!("{n} questions") };
     // (round 19, critic 100 minor 5) once each is sent or changed since, it no longer reads as news
     if settled {
-        return format!("Earlier, verSHion gave {qs} the circle's difficulty from its version {version}. Nothing here is waiting for you.");
+        return format!("Earlier, D.A.D gave {qs} the circle's difficulty from its version {version}. Nothing here is waiting for you.");
     }
     let then = if offered { " To keep yours on a question, press Put mine back: it becomes a change you have not sent yet." } else { "" };
-    format!("verSHion gave {qs} the circle's difficulty from its version {version}, in place of yours. An earlier version of the app had not kept the circle's difficulties in this copy.{then}")
+    format!("D.A.D gave {qs} the circle's difficulty from its version {version}, in place of yours. An earlier version of the app had not kept the circle's difficulties in this copy.{then}")
 }
 
 /// "Easy", "Medium", "Hard", or "none".
@@ -166,7 +166,7 @@ pub fn save_problem(raw: &str) -> &'static str {
     if ["no space", "disk is full", "disk full", "os error 28", "os error 112", "quota"].iter().any(|k| r.contains(k)) {
         "the disk is full"
     } else if ["permission denied", "access is denied", "os error 13", "os error 5)", "read-only", "os error 30"].iter().any(|k| r.contains(k)) {
-        "verSHion isn't allowed to write to its data folder"
+        "D.A.D isn't allowed to write to its data folder"
     } else if ["locked", "another process", "os error 32", "os error 33"].iter().any(|k| r.contains(k)) {
         "another program is using the file"
     } else {
@@ -181,25 +181,25 @@ pub fn save_remedy(raw: &str) -> &'static str {
     SAVE_ADVICE
 }
 /// (round 19, critic 100 I2) The advice for a file that can't be written.
-pub const SAVE_ADVICE: &str = "Keep verSHion open and press Try again; if it keeps failing, free some disk space.";
+pub const SAVE_ADVICE: &str = "Keep D.A.D open and press Try again; if it keeps failing, free some disk space.";
 
 /// (round 16, critic 93 I1; round 17) The safety copy of the banks could not be saved before the circle's difficulty went in.
 pub fn safety_copy_not_saved(raw: &str) -> String {
-    format!("verSHion couldn't save a safety copy of your banks first ({}), so the circle's difficulty isn't in this bank yet. {}", save_problem(raw), save_remedy(raw))
+    format!("D.A.D couldn't save a safety copy of your banks first ({}), so the circle's difficulty isn't in this bank yet. {}", save_problem(raw), save_remedy(raw))
 }
 /// (round 18, critic 97 m6) The list of shared banks could not be saved before the circle's difficulty went in.
 pub fn links_not_saved(raw: &str) -> String {
-    format!("verSHion couldn't save the list of shared banks first ({}), so the circle's difficulty isn't in this bank yet. {}", save_problem(raw), save_remedy(raw))
+    format!("D.A.D couldn't save the list of shared banks first ({}), so the circle's difficulty isn't in this bank yet. {}", save_problem(raw), save_remedy(raw))
 }
 /// The same for the banks file itself. (round 18, critic 98 minor 2) Then her own edits are not saved to disk either: said, with
 /// what she can do.
 pub fn banks_not_saved(raw: &str) -> String {
-    format!("verSHion couldn't save your banks ({}), so the circle's difficulty isn't in this bank yet, and your own edits aren't saved either. {}", save_problem(raw), save_remedy(raw))
+    format!("D.A.D couldn't save your banks ({}), so the circle's difficulty isn't in this bank yet, and your own edits aren't saved either. {}", save_problem(raw), save_remedy(raw))
 }
 /// (round 18, critic 97 m3) "Put mine back" whose banks could not be saved: nothing changed, and the button stays. (round 19, critic
 /// 100 I2) Said on the strip in the warning colour until a save works.
 pub fn put_back_not_saved(raw: &str) -> String {
-    format!("Your difficulty couldn't be put back, and your own edits aren't saved either: verSHion couldn't save your banks ({}). {}", save_problem(raw), save_remedy(raw))
+    format!("Your difficulty couldn't be put back, and your own edits aren't saved either: D.A.D couldn't save your banks ({}). {}", save_problem(raw), save_remedy(raw))
 }
 /// (round 19, critic 100 I2) That line on the strip, with the tries that failed.
 pub fn unsaved_line(line: &str, tries: u32) -> String {
@@ -216,8 +216,8 @@ pub const HELD_BADGE: &str = "couldn't save";
 /// (round 17, critic 95 minor 1) Get latest waiting for it: the review is made once the bank has the circle's difficulty.
 pub fn merge_waits_held(why: &str) -> String {
     // (round 19) this page has no Try again
-    let why = why.replace(SAVE_ADVICE, "Keep verSHion open; if it keeps failing, free some disk space.");
-    format!("{why} The review is made once it is saved; verSHion tries again every minute. You can wait here or press Cancel.")
+    let why = why.replace(SAVE_ADVICE, "Keep D.A.D open; if it keeps failing, free some disk space.");
+    format!("{why} The review is made once it is saved; D.A.D tries again every minute. You can wait here or press Cancel.")
 }
 
 /// (round 16, critic 94 m1; round 17, critic 96 minor 1) The version the copy last matched can't be read and nothing newer is
@@ -232,9 +232,9 @@ pub fn cant_read_line(n: u64, why: super::circle_edit::Unread, newest: bool) -> 
     let which = if newest { format!("Your copy last matched version {n}, the circle's newest version") } else { format!("Your copy last matched version {n}") };
     match why {
         // (round 19, critic 100 minor 1) never "the circle's newest version" beside "no longer keeps it"
-        Unread::NotKept => format!("Your copy last matched version {n}, but the circle no longer keeps it, so verSHion can't tell which difficulties you changed, and sending is turned off."),
-        Unread::Withheld => format!("{which}, which is held back while an administrator reviews it, so verSHion can't read its difficulties yet, and sending is turned off. Waiting is enough: once it is released, verSHion reads it and sending comes back on."),
-        Unread::Other => format!("{which}, but verSHion couldn't read it, so it can't tell which difficulties you changed, and sending is turned off."),
+        Unread::NotKept => format!("Your copy last matched version {n}, but the circle no longer keeps it, so D.A.D can't tell which difficulties you changed, and sending is turned off."),
+        Unread::Withheld => format!("{which}, which is held back while an administrator reviews it, so D.A.D can't read its difficulties yet, and sending is turned off. Waiting is enough: once it is released, D.A.D reads it and sending comes back on."),
+        Unread::Other => format!("{which}, but D.A.D couldn't read it, so it can't tell which difficulties you changed, and sending is turned off."),
     }
 }
 /// (round 19, critic 100 I1) Where Check now is the big button: what it does.
@@ -256,7 +256,7 @@ pub fn cant_read_row(why: super::circle_edit::Unread) -> &'static str {
     match why {
         super::circle_edit::Unread::NotKept => NOT_KEPT_ROW,
         super::circle_edit::Unread::Withheld => "The version it last matched is held back while an administrator reviews it, so sending is turned off until then. Its page in My Banks says what you can do.",
-        super::circle_edit::Unread::Other => "verSHion couldn't read the version it last matched, so sending is turned off. Its page in My Banks says what you can do.",
+        super::circle_edit::Unread::Other => "D.A.D couldn't read the version it last matched, so sending is turned off. Its page in My Banks says what you can do.",
     }
 }
 pub const NOT_KEPT_WAYS: &str = "You can use your bank as it is: your next send then makes the circle's newest version match it, difficulties included. Or wait until someone in the circle sends a newer version, then get it.";
@@ -269,7 +269,7 @@ pub fn review_not_kept_line(name: &str, version: u64, why: super::circle_edit::U
     let copy = match why {
         Unread::Withheld => format!("Your copy last matched version {version}, and the newest version is held back for review"),
         Unread::NotKept => format!("Your copy last matched version {version}, which the circle no longer keeps, and the newest version is held back for review"),
-        Unread::Other => format!("Your copy last matched version {version}, which verSHion couldn't read, and the newest version is held back for review"),
+        Unread::Other => format!("Your copy last matched version {version}, which D.A.D couldn't read, and the newest version is held back for review"),
     };
     format!("Shared with {name}. {copy}, so sending is off. Waiting is enough; Check now asks the circle again.")
 }
@@ -279,7 +279,7 @@ pub const READ_LIMIT: &str = "Your daily limit for reading banks has been reache
 /// The same on the strip, with when it resets (as verSHion's server said).
 pub fn read_limit(left_secs: Option<u64>) -> String {
     let when = api::wait_text(left_secs);
-    format!("Your daily limit for reading banks has been reached. It resets {when}; verSHion checks this bank then. Until it does, nothing can be sent from this bank.")
+    format!("Your daily limit for reading banks has been reached. It resets {when}; D.A.D checks this bank then. Until it does, nothing can be sent from this bank.")
 }
 /// The same on the Get latest page (no Try again: it would meet the same limit).
 pub fn read_limit_page(retry_after: Option<u64>) -> String {
@@ -302,7 +302,7 @@ pub const STILL_CHECKING: &str = "Still checking the circle... You can wait here
 /// (critic 91 minor) Get latest waiting for that read when it has taken a while.
 /// (round 16, critic 94 m2, m7) Only for a read that failed before (one that is only slow says `STILL_CHECKING`); the page says
 /// under it that nothing in the bank changes.
-pub const CHECKING_LONG: &str = "Checking the circle... Couldn't check it just now; verSHion keeps trying. You can wait here or press Cancel.";
+pub const CHECKING_LONG: &str = "Checking the circle... Couldn't check it just now; D.A.D keeps trying. You can wait here or press Cancel.";
 
 /// (critic 88 I2) A copy with no record at all of the version it last matched: the strip and the Send page say the same.
 pub const NO_RECORD: &str = "Your copy has no record of what it looked like when it last matched the circle, so the changes can't be counted here.";
@@ -366,17 +366,17 @@ pub const CLOSE_CIRCLE: &str = "Everyone loses access in 14 days. Until then you
 pub const REMOVE_BANK_HEAD: &str = "Remove this bank from the circle?";
 pub const REMOVE_BANK: &str = "The bank disappears for everyone in the circle. You can bring it back for 14 days; after that it is deleted. Anyone who added it to My Banks keeps it there as their own bank, but changes they have not sent can no longer be sent to the circle.";
 pub const REMOVE_MEMBER: &str = "They lose access at once. Banks they added to My Banks stay there as their own, but changes they have not sent can no longer be sent to the circle. They can only come back with a code you make after this.";
-pub const REPORT_THANKS: &str = "Thank you. Your report goes to the people who run verSHion. The author is not told who sent it.";
+pub const REPORT_THANKS: &str = "Thank you. Your report goes to the people who run D.A.D. The author is not told who sent it.";
 pub const TRANSFER_NOTE: &str = "This is an offer: they have 7 days to accept. Until they do you stay the owner. If they accept, they become the owner and you become an editor.";
-pub const NOT_REACHED: &str = "Could not reach verSHion's server.";
+pub const NOT_REACHED: &str = "Could not reach D.A.D's server.";
 pub const HIDDEN_BANK_TITLE: &str = "Hidden while a review is open";
 pub const HIDDEN_BANK_LINE: &str = "Its title and author are not shown while it is reviewed, or while its author's account is.";
 pub const PURGE_BANK: &str = "This deletes the bank for good now, instead of after its 14 days. It can not be brought back.";
-pub const HELD_BANK: &str = "This bank is on hold while verSHion's reviewers look at it. Only you can see it; the other members cannot until it is cleared.";
+pub const HELD_BANK: &str = "This bank is on hold while D.A.D's reviewers look at it. Only you can see it; the other members cannot until it is cleared.";
 // ---- phase C: invite by email ----------------------------------------------------------------------------------
 
-pub const EMAIL_HELP: &str = "verSHion mails the teacher an invitation with a code that works once, for 7 days. The mail is a fixed text: it does not name you or the circle (the app shows both before they join).";
-pub const EMAIL_NEEDS_ACCOUNT: &str = "To join, they need a verSHion account that an administrator has approved, with its invite code entered. Until then the circle's code in the mail can't be used.";
+pub const EMAIL_HELP: &str = "D.A.D mails the teacher an invitation with a code that works once, for 7 days. The mail is a fixed text: it does not name you or the circle (the app shows both before they join).";
+pub const EMAIL_NEEDS_ACCOUNT: &str = "To join, they need a D.A.D account that an administrator has approved, with its invite code entered. Until then the circle's code in the mail can't be used.";
 pub const EMAIL_PRIVACY: &str = "The address is not kept: it is used for this one mail and cleared from this form once it is sent. The list below shows only a masked label (like j***@school.org) so you can tell invitations apart.";
 pub const EMAIL_PACE: &str = "Invitations go out at a steady pace. If you invite many colleagues at one school, some may have to wait for the next hour; the app says so, and nothing is lost.";
 pub const EMAIL_RESENT: &str = "This address already had an open invitation from this circle: a new code was mailed, and the earlier one no longer works.";
@@ -390,7 +390,7 @@ pub const COPY_NO_KEYS_DONE: &str = "This copy has no answer keys. Each question
 pub const HIDE_SECTION: &str = "Answer keys for viewers";
 pub const HIDE_OFF_LINE: &str = "Everyone in this circle sees the answer keys, viewers too.";
 pub const HIDE_ON_LINE: &str = "Viewers get this bank without its answer keys. Editors and the owner still see everything, and can edit it as before.";
-pub const HIDE_ON_ASK: &str = "Viewers will get every version of this bank without the correct answers, the explanations and the pictures, and with the choices shuffled. Editors and the owner keep seeing the full bank. If the newest version has pictures, you choose next which of them viewers may keep. verSHion first checks the viewers' copy; it may ask you to decide about letter labels (A, B, C ...) or choice orders.";
+pub const HIDE_ON_ASK: &str = "Viewers will get every version of this bank without the correct answers, the explanations and the pictures, and with the choices shuffled. Editors and the owner keep seeing the full bank. If the newest version has pictures, you choose next which of them viewers may keep. D.A.D first checks the viewers' copy; it may ask you to decide about letter labels (A, B, C ...) or choice orders.";
 pub const HIDE_OFF_ASK: &str = "Viewers will see the answer keys again, in every version of this bank.";
 /// The bank page when the newest version of a bank that hides its keys is held back and the pool said turning
 /// hiding off releases it (critic 58 B2, critic 59 B1).
@@ -401,7 +401,7 @@ pub const HIDE_OFF_STILL_HELD: &str = "Turning hiding off did not release the ne
 pub const PICTURES_HEADING: &str = "Pictures";
 pub const PICTURES_HELP: &str = "Viewers get a picture only if you keep it for them. A picture you keep is shown to viewers as it is, so keep it only if it does not show an answer or a hint.";
 pub const PICTURES_BANK_INTRO: &str = "The newest version of this bank has pictures. Choose for each one whether viewers get it. Nothing has changed yet.";
-pub const PICTURES_SEND_INTRO: &str = "This bank hides its answer keys from viewers, so verSHion makes a viewers' copy of what you send for the circle. Choose for each picture whether viewers get it. Nothing was sent yet; your changes are still on this computer.";
+pub const PICTURES_SEND_INTRO: &str = "This bank hides its answer keys from viewers, so D.A.D makes a viewers' copy of what you send for the circle. Choose for each picture whether viewers get it. Nothing was sent yet; your changes are still on this computer.";
 pub const PICTURE_KEEP: &str = "Keep it for viewers";
 pub const PICTURE_DROP: &str = "Drop it";
 /// The confirmation's button when the picture step comes next (critic 62 minor: one "Hide the keys", on the step).
@@ -411,7 +411,7 @@ pub const HIDE_NEXT: &str = "Next";
 pub const PICTURES_CHANGE: &str = "Change picture choices";
 pub const PICTURES_SAVE: &str = "Save picture choices";
 pub const PICTURES_CHANGE_INTRO: &str = "Choose again for each picture of the newest version whether viewers get it. Every picture starts as dropped here, whatever was chosen before. Nothing has changed yet. Saving new choices counts as a change of the answer-key setting, and there is a daily number of those.";
-pub const PICTURES_CHANGE_DECIDE: &str = "Before the new picture choices can be saved, verSHion needs these decisions about the copy viewers will get. Nothing has changed yet.";
+pub const PICTURES_CHANGE_DECIDE: &str = "Before the new picture choices can be saved, D.A.D needs these decisions about the copy viewers will get. Nothing has changed yet.";
 
 /// A new version arrived before a change of the setting went through (the head read right before it moved, or the
 /// pool's `409 conflict` on the PATCH pinned to the version, critic 62 B1): nothing changed, and whatever was decided
@@ -468,7 +468,7 @@ pub fn pictures_left_out_line(qs: &[usize]) -> Option<String> {
     }
 }
 
-pub const HIDE_TRIES: &str = "Each press counts toward a daily number of tries, also when verSHion asks for decisions, so decide everything listed before you press again.";
+pub const HIDE_TRIES: &str = "Each press counts toward a daily number of tries, also when D.A.D asks for decisions, so decide everything listed before you press again.";
 
 pub const LICENSE_SETTING_NOTE: &str = "This is the licence you attach to the bank. Not yet: sharing a circle bank's questions publicly is not available in this version, whatever the licence. A later version may let members do it for Creative Commons banks. Earlier versions keep the licence they were shared under.";
 
@@ -603,7 +603,7 @@ pub fn activity_line(e: &ActivityEntry) -> String {
         },
         "rolled_back" => format!("{by} restored an older version of {title}{}.", e.rollback_of.map(|v| format!(" (version {v})")).unwrap_or_default()),
         "versions_trimmed" => format!("{by} trimmed the older versions of {title}."),
-        _ => format!("{by} did something this version of verSHion does not know about."),
+        _ => format!("{by} did something this version of D.A.D does not know about."),
     }
 }
 
@@ -715,7 +715,7 @@ pub fn hide_result_lines(r: &HideKeyResult, head_held: bool) -> Vec<String> {
     if r.withheld || r.held {
         // (critic 60 B1: whether turning hiding off makes it readable again is the pool's to say, on the bank's read:
         // HIDE_HELD_HEAD says it only then)
-        out.push("The viewers' copy matched something verSHion checks for, so the newest version is held back and the bank is hidden from the circle while an administrator reviews it. The questions are safe.".into());
+        out.push("The viewers' copy matched something D.A.D checks for, so the newest version is held back and the bank is hidden from the circle while an administrator reviews it. The questions are safe.".into());
     }
     out
 }

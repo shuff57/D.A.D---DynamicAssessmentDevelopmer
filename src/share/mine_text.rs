@@ -20,7 +20,7 @@ pub fn state_label(it: &MineItem) -> &'static str {
         ItemState::NeedsReupload => "A picture needs uploading again",
         ItemState::KeyLeakReview => "Held: answer key may be visible",
         ItemState::HeldForReview => "Held for review",
-        ItemState::Other => "Status not known to this version of verSHion",
+        ItemState::Other => "Status not known to this version of D.A.D",
     }
 }
 
@@ -97,14 +97,14 @@ pub fn explain(it: &MineItem, now_ms: i64) -> String {
             .filter(|s| !s.is_empty())
             .unwrap_or_else(|| "Teachers reported that what students see gives the hidden answer key away. Fix the wording and share again; the hold ends with a changed version.".into()),
         ItemState::HeldForReview => hold_reason(it),
-        ItemState::Other => "This version of verSHion does not know this status. Nothing can be done with it here.".into(),
+        ItemState::Other => "This version of D.A.D does not know this status. Nothing can be done with it here.".into(),
     }
 }
 
 pub const NO_ITEMS: &str = "You have not shared anything yet. Choose Share to pool… to share a bank or an exam.";
 
 pub const STRIKES_LINE: &str = "How strikes work: only a strike an admin has upheld counts. Three upheld strikes within twelve months are \
-     flagged for an admin to review the account; nothing is suspended automatically. verSHion does not show a count, because the pool \
+     flagged for an admin to review the account; nothing is suspended automatically. D.A.D does not show a count, because the pool \
      does not report one.";
 
 pub const DRAFT_LEGAL: &str = "These pages are drafts. They have not had a legal review yet and are not legal advice.";
@@ -118,7 +118,7 @@ pub const DELETION_LINES: [&str; 5] = [
 ];
 
 pub const EXPORT_BLURB: &str = "Download everything the pool holds about you: your profile, your shared items with their full text (answer keys \
-     included) and your reports. It is saved to a file you choose, and nothing is kept by verSHion afterwards.";
+     included) and your reports. It is saved to a file you choose, and nothing is kept by D.A.D afterwards.";
 
 pub const COUNTER_INTRO: &str = "A counter-notice says you believe the item was taken down by mistake. What you type here is sent to the pool and \
      forwarded to the person who complained, so they can see your name, address and phone number. Do not send anything you are not willing \
@@ -126,7 +126,7 @@ pub const COUNTER_INTRO: &str = "A counter-notice says you believe the item was 
 
 pub const COUNTER_DRAFT: &str = "DRAFT wording: the statements below have not been reviewed by a lawyer. The pool supplies no text of its own.";
 
-pub const COUNTER_NOT_KEPT: &str = "verSHion does not keep what you type: it is sent once and cleared from this window.";
+pub const COUNTER_NOT_KEPT: &str = "D.A.D does not keep what you type: it is sent once and cleared from this window.";
 
 pub const STATEMENT_PERJURY: &str = "I swear, under penalty of perjury, that I have a good faith belief that this material was removed or disabled by mistake or misidentification.";
 pub const STATEMENT_JURISDICTION: &str = "I consent to the jurisdiction of the federal court for the district where my address is (or, if it is outside the United States, \

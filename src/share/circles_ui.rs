@@ -1932,7 +1932,7 @@ fn hide_section(ui: &mut Ui, m: &mut CirclesModel) {
                 let a = super::circle_hide_ui::decisions(
                     ui,
                     dd,
-                    if change { text::PICTURES_CHANGE_DECIDE } else { "Before the keys can be hidden, verSHion needs these decisions about the copy viewers will get. Nothing has changed yet." },
+                    if change { text::PICTURES_CHANGE_DECIDE } else { "Before the keys can be hidden, D.A.D needs these decisions about the copy viewers will get. Nothing has changed yet." },
                     "Change the questions in the bank in My Banks and send a new version, then try again.",
                     if change { text::PICTURES_SAVE } else { "Hide the keys" },
                     false,

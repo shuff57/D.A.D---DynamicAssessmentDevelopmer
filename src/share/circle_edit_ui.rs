@@ -394,9 +394,9 @@ fn send_page(ui: &mut Ui, e: &mut CircleEditModel, now: i64) {
                 let p = p.clone();
                 if p.issues.is_empty() {
                     // (critic 68 minor 2) one sentence: nothing is listed below to change
-                    para(ui, "The circle did not accept this version, and verSHion's server did not say which question. Check the long texts and the pictures, then send again. Nothing was sent; your changes are still on this computer.");
+                    para(ui, "The circle did not accept this version, and D.A.D's server did not say which question. Check the long texts and the pictures, then send again. Nothing was sent; your changes are still on this computer.");
                 } else {
-                    para(ui, "verSHion checked these questions for the circle and needs you to change the items below. Nothing was sent. Your changes are still on this computer.");
+                    para(ui, "D.A.D checked these questions for the circle and needs you to change the items below. Nothing was sent. Your changes are still on this computer.");
                 }
                 for i in p.issues.iter().take(30) {
                     let t = super::publish_text::issue_text_circle(i, false);
@@ -438,7 +438,7 @@ fn send_page(ui: &mut Ui, e: &mut CircleEditModel, now: i64) {
                 let a = super::circle_hide_ui::decisions(
                     ui,
                     d,
-                    "This bank hides its answer keys from viewers, so verSHion makes a viewers' copy of what you send for the circle. It needs these decisions first. Nothing was sent yet; your changes are still on this computer.",
+                    "This bank hides its answer keys from viewers, so D.A.D makes a viewers' copy of what you send for the circle. It needs these decisions first. Nothing was sent yet; your changes are still on this computer.",
                     "Change these questions in your bank, then send again.",
                     "Send with these decisions",
                     busy,
@@ -806,7 +806,7 @@ fn merge_page(ui: &mut Ui, e: &mut CircleEditModel) {
                 body(ui, "The circle has nothing newer than the version your copy last matched.");
                 // (round 16, critic 94 m1) or that version can't be read any more (the copy was linked by an earlier build)
                 if e.cant_be_read(&v.local_id) {
-                    warn_box(ui, "But that version can't be read any more, so verSHion can't tell which difficulties you changed since. Sending is blocked until you decide.");
+                    warn_box(ui, "But that version can't be read any more, so D.A.D can't tell which difficulties you changed since. Sending is blocked until you decide.");
                 } else {
                     warn_box(ui, "But the bank on this computer is older than the record of it: a safety copy of your banks may have been put back. Sending is blocked until you decide.");
                 }

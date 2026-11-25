@@ -84,7 +84,7 @@ pub(super) fn adding_rows_of(ui: &mut Ui, c: &mut super::circles::CirclesModel) 
     // (critic 69 minor 3) adds the last run did not finish: said once, without titles (another account may be here)
     let unfinished = c.unfinished_at_start();
     if unfinished > 0 {
-        let line = if unfinished == 1 { "verSHion closed before 1 bank you asked to add was finished. Add it again from the circle's page.".to_string() } else { format!("verSHion closed before {unfinished} banks you asked to add were finished. Add them again from the circle's page.") };
+        let line = if unfinished == 1 { "D.A.D closed before 1 bank you asked to add was finished. Add it again from the circle's page.".to_string() } else { format!("D.A.D closed before {unfinished} banks you asked to add were finished. Add them again from the circle's page.") };
         rows.push(Row { adds: Vec::new(), line, result: true, remedy: Remedy::None, spinner: false, said: None });
     }
     let need_sign_in = c.adds_need_sign_in();

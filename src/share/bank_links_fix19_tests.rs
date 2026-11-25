@@ -47,7 +47,7 @@ fn badge_warns(m: &mut CirclesModel, banks: &[QuestionBank]) -> bool {
 }
 
 /// The advice for a banks file that can't be written: one she can act on.
-const ADVICE: &str = "Keep verSHion open and press Try again; if it keeps failing, free some disk space.";
+const ADVICE: &str = "Keep D.A.D open and press Try again; if it keeps failing, free some disk space.";
 
 /// A's page after the read of version 3 (One rated High there, Two none) replaced her Easy on both; banks files counted.
 fn with_news_counted() -> (Rig, super::bank_links_fix16_tests::Sinks) {
@@ -134,7 +134,7 @@ fn c100_i2_the_advice_is_one_she_can_act_on() {
     use super::circles_text as t;
     for raw in ["No space left on device (os error 28)", "Permission denied (os error 13)", "something else", "file is locked by another process"] {
         for line in [t::banks_not_saved(raw), t::put_back_not_saved(raw), t::safety_copy_not_saved(raw), t::links_not_saved(raw)] {
-            assert!(line.contains(ADVICE) && !line.contains("Check verSHion's data folder") && !line.contains("Check that verSHion may write"), "{line}");
+            assert!(line.contains(ADVICE) && !line.contains("Check D.A.D's data folder") && !line.contains("Check that D.A.D may write"), "{line}");
         }
         assert!(t::banks_not_saved(raw).contains("your own edits aren't saved"), "{raw}");
         assert!(t::put_back_not_saved(raw).contains("your own edits aren't saved"), "{raw}");
@@ -759,7 +759,7 @@ fn c100_m5_the_news_retires_itself() {
     s.keep("Post", "/circles/heads", 200, heads(4));
     let strip = frames(&mut m, &mut banks, &ctx, &mut acct, &who, 3);
     assert!(!badge(&mut m, &banks[0].clone()).contains("difficulty updated"), "{}", badge(&mut m, &banks[0].clone()));
-    assert!(strip.contains("Earlier, verSHion gave 2 questions the circle's difficulty") && !strip.contains("in place of yours"), "{strip}");
+    assert!(strip.contains("Earlier, D.A.D gave 2 questions the circle's difficulty") && !strip.contains("in place of yours"), "{strip}");
     assert!(strip.contains("was sent"), "the rows stay until dismissed: {strip}");
 }
 

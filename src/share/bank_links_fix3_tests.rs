@@ -399,7 +399,7 @@ fn m4_no_pool_on_the_banks_list_the_send_page_and_the_share_window() {
     m.adds.push(AddJob { cid: CID.into(), bid: BID.into(), own: false, title: "Cells".into(), role: Role::Editor, state: AddState::Failed(p), full: false, dismissed: false, account: None });
     let t = rows(&mut m);
     // (critic 70 I1) verSHion's server, never the circle, for what the server did
-    assert!(t.contains("\"Cells\" couldn't be added: verSHion's server can not take this as it is.") && !t.to_lowercase().contains("pool"), "{t}");
+    assert!(t.contains("\"Cells\" couldn't be added: D.A.D's server can not take this as it is.") && !t.to_lowercase().contains("pool"), "{t}");
     // The circles model's own words reach that row: no "pool" there either.
     let (mut cm, s) = open_circle("editor", json!({}));
     s.on("Get", &format!("/circles/{CID}/banks/{BID}"), 503, json!({"error": "pool_migrating"}));
@@ -468,7 +468,7 @@ fn m4_m7_the_share_window_speaks_of_the_circle_and_of_adding_to_my_banks() {
     let s = Script::new();
     let mut p = share_into_circle(&s, &ready(&s), 422, json!({"error": "invalid_payload", "errors": [{"code": "forbidden_char", "path": "bank.questions[0].stem"}]}));
     let t = publish_text(&mut p);
-    assert!(t.contains("verSHion checked these questions for the circle and needs you to change the items below. Nothing was shared."), "{t}");
+    assert!(t.contains("D.A.D checked these questions for the circle and needs you to change the items below. Nothing was shared."), "{t}");
     assert!(!t.contains("The pool checked") && !t.contains("the pool does not take"), "{t}");
 }
 
@@ -477,7 +477,7 @@ fn r42_sharing_into_a_circle_says_a_server_fault_as_every_circle_screen_does() {
     let s = Script::new();
     let mut p = share_into_circle(&s, &ready(&s), 500, json!({"error": "internal"}));
     let t = publish_text(&mut p);
-    assert!(t.contains("verSHion's server had a problem of its own."), "{t}");
+    assert!(t.contains("D.A.D's server had a problem of its own."), "{t}");
     assert!(!t.contains("The pool had") && !t.contains("The circle had"), "{t}");
 }
 
@@ -494,7 +494,7 @@ fn m5_the_send_page_does_not_argue_with_itself_when_no_question_is_named() {
     m.edit.view = EditView::Send(Box::new(send_view(SendStage::Payload(Box::default()))));
     m.edit.host = Some(EditHost { local_id: LOCAL.into(), back: "< Back to Unit 2 quiz".into() });
     let (_, t) = page_frame(&mut m, &mut banks, &mut acct, &ready(&s), now());
-    assert!(t.contains("The circle did not accept this version, and verSHion's server did not say which question."), "{t}");
+    assert!(t.contains("The circle did not accept this version, and D.A.D's server did not say which question."), "{t}");
     assert!(!t.contains("the items below") && !t.contains("Change the questions in the bank"), "{t}");
     assert!(t.contains("Nothing was sent"), "{t}");
     // With questions named, the list and its lead stay.

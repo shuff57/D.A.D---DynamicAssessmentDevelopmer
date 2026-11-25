@@ -188,7 +188,7 @@ fn c96_i1_the_news_is_kept_on_the_link_and_drawn_on_the_badge_and_strip() {
     assert_eq!(n.version, 3);
     assert_eq!(n.questions.iter().map(|q| (q.before, q.after)).collect::<Vec<_>>(), vec![(Some(Difficulty::Low), Some(Difficulty::High)), (Some(Difficulty::Low), None)]);
     assert_eq!(badge(&mut m, &banks[0].clone()), "difficulty updated");
-    assert!(strip.contains("verSHion gave 2 questions the circle's difficulty from its version 3, in place of yours"), "{strip}");
+    assert!(strip.contains("D.A.D gave 2 questions the circle's difficulty from its version 3, in place of yours"), "{strip}");
     assert!(strip.contains("Question 1, \"One\": Easy -> Hard") && strip.contains("Question 2, \"Two\": Easy -> no difficulty"), "{strip}");
     assert_eq!(strip.lines().filter(|l| *l == "Put mine back").count(), 2, "{strip}");
     assert!(!strip.contains(".json") && !strip.contains("merge") && !strip.to_lowercase().contains("rating"), "{strip}");
@@ -574,7 +574,7 @@ fn c96_m4_a_save_failure_is_said_plainly_and_try_again_answers() {
     let strip = frames(&mut m, &mut banks, &ctx, &mut acct, &who, 3);
     let v = strip_view(&mut m, &banks, &who);
     assert!(v.warn, "{v:?}");
-    assert!(strip.contains("verSHion couldn't save your banks (verSHion isn't allowed to write to its data folder)"), "{strip}");
+    assert!(strip.contains("D.A.D couldn't save your banks (D.A.D isn't allowed to write to its data folder)"), "{strip}");
     assert!(!strip.contains("os error") && !strip.contains("Permission denied"), "{strip}");
     assert_eq!(badge(&mut m, &banks[0].clone()), "couldn't save");
     let st = m.edit.status(LOCAL).cloned();
@@ -613,7 +613,7 @@ fn c96_m6_signed_out_strip_and_badge_agree() {
     let t = frames(&mut m, &mut banks, &ctx, &mut acct, &who, 2);
     // (round 18, critic 98 minor 8) said as what it is, the same on both
     assert_eq!(badge(&mut m, &banks[0].clone()), super::bank_links::WAITING_NOTE);
-    assert!(!t.contains("unsent change") && t.contains("Your changes are counted once verSHion can check the circle."), "{t}");
+    assert!(!t.contains("unsent change") && t.contains("Your changes are counted once D.A.D can check the circle."), "{t}");
 }
 
 // ---- mutation gaps ---------------------------------------------------------------------------------------------------------------

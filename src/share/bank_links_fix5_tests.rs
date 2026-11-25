@@ -710,7 +710,7 @@ fn m33_an_add_asked_for_is_counted_at_once_so_the_next_start_says_it() {
     drop(m);
     let mut m = model();
     m.set_adds_log(log);
-    assert!(rows(&mut m).contains("verSHion closed before 1 bank you asked to add was finished"));
+    assert!(rows(&mut m).contains("D.A.D closed before 1 bank you asked to add was finished"));
 }
 
 #[test]
@@ -740,7 +740,7 @@ fn m34_try_again_adds_with_the_role_the_person_has_now() {
     let (mut m, s) = open_circle("editor", json!({}));
     let a = as_who(&s, "olga");
     m.note_account(&a);
-    let failed = super::browse::Problem { message: "verSHion's server did not answer.".into(), retry: true, retry_at: None, account: false };
+    let failed = super::browse::Problem { message: "D.A.D's server did not answer.".into(), retry: true, retry_at: None, account: false };
     m.adds.push(super::circles::AddJob { cid: CID.into(), bid: BID.into(), own: false, title: "Cells".into(), role: Role::Viewer, state: super::circles::AddState::Failed(failed), full: false, dismissed: false, account: m.account_tag() });
     m.retry_add(CID, BID);
     assert_eq!(m.adds[0].role, Role::Editor);
@@ -777,13 +777,13 @@ fn c72_i1_the_merge_reviews_notes_say_the_circle_changed_the_question_never_the_
     for (from, want) in cases {
         assert_eq!(merge_words(from), want);
     }
-    // Every word merge.rs can put on a circle's review, once mapped: no "pool", never verSHion or its server.
+    // Every word merge.rs can put on a circle's review, once mapped: no "pool", never D.A.D or its server.
     for (line, lit) in literals(include_str!("merge.rs")) {
         if lit.starts_with("From the pool: ") || lit.starts_with("From the shared pool:") {
             continue; // a topic written into the bank (renamed for a circle when applied), never drawn here
         }
         let c = merge_words(&lit);
-        assert!(!says_pool(&c) && !c.contains("verSHion"), "merge.rs:{line}: {lit} -> {c}");
+        assert!(!says_pool(&c) && !c.contains("D.A.D"), "merge.rs:{line}: {lit} -> {c}");
     }
 }
 
@@ -806,7 +806,7 @@ fn c72_i1_a_review_with_a_question_the_circle_removed_reads_the_circle_removed_i
     assert!(matches!(&m.edit.view, EditView::Merge(v) if matches!(v.phase, MergePhase::Review(_))), "{:?}", m.edit.view);
     let t = text_of(1280.0, &mut |ui| super::circle_edit_ui::draw_page(ui, &mut m));
     assert!(t.contains("The circle removed this question") && t.contains("no longer linked to the circle"), "{t}");
-    assert!(!t.contains("verSHion") && !says_pool(&t), "{t}");
+    assert!(!t.contains("D.A.D") && !says_pool(&t), "{t}");
 }
 
 #[test]
@@ -910,7 +910,7 @@ fn m05_a_restore_whose_job_died_left_behind_says_it_did_not_go_through() {
     m.edit.back();
     let t = until(&ctx, &mut m, &mut banks, &mut acct, &s, LOCAL, &|m| !m.edit.acting());
     let t = t + &strip(&ctx, &mut m, &mut banks, &mut acct, &s, LOCAL);
-    assert!(t.contains("The restore of version 1 did not go through: verSHion's server did not answer."), "{t}");
+    assert!(t.contains("The restore of version 1 did not go through: D.A.D's server did not answer."), "{t}");
 }
 
 #[test]

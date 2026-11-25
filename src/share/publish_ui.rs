@@ -228,11 +228,11 @@ pub(super) fn status_line(s: &Status) -> (&'static str, &'static str) {
     match s {
         Status::Pending => ("Your account is waiting for approval.", "An administrator checks every account by hand before it can share to the public pool. You can already share to a circle you joined. Come back when it is approved."),
         Status::Approved => ("Your account is approved.", ""),
-        Status::Rejected { revoked: false, .. } => ("Your account was not approved.", "You can read the reason in the Account window, and apply again if it allows."),
-        Status::Rejected { revoked: true, .. } => ("Your account's approval was withdrawn.", "You can read the reason in the Account window."),
+        Status::Rejected { revoked: false, .. } => ("Your account was not approved.", "You can read the reason in Settings, then D.A.D account, and apply again if it allows."),
+        Status::Rejected { revoked: true, .. } => ("Your account's approval was withdrawn.", "You can read the reason in Settings, then D.A.D account."),
         Status::Suspended { .. } => ("Your account is suspended.", "It can not share while it is suspended."),
         Status::Unverified => ("Your account is not finished.", "Finish it with the link in the confirmation email."),
-        Status::Other(_) => ("Your account state is not one this version of verSHion knows.", "Open the Account window for details."),
+        Status::Other(_) => ("Your account state is not one this version of D.A.D knows.", "Open Settings, then D.A.D account, for details."),
     }
 }
 
@@ -247,17 +247,17 @@ fn gate_page(ui: &mut Ui, m: &mut PublishModel) {
         }
         Gate::NotSetUp => para(ui, crate::share::NOT_SET_UP),
         Gate::NoServer => {
-            para(ui, "No pool server is set up yet. Open the Account window to enter one.");
+            para(ui, "No pool server is set up yet. Open Settings, then D.A.D account, to enter one.");
             open_account = kit::primary_button(ui, "Open account...").clicked();
         }
         Gate::SignedOut => {
-            body(ui, "Sharing needs an account. Sign in, or create one, in the Account window.");
-            para(ui, "Everything else in verSHion keeps working without one. What you enter here is kept while you sign in.");
+            body(ui, "Sharing needs an account. Sign in, or create one, in Settings, then D.A.D account.");
+            para(ui, "Everything else in D.A.D keeps working without one. What you enter here is kept while you sign in.");
             open_account = kit::primary_button(ui, "Open account...").clicked();
         }
         Gate::Unreachable => {
             body(ui, "Your sign-in could not be checked. You may be offline.");
-            para(ui, "Open the Account window to try again. Nothing was shared.");
+            para(ui, "Open Settings, then D.A.D account, to try again. Nothing was shared.");
             open_account = kit::primary_button(ui, "Open account...").clicked();
         }
         Gate::NotApproved(status) => {
@@ -990,7 +990,7 @@ fn circle_page(ui: &mut Ui, m: &mut PublishModel) {
         }
         SendStage::Refused(Refused::Payload(p)) => {
             let p = p.clone();
-            para(ui, "verSHion checked these questions for the circle and needs you to change the items below. Nothing was shared.");
+            para(ui, "D.A.D checked these questions for the circle and needs you to change the items below. Nothing was shared.");
             for i in p.issues.iter().take(30) {
                 let t = text::issue_text_circle(i, false);
                 egui::Frame::new().fill(theme::error_wash()).corner_radius(8).inner_margin(Margin::same(8)).show(ui, |ui| {

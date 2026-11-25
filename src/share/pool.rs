@@ -74,7 +74,7 @@ pub const ATTEST_STATEMENT: &str = "I confirm this content is my own original wo
 /// The publish body's type.
 pub const PUBLISH_CONTENT_TYPE: &str = "application/vnd.vershion.publish";
 /// What the person sees when the pool wants an invite code first (round 28).
-pub const INVITE_REQUIRED_TEXT: &str = "The shared pool needs an invite code. Open the Account window, find \"Invite code\" and enter the code an admin gave you. Everything else in verSHion keeps working.";
+pub const INVITE_REQUIRED_TEXT: &str = "The shared pool needs an invite code. Open Settings, then D.A.D account. Find \"Invite code\" and enter the code an admin gave you. Everything else in D.A.D keeps working.";
 
 /// A report note is cut to the Worker's 1000 characters.
 pub const MAX_REPORT_NOTE: usize = 1000;
@@ -148,7 +148,7 @@ impl LocalProblem {
             LocalProblem::BadField(f) => format!("The {f} is not valid."),
             LocalProblem::BlobHashMismatch => "The picture that came back is not the one that was asked for. Nothing was saved.".into(),
             LocalProblem::BadItemShape => "The server sent an item the app does not understand.".into(),
-            LocalProblem::NewerQuestions => "This bank has questions made by a newer verSHion that this one can not read. Update the app, then try again. Nothing was changed.".into(),
+            LocalProblem::NewerQuestions => "This bank has questions made by a newer D.A.D that this one can not read. Update the app, then try again. Nothing was changed.".into(),
         }
     }
 }
@@ -490,7 +490,7 @@ impl Refusal {
             RefusalKind::ImageRefused => "The pool did not accept this picture. Use a PNG, JPEG, GIF or WebP still picture up to 4096 pixels on a side and 2 MB.".into(),
             RefusalKind::HashMismatch => "The picture changed while it was being sent. Try again.".into(),
             RefusalKind::SchemaUpgradeRequired { message } if !message.is_empty() => message.clone(),
-            RefusalKind::SchemaUpgradeRequired { .. } => "Republishing needs a newer version of verSHion.".into(),
+            RefusalKind::SchemaUpgradeRequired { .. } => "Republishing needs a newer version of D.A.D.".into(),
             RefusalKind::KindMismatch => "A bank can not be republished over a single question, or the other way round.".into(),
             RefusalKind::TooManyTags { limit } => format!("Too many distinct tags and topics in this item (at most {limit})."),
             RefusalKind::Conflict { .. } => "This was changed from another device or tab since you last loaded it. Reload it, then republish.".into(),
@@ -619,10 +619,10 @@ pub fn other_message(status: u16, code: &str, wait: String) -> String {
         "pending_review" => "An administrator is still reviewing a version of this bank. It can be deleted for good once that review is done. You can leave it removed until then.",
         "member_unavailable" => "That member's account can not take on the circle right now. Choose someone else.",
         "no_pending_transfer" => "There is no ownership offer to answer any more. It may have been withdrawn, taken back, or it expired.",
-        "unauthorized" => "Your sign-in ended. Sign in again in the Account window.",
+        "unauthorized" => "Your sign-in ended. Sign in again in Settings, then D.A.D account.",
         "reauth_required" => "Sign in again to do this: it needs a sign-in from the last 24 hours.",
         "invalid_json" | "body_aborted" | "length_mismatch" | "length_required" | "unsupported_media_type" => {
-            "The request did not arrive in a form the pool can read. Try again; if it keeps happening, update verSHion."
+            "The request did not arrive in a form the pool can read. Try again; if it keeps happening, update D.A.D."
         }
         "body_timeout" => "The request took too long to arrive. Check your connection and try again.",
         "pool_key_mismatch" => "The pool server is being set up and can not take this yet. Try again later.",
@@ -635,7 +635,7 @@ pub fn other_message(status: u16, code: &str, wait: String) -> String {
         "origin_not_allowed" => "The pool does not accept requests from this web address.",
         "client_ip_required" | "native_client_with_origin" => "The pool could not tell where this request came from. Nothing was changed.",
         "notice_not_found" => "That notice is not available to you.",
-        "method_not_allowed" => "This version of verSHion asked for something the pool does not offer. Update verSHion.",
+        "method_not_allowed" => "This version of D.A.D asked for something the pool does not offer. Update D.A.D.",
         "server_error" => "The pool had a problem of its own. Nothing was changed; try again in a minute.",
         "preview_required" | "confirm_large_required" | "selection_required" | "hold_has_own_route" | "action_closed" | "rightful_item_invalid" => {
             "That step is for the pool's administrators."
@@ -646,7 +646,7 @@ pub fn other_message(status: u16, code: &str, wait: String) -> String {
         return m.into();
     }
     match status {
-        401 => "Your sign-in ended. Sign in again in the Account window.".into(),
+        401 => "Your sign-in ended. Sign in again in Settings, then D.A.D account.".into(),
         403 => "The pool does not allow that for this account.".into(),
         408 => "The request took too long. Try again.".into(),
         429 => format!("Too many requests. Try again {wait}."),

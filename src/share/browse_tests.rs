@@ -2005,7 +2005,7 @@ fn without_a_stored_base_merging_is_off_and_the_new_bank_path_says_why_it_is_the
     sc.step(&mut m);
     sc.step(&mut m);
     let why = m.merge_blocker().unwrap();
-    assert!(why.contains("before verSHion kept a copy") && why.contains("new bank"), "{why}");
+    assert!(why.contains("before D.A.D kept a copy") && why.contains("new bank"), "{why}");
     m.begin_merge();
     assert!(m.item.as_ref().unwrap().merge.is_none());
     m.begin_import();

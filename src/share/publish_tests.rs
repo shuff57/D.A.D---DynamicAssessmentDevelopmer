@@ -980,7 +980,7 @@ fn every_refusal_kind_ends_somewhere_the_person_can_read_and_leave() {
         ("body too large", 413, json!({"error": "body_too_large", "limit": 4194304}), Shape::Final, "too big"),
         ("shared questions", 422, json!({"error": "shared_questions_limit", "used": 4990, "needed": 20, "limit": 5000}), Shape::Final, "5000"),
         ("tags", 422, json!({"error": "too_many_tags", "limit": 200}), Shape::Final, "200"),
-        ("schema", 422, json!({"error": "schema_upgrade_required", "message": "Republishing needs schema version 2 (update verSHion)."}), Shape::Final, "schema version 2"),
+        ("schema", 422, json!({"error": "schema_upgrade_required", "message": "Republishing needs schema version 2 (update D.A.D)."}), Shape::Final, "schema version 2"),
         ("moderation", 409, json!({"error": "under_moderation", "message": "This item is under review."}), Shape::Final, "under review"),
         ("removed not purged", 409, json!({"error": "item_removed", "purged": false, "message": "Deleted; undo it first."}), Shape::Final, "undo"),
         ("image refused", 422, json!({"error": "image_refused", "reason": "not_accepted"}), Shape::Final, "PNG"),

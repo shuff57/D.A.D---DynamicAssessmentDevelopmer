@@ -627,7 +627,7 @@ impl AccountModel {
             }
             None => {
                 self.notice = Some(Notice::Error(
-                    "That doesn't look like a link from a verSHion email. Copy the whole link, or just the long code after token=."
+                    "That doesn't look like a link from a D.A.D email. Copy the whole link, or just the long code after token=."
                         .into(),
                 ))
             }
@@ -642,7 +642,7 @@ impl AccountModel {
 
     pub fn save_server(&mut self) {
         if self.server_locked() {
-            self.notice = Some(Notice::Error("This copy of verSHion is set up for one server, which can't be changed.".into()));
+            self.notice = Some(Notice::Error("This copy of D.A.D is set up for one server, which can't be changed.".into()));
             return;
         }
         if self.busy() {

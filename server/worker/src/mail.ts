@@ -1,4 +1,4 @@
-// verSHion mail. Two senders: SMTP submission (mail_smtp.ts, the shape raSHio uses, pointed at the
+// D.A.D mail. Two senders: SMTP submission (mail_smtp.ts, the shape raSHio uses, pointed at the
 // owner's Stalwart) and Resend over HTTPS. SMTP wins when its three settings are present, so the
 // owner's own mail server needs no third party; "log" prints links for local development.
 import type { MailMessage, MailSender } from "../../auth/src/index.js";
@@ -18,7 +18,7 @@ export interface MailEnv {
   SMTP_PORT?: string;
   SMTP_USERNAME?: string;
   SMTP_PASSWORD?: string;
-  /** Display name on the From line; "verSHion" when absent. */
+  /** Display name on the From line; "D.A.D" when absent. */
   SMTP_FROM_NAME?: string;
   /** "on" forces implicit TLS, "off" STARTTLS; the default follows the port (465 = implicit). */
   SMTP_SECURE?: string;
@@ -39,55 +39,55 @@ function render(env: MailEnv, m: MailMessage): { subject: string; text: string }
   switch (m.kind) {
     case "verify":
       return {
-        subject: "Confirm your verSHion address",
+        subject: "Confirm your D.A.D address",
         text: `Confirm this address to finish signing up:\n\n${link(env, "/account/verify", m.token!)}\n\nThe link works once and expires in 24 hours. If you do not see this after a few minutes, look in your spam or junk folder. If you did not sign up, ignore this mail.`,
       };
     case "reset":
       return {
-        subject: "Reset your verSHion password",
+        subject: "Reset your D.A.D password",
         text: `Set a new password:\n\n${link(env, "/account/reset", m.token!)}\n\nThe link works once and expires in 1 hour. Using it signs you out everywhere. If you did not ask for this, ignore this mail.`,
       };
     case "signup_existing":
       return {
         subject: "Someone tried to sign up with your address",
         text: m.accountVerified
-          ? "Someone tried to create a verSHion account with this address, which already has one. If it was you, sign in or reset your password. Nothing has changed."
-          : "Someone tried to create a verSHion account with this address. An account for it already exists but was never confirmed. If you did not create it, reset the password to take it over; that confirms the address as yours.",
+          ? "Someone tried to create a D.A.D account with this address, which already has one. If it was you, sign in or reset your password. Nothing has changed."
+          : "Someone tried to create a D.A.D account with this address. An account for it already exists but was never confirmed. If you did not create it, reset the password to take it over; that confirms the address as yours.",
       };
     case "password_changed":
       return {
-        subject: "Your verSHion password was changed",
+        subject: "Your D.A.D password was changed",
         text: "Your password was just reset and every session was signed out. If this was not you, reset it again now and contact the site owner.",
       };
     case "application_approved":
       return {
-        subject: "Your verSHion account was approved",
+        subject: "Your D.A.D account was approved",
         text: "Your account has been approved. You can now publish to and browse the shared pool.",
       };
     case "application_rejected":
       return {
-        subject: "Your verSHion application",
-        text: `We could not approve your account.\n\n${m.reason ?? ""}\n\nYou can update your details and apply again from the account screen after the waiting period.`,
+        subject: "Your D.A.D application",
+        text: `We could not approve your account.\n\n${m.reason ?? ""}\n\nYou can update your details and apply again from Settings, then D.A.D account after the waiting period.`,
       };
     case "approval_revoked":
       return {
-        subject: "Your verSHion approval was withdrawn",
-        text: `Your account's approval was withdrawn and you were signed out.\n\n${m.reason ?? ""}\n\nYou can apply again from the account screen after the waiting period.`,
+        subject: "Your D.A.D approval was withdrawn",
+        text: `Your account's approval was withdrawn and you were signed out.\n\n${m.reason ?? ""}\n\nYou can apply again from Settings, then D.A.D account after the waiting period.`,
       };
     case "account_suspended":
       return {
-        subject: "Your verSHion account is suspended",
+        subject: "Your D.A.D account is suspended",
         text: `Your account has been suspended and signed out everywhere.\n\n${m.reason ?? ""}\n\nReply to this mail to contact the site owner.`,
       };
     case "account_restored":
       return {
-        subject: "Your verSHion account is restored",
+        subject: "Your D.A.D account is restored",
         text: "Your account's suspension has ended. You can sign in again.",
       };
     case "device_enrol":
       return {
-        subject: "Add the verSHion app on your other devices",
-        text: `To sign in to the verSHion app on another device (even while sign-ins are being blocked because of failed attempts), open this link on that device within 15 minutes and enter your password:\n\n${link(env, "/account/enrol", m.token!)}\n\nThe link works once. If you did not just reset your password or confirm your address, ignore this mail.`,
+        subject: "Add the D.A.D app on your other devices",
+        text: `To sign in to the D.A.D app on another device (even while sign-ins are being blocked because of failed attempts), open this link on that device within 15 minutes and enter your password:\n\n${link(env, "/account/enrol", m.token!)}\n\nThe link works once. If you did not just reset your password or confirm your address, ignore this mail.`,
       };
   }
 }
@@ -159,7 +159,7 @@ export async function adminAlert(env: MailEnv, e: { action: string; actorId: str
   await sendTo(
     env,
     "everyone",
-    `verSHion ALERT: admin action (${e.action})`,
+    `D.A.D ALERT: admin action (${e.action})`,
     `Admin ${e.actorId ?? "(unknown)"} ${what[e.action] ?? e.action} ${e.targetId} at ${new Date(e.at).toISOString()}.` +
       (e.proposalId ? ` Proposal ${e.proposalId}: another admin must confirm it, or it can be cancelled from the admin screen.` : "") +
       " If this was not expected, check the audit log now; scripts/make-admin.sh can restore a suspended admin.",
@@ -180,8 +180,8 @@ export async function queueReminder(
   const to = [...list(env.ADMIN_EMAIL), ...list(env.ESCALATION_EMAIL)];
   const subject =
     e.kind === "escalation"
-      ? `verSHion: ${e.open} application(s) waiting, the oldest for ${hours} h`
-      : `verSHion: daily approval digest (${e.open} waiting)`;
+      ? `D.A.D: ${e.open} application(s) waiting, the oldest for ${hours} h`
+      : `D.A.D: daily approval digest (${e.open} waiting)`;
   const text =
     e.kind === "escalation"
       ? `The approval queue has ${e.open} open application(s); the oldest has waited ${hours} hours. If the admin is unavailable, a second admin can be promoted with server/worker/scripts/make-admin.sh.`

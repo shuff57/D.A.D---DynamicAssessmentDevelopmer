@@ -415,7 +415,7 @@ fn strip_view_inner(i: &StripInput) -> StripView {
         let have = match badge_unsent(l, i.status, i.sent_unread) {
             Some(n) if n > 0 => format!(" You have {}.", plural(n, "unsent change", "unsent changes")),
             // (round 18, critic 98 minor 8) as the badge says it
-            None if waits => " Your changes are counted once verSHion can check the circle.".to_string(),
+            None if waits => " Your changes are counted once D.A.D can check the circle.".to_string(),
             None => " Changes you made are not counted here.".to_string(),
             Some(_) => String::new(),
         };
@@ -431,7 +431,7 @@ fn strip_view_inner(i: &StripInput) -> StripView {
             b.push(TreatInStep);
         }
         b.push(Unlink);
-        return warn(format!("This bank was put back from a safety copy, so verSHion can't tell what you changed since version {}.", l.base_version), b);
+        return warn(format!("This bank was put back from a safety copy, so D.A.D can't tell what you changed since version {}.", l.base_version), b);
     }
     if let Some(a) = &i.act {
         // (critic 69 I1) the circle's newest version may be changing: never "up to date" meanwhile
@@ -1067,9 +1067,9 @@ pub fn note_hint_for(note: &str, warns: bool) -> Option<String> {
 /// (round 18, critic 98 minor 8) What a badge's note means, where its words are short (shown when the pointer rests on it).
 pub fn note_hint(note: &str) -> Option<&'static str> {
     if note.contains("changes not counted") {
-        Some("verSHion can't count the changes in this copy since it last matched the circle. Its page says why.")
+        Some("D.A.D can't count the changes in this copy since it last matched the circle. Its page says why.")
     } else if note.contains(WAITING_NOTE) {
-        Some("verSHion counts the changes once it has checked the circle's version this copy last matched.")
+        Some("D.A.D counts the changes once it has checked the circle's version this copy last matched.")
     } else if note.contains(super::circles_text::NEWS_BADGE) {
         Some("The circle's difficulty was put into some questions. Its page lists them.")
     } else {

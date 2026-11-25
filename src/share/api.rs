@@ -114,11 +114,11 @@ impl ApiError {
                  computer does not trust the server's certificate. Ask your school's IT team, or try another \
                  network. Nothing was sent; your work on this device is unaffected."
             ),
-            ApiError::LockBusy => "Another copy of verSHion is busy with your sign-in (it may be waiting for the keychain to \
+            ApiError::LockBusy => "Another copy of D.A.D is busy with your sign-in (it may be waiting for the keychain to \
                  unlock). Nothing changed. Close the other copy or finish its prompt, then try again."
                 .into(),
-            ApiError::LocalCleanup => "The server finished, but this computer's keychain would not let verSHion delete the saved \
-                 sign-in. It is blocked from use, and verSHion keeps trying to delete it while this window is open \
+            ApiError::LocalCleanup => "The server finished, but this computer's keychain would not let D.A.D delete the saved \
+                 sign-in. It is blocked from use, and D.A.D keeps trying to delete it while this window is open \
                  and the next time you open it. You can also remove the \"verSHion shared pool\" entries in your \
                  keychain app."
                 .into(),

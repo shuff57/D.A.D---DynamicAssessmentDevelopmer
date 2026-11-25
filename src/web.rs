@@ -90,7 +90,7 @@ pub fn start() {
                     finish_loader_cycle().await;
                     el.remove();
                 }
-                Err(e) => show_error(&document, &format!("verSHion failed to start: {e:?}")),
+                Err(e) => show_error(&document, &format!("D.A.D failed to start: {e:?}")),
             }
         }
     });

@@ -1579,7 +1579,7 @@ fn b6_a_circle_question_this_build_cannot_read_stops_the_merge() {
     r.m.open_merge(LOCAL, editor());
     r.turns(2);
     let MergePhase::Blocked(why) = r.merge_phase() else { panic!("{:?}", r.merge_phase()) };
-    assert!(why.contains("newer verSHion") && why.contains("Update"), "{why}");
+    assert!(why.contains("newer D.A.D") && why.contains("Update"), "{why}");
     assert_eq!(r.banks[0].questions.len(), 2);
 }
 

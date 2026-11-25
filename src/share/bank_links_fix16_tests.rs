@@ -122,7 +122,7 @@ fn c93_i1_the_read_saves_a_restore_point_first_and_the_strip_says_so() {
     let held = k.restored.lock().unwrap()[0][0].clone();
     assert_eq!((held.questions[0].difficulty, held.questions[1].difficulty), (Some(Difficulty::Low), Some(Difficulty::Low)), "it holds her ratings");
     // (round 17, critic 96 I1) said on the link's news (no file named as if it could be put back here)
-    assert!(strip.contains("verSHion gave 2 questions the circle's difficulty from its version 3, in place of yours") && !strip.contains(".json"), "{strip}");
+    assert!(strip.contains("D.A.D gave 2 questions the circle's difficulty from its version 3, in place of yours") && !strip.contains(".json"), "{strip}");
     assert!(strip.contains("up to date"), "{strip}");
     assert!(said(&m).is_empty(), "{:?}", said(&m));
     // once: later passes say nothing new and take no other restore point
@@ -211,7 +211,7 @@ fn c93_i1_no_restore_point_no_change_and_no_send_until_it_works() {
     assert!(k.saves.lock().unwrap().is_empty());
     assert_eq!(k.log.lock().unwrap()[0].inherit, true);
     // (round 17, critic 96 minor 4) in plain words, and the badge says it too
-    assert!(strip.contains("verSHion couldn't save a safety copy of your banks first (the disk is full)"), "{strip}");
+    assert!(strip.contains("D.A.D couldn't save a safety copy of your banks first (the disk is full)"), "{strip}");
     assert!(!strip.contains("Send my changes") && !strip.contains("up to date"), "{strip}");
     assert_eq!(m.edit.status(LOCAL).unwrap().learning, Some(Learning::Held));
     assert!(!m.edit.open_send(LOCAL, owner()));
@@ -226,7 +226,7 @@ fn c93_i1_no_restore_point_no_change_and_no_send_until_it_works() {
         strip = page_frame(&mut m, &mut banks, &mut acct, &who, now() + Duration::from_secs(61)).1;
     }
     assert_eq!(banks[0].questions[0].difficulty, Some(Difficulty::High), "{strip}");
-    assert!(strip.contains("verSHion gave 1 question the circle's difficulty from its version 3, in place of yours") && strip.contains("Send my changes"), "{strip}");
+    assert!(strip.contains("D.A.D gave 1 question the circle's difficulty from its version 3, in place of yours") && strip.contains("Send my changes"), "{strip}");
     assert!(!strip.contains("couldn't save a safety copy"), "the line is replaced: {strip}");
 }
 
@@ -259,7 +259,7 @@ fn c93_m1_the_banks_file_is_written_before_the_links_file_says_done() {
     let strip = frames(&mut m, &mut banks, &ctx, &mut acct, &who, 3);
     assert_eq!(banks[0].questions[0].difficulty, Some(Difficulty::Low), "nothing changed: {strip}");
     assert!(k.log.lock().unwrap()[0].inherit, "still to be taken");
-    assert!(strip.contains("verSHion couldn't save your banks (the disk is full)"), "{strip}");
+    assert!(strip.contains("D.A.D couldn't save your banks (the disk is full)"), "{strip}");
     // the app ends; on the next start the read's ratings are taken into the bank on disk
     let mut m = restarted(k.log.clone());
     let mut banks = on_disk;
