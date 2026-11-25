@@ -32,6 +32,10 @@ use std::sync::{Arc, Mutex};
 pub const DEFAULT_ENGINE: &str = crate::mom::author::BUNDLED_ENGINE;
 #[cfg(not(target_arch = "wasm32"))]
 pub const DEFAULT_ENGINE: &str = crate::mom::localengine::LOCAL;
+/// Hover text of "Stop adding". True to what the add does: it waits a moment just before Save.
+#[cfg(not(target_arch = "wasm32"))]
+const STOP_ADDING_HOVER: &str = "D.A.D waits a moment just before MyOpenMath's Save so you can press this. Press it in that moment and nothing is added. Once Save is clicked, the question stays in MyOpenMath.";
+
 const LIBRARY: &str = "mom/library.json";
 const FORM: &str = "mom/form.json";
 const ADVANCED: &str = "mom/advanced.json";
@@ -3168,11 +3172,17 @@ fn browser_workspace(ui: &mut Ui, st: &mut State, surface: crate::mom::desktop_b
         let adding = !student && working && st.job.lock().map(|j| j.what == "MyOpenMath").unwrap_or(false);
         let label = if student { "Back to review" } else if adding { "Stop adding" } else { "Back to transfer" };
         let r = pageshell::outline(ui, label);
-        back = if adding { r.on_hover_text("Stops before MyOpenMath saves the question. If Save was already clicked, the question stays and D.A.D records where.") } else { r }.clicked();
-        // A real stop: the add checks this just before it would click Save.
+        back = if adding { r.on_hover_text(STOP_ADDING_HOVER) } else { r }.clicked();
+        // A real stop: the add pauses just before Save and checks this through the pause.
         if back && adding { crate::mom::poster::STOP_BEFORE_SAVE.store(true, std::sync::atomic::Ordering::SeqCst); }
         ui.label(theme::serif(surface.title()).size(22.0));
-        if adding { ui.label(theme::muted("This usually takes under a minute.").size(13.0)); }
+        if adding {
+            // The pause before Save says so in plain sight, next to the button that cancels it.
+            match st.log.last().filter(|l| crate::mom::poster::is_save_hold(l)) {
+                Some(line) => { ui.label(theme::strong(line).size(14.0)); }
+                None => { ui.label(theme::muted("This usually takes under a minute.").size(13.0)); }
+            }
+        }
         if student {
             let label = if st.student_text_mode { "Browser view" } else { "Text controls" };
             toggle_view |= ui.add_enabled_ui(!working && st.student_url.is_some(), |ui| pageshell::outline(ui, label))

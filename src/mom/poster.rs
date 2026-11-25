@@ -75,6 +75,39 @@ pub enum PublishState {
 /// MyOpenMath's Save is clicked. After that click the question stays, and the receipt says where.
 pub static STOP_BEFORE_SAVE: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 
+/// How long a publish waits just before Save. With a saved login the whole add takes 1-2 s, so
+/// without this pause a press of "Stop adding" nearly always arrives after Save. Long enough to read
+/// the countdown and press Stop; short enough not to feel like a stall.
+pub const SAVE_HOLD: Duration = Duration::from_millis(2500);
+
+/// How often the hold looks for a press of Stop.
+const HOLD_TICK: Duration = Duration::from_millis(50);
+
+/// What the countdown line starts with; the window shows lines that start this way more boldly.
+pub const HOLD_LINE: &str = "Adding it to MyOpenMath in ";
+
+/// True for a progress line written by the pause before Save.
+pub fn is_save_hold(line: &str) -> bool { line.starts_with(HOLD_LINE) }
+
+/// Waits up to `hold` for Stop, saying how long is left once a second. True when Stop was pressed
+/// (the press is consumed). A zero `hold` only checks once.
+fn held_for_stop(hold: Duration, stop: &std::sync::atomic::AtomicBool, log: &mut impl FnMut(&str)) -> bool {
+    use std::sync::atomic::Ordering::SeqCst;
+    let start = std::time::Instant::now();
+    let mut said = u64::MAX;
+    loop {
+        if stop.swap(false, SeqCst) { return true; }
+        let left = hold.saturating_sub(start.elapsed());
+        if left.is_zero() { return false; }
+        let secs = left.as_secs() + u64::from(left.subsec_nanos() > 0);
+        if secs != said {
+            said = secs;
+            log(&format!("{HOLD_LINE}{secs}… Press Stop adding to cancel."));
+        }
+        std::thread::sleep(HOLD_TICK.min(left));
+    }
+}
+
 /// Keep the state on disk before each remote change so a retry can reconcile the same question.
 pub fn publish_question(
     p: &mut impl Page, cid: u64, aid: u64, q: &MomQuestion, key: &str, log: &mut impl FnMut(&str),
@@ -90,7 +123,7 @@ pub fn publish_question(
 
     let record = |state| crate::store::save_json(key, &state)
         .map_err(|e| format!("Could not record publication status: {e}"));
-    let save = |p: &mut _, log: &mut _| add_question_recorded(p, cid, aid, q, true, log, &record);
+    let save = |p: &mut _, log: &mut _| add_question_gated(p, cid, aid, q, true, log, &record, SAVE_HOLD, &STOP_BEFORE_SAVE);
     let result = match std::fs::read(&receipt_path) {
         Ok(bytes) => match serde_json::from_slice::<PublishState>(&bytes) {
             Ok(PublishState::Attached(publication)) if publication.course == cid && publication.assessment == aid => {
@@ -226,9 +259,20 @@ pub fn preview_question(
     Ok(filled)
 }
 
+/// [`add_question_gated`] without the pause, for callers that have no Stop button to press.
 pub fn add_question_recorded(
     p: &mut impl Page, cid: u64, aid: u64, q: &MomQuestion, save: bool,
+    log: &mut impl FnMut(&str), record: impl FnMut(PublishState) -> Result<(), String>,
+) -> Result<Added, String> {
+    add_question_gated(p, cid, aid, q, save, log, record, Duration::ZERO, &STOP_BEFORE_SAVE)
+}
+
+/// Fills the editor and, when `save`, waits `hold` just before Save so the teacher can press Stop
+/// (setting `stop`), then clicks Save. A Stop seen at any point up to the click saves nothing.
+pub fn add_question_gated(
+    p: &mut impl Page, cid: u64, aid: u64, q: &MomQuestion, save: bool,
     log: &mut impl FnMut(&str), mut record: impl FnMut(PublishState) -> Result<(), String>,
+    hold: Duration, stop: &std::sync::atomic::AtomicBool,
 ) -> Result<Added, String> {
     if q.name.trim().is_empty() || q.name.chars().count() > 254 {
         return Err("Give this question a description of 1 to 254 characters before opening it in MyOpenMath.".into());
@@ -253,15 +297,16 @@ pub fn add_question_recorded(
     if !matches_destination(&p.url(), "/course/moddataset.php", cid, aid) {
         return Err("The editor is no longer open for the selected assessment. Nothing was saved.".into());
     }
-    log("Saving to the MyOpenMath question set…");
     // The live editor changes Save from type=submit to type=button when its script wires up form validation.
     let button = "[...(document.getElementById('control')?.form?.querySelectorAll('button') ?? [])].find(b => b.form === document.getElementById('control').form && b.textContent.trim() === 'Save' && !b.disabled && b.getClientRects().length > 0)";
     if p.eval(&format!("!!({button})"))? != Value::Bool(true) {
         return Err("Couldn't find MyOpenMath's Save button. Nothing was saved automatically.".into());
     }
-    if STOP_BEFORE_SAVE.swap(false, std::sync::atomic::Ordering::SeqCst) {
+    // The last safe point: the editor is filled and Save is found, nothing is saved yet.
+    if held_for_stop(hold, stop, log) {
         return Err("Stopped before saving. Nothing was added to MyOpenMath.".into());
     }
+    log("Saving to the MyOpenMath question set…");
     record(PublishState::AwaitingConfirmation)?;
     let clicked = p.eval(&format!(
         "(() => {{ const url = new URL(location.href); if (url.origin !== '{MOM}' || url.pathname !== '/course/moddataset.php' || url.searchParams.get('cid') !== '{cid}' || url.searchParams.get('aid') !== '{aid}') return false; const b = {button}; if (b) b.click(); return !!b; }})()"
@@ -461,6 +506,78 @@ mod tests {
         assert_eq!(journal, vec![PublishState::AwaitingConfirmation, PublishState::SavedToSet(PUBLICATION)]);
         assert_eq!(p.visited.last(), Some(&saved_link()));
         assert!(p.scripts.iter().any(|s| s.contains("window.itemarray")));
+    }
+
+    use std::sync::atomic::{AtomicBool, Ordering::SeqCst};
+
+    fn ready_to_save() -> Fake {
+        let mut p = fake(vec![("missing", json!([])), ("=== 'Save'", json!(true)), ("a ? a.href", json!(saved_link()))]);
+        p.lists.extend([json!([]), json!([[1, 0, [[25, 9, "Add one", "number"]], 1]])]);
+        p
+    }
+
+    fn clicked_save(p: &Fake) -> bool { p.scripts.iter().any(|s| s.contains("b.click()")) }
+
+    #[test]
+    fn the_hold_waits_before_save_and_counts_down_where_the_teacher_can_see_it() {
+        let (stop, mut p, mut lines) = (AtomicBool::new(false), ready_to_save(), Vec::<String>::new());
+        let began = std::time::Instant::now();
+        let r = add_question_gated(&mut p, 1, 2, &q(), true, &mut |l| lines.push(l.into()), |_| Ok(()),
+            Duration::from_millis(1200), &stop);
+        assert_eq!(r, Ok(Added::Saved(PUBLICATION)));
+        assert!(began.elapsed() >= Duration::from_millis(1200), "Save came before the hold ended");
+        assert!(clicked_save(&p));
+        let counts: Vec<&String> = lines.iter().filter(|l| is_save_hold(l)).collect();
+        assert_eq!(counts.len(), 2, "one line per second left: {lines:?}");
+        assert!(counts[0].contains("2…") && counts[1].contains("1…"));
+        assert!(counts.iter().all(|l| l.contains("Stop adding")));
+        // The countdown comes first and "Saving…" only once the hold is over.
+        let saving = lines.iter().position(|l| l.starts_with("Saving")).unwrap();
+        assert!(lines.iter().position(|l| is_save_hold(l)).unwrap() < saving);
+        assert!(lines[saving..].iter().all(|l| !is_save_hold(l)));
+    }
+
+    #[test]
+    fn stop_pressed_during_the_hold_saves_nothing() {
+        let (stop, mut p, mut journal) = (AtomicBool::new(false), ready_to_save(), Vec::new());
+        let began = std::time::Instant::now();
+        let r = std::thread::scope(|s| {
+            s.spawn(|| { std::thread::sleep(Duration::from_millis(300)); stop.store(true, SeqCst); });
+            add_question_gated(&mut p, 1, 2, &q(), true, &mut |_| {}, |state| { journal.push(state); Ok(()) },
+                Duration::from_secs(10), &stop)
+        });
+        assert_eq!(r, Err("Stopped before saving. Nothing was added to MyOpenMath.".into()));
+        assert!(began.elapsed() < Duration::from_secs(5), "Stop did not end the hold");
+        assert!(!clicked_save(&p), "Save was clicked after Stop");
+        assert!(journal.is_empty(), "nothing is recorded as sent: {journal:?}");
+        assert_eq!(p.visited.len(), 1, "no attachment page was opened");
+        assert!(!stop.load(SeqCst), "the press is used up, so the next add is not stopped");
+    }
+
+    #[test]
+    fn stop_pressed_before_the_hold_begins_still_lands() {
+        let (stop, mut p) = (AtomicBool::new(true), ready_to_save());
+        let r = add_question_gated(&mut p, 1, 2, &q(), true, &mut |_| {}, |_| Ok(()), SAVE_HOLD, &stop);
+        assert!(r.unwrap_err().starts_with("Stopped before saving"));
+        assert!(!clicked_save(&p));
+    }
+
+    #[test]
+    fn without_a_press_the_hold_ends_and_publishes_with_the_finish_unchanged() {
+        let (stop, mut p, mut journal) = (AtomicBool::new(false), ready_to_save(), Vec::new());
+        let r = add_question_gated(&mut p, 1, 2, &q(), true, &mut |_| {}, |state| { journal.push(state); Ok(()) },
+            Duration::from_millis(150), &stop);
+        assert_eq!(r, Ok(Added::Saved(PUBLICATION)));
+        assert_eq!(journal, vec![PublishState::AwaitingConfirmation, PublishState::SavedToSet(PUBLICATION)]);
+        assert_eq!(p.visited.last(), Some(&saved_link()));
+    }
+
+    #[test]
+    fn the_hold_is_long_enough_to_press_stop_but_not_a_stall() {
+        assert!(SAVE_HOLD >= Duration::from_millis(2000) && SAVE_HOLD <= Duration::from_secs(4));
+        let mut lines = Vec::<String>::new();
+        assert!(!held_for_stop(Duration::ZERO, &AtomicBool::new(false), &mut |l| lines.push(l.into())));
+        assert!(lines.is_empty(), "a zero hold says nothing");
     }
 
     #[test]
