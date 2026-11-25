@@ -161,10 +161,10 @@ Each piece runs in its own thread and branch. The coordinating thread merges fin
 | 2 | Server launch prep: deploy steps for `server/`, release build with the URL, D.A.D AI sign-in and credits (every account or paid step waits for the owner) | `dad/server-launch` | merged 2026-11-25 (`9311ad48`); owner steps remain, see below |
 | 3 | Older screens' UX (headers on Home, Grade and Shared; duplicate import and share screens; Help's five buttons; Figures opening on physics) | `dad/legacy-ux` | merged 2026-11-25 (`7ba4e770`), Opus 8.6 / DeepSeek 8.5 |
 | 4 | Housekeeping: full test suite including figures, the flaky Figures drag test, compiler warnings | `dad/housekeeping` | merged 2026-11-25 (`3b83c711`) |
-| 5 | Pause just before MyOpenMath's Save so Stop adding can land (owner decision 2026-11-25) | `dad/stop-adding` | started 2026-11-25 |
-| 6 | Say D.A.D, not verSHion, in what teachers read (`src/share/`, server emails) | `dad/rename-dad` | started 2026-11-25 |
-| 7 | Older screens: wordmark, the bank importer's two names, "Make an Exam", zero counts, "Shared" (the thread asks the owner each) | `dad/legacy-names` | started 2026-11-25 |
-| 8 | Tell a revision of a published question from its original in My Questions (the thread asks the owner how) | `dad/revision-titles` | started 2026-11-25 |
+| 5 | Pause just before MyOpenMath's Save so Stop adding can land (owner decision 2026-11-25) | `dad/stop-adding` | merged 2026-11-25 (`911ff427`) |
+| 6 | Say D.A.D, not verSHion, in what teachers read (`src/share/`, server emails) | `dad/rename-dad` | merged 2026-11-25 (`e2197a2e`); legal and contact pages still say verSHion |
+| 7 | Older screens: wordmark, the bank importer's two names, "Make an Exam", zero counts, "Shared" | `dad/legacy-names` | merged 2026-11-25 (`9178e8d5`) |
+| 8 | Tell a revision of a published question from its original in My Questions | `dad/revision-titles` | merged 2026-11-25 (`36f536f0`) |
 | 9 | Slow tier: 4 timing tests that fail only under parallel load | `dad/test-timing` | started 2026-11-25 |
 
 After all four merges, `dad/engine` passes `cargo test --lib` (5,490 passed, 0 failed, 288 ignored, about 2 minutes), and the desktop build and the wasm check have no warnings.
@@ -212,13 +212,24 @@ Now settled (keep):
 - Shared fills the page width, with a "What sharing does" panel and a full-width legal strip.
 - The bank importer lists Canvas, Blackboard, Moodle, Kahoot, Quizlet and "Other quiz exports", and its button is "Convert with AI". Grade hides its checking keys until an exam exists.
 
-Waiting for the owner:
+Still waiting for the owner:
 - Home, Banks, Exams, Grade, the bank importer and Shared can't be reached from the app; the owner chose to polish them in place without adding a way in.
-- Only Questions carries the wordmark that Stage A says every header has.
-- The bank importer has two names ("Import into a question bank" and "Import to a bank"), both locked in Stage C. Grade says "Make an Exam" (Stage A); Home and Exams say "New exam".
-- Zero counts on Banks and Exams ("1 bank · 0 questions"), and whether the Shared page should be renamed "Shared by teachers" so it isn't confused with the dock's Share.
 
-Left open (small): about 100 "verSHion" strings in `src/share/`; three Shared states not captured; card layout differences between Banks and Exams; missing footers on Banks, Exams and Home; small copy. Narrow width and dark mode were not checked.
+### Older screens' names and headers (`dad/legacy-names`): owner decisions (2026-11-25), merged `9178e8d5`
+
+The five questions left open above were put to the owner and built (marked images: `~/.cache/dad-legacy-ux/compare/names-*-marked.png`). Locked from here:
+- **Wordmark on every page.** `pageshell::header` draws it, and a page's own actions sit right-aligned under it. This makes Stage A's rule true everywhere. Banks, Exams and Settings content sits about 42 px lower.
+- **"Import into a question bank" everywhere:** the page, Home's tile and the Banks button. *This replaces Stage C's locked "Import to a bank" on the tile and button.*
+- **Grade's empty-state button says "New exam"**, as Home and Exams do. *This replaces Stage A's "Make an Exam" label; the one-primary-button rule is unchanged.*
+- **Zero counts are hidden on Banks, Exams and Home.** *This extends Stage A's hide-zeros rule, which named Home only.*
+- **The Shared page is titled "Shared by teachers"**; the dock's Share is unchanged.
+- Not checked: narrow windows, dark mode, whether the longer Home tile fits at narrow widths, and the Shared page's state with its Share button showing.
+
+### "verSHion" renamed to "D.A.D" (`dad/rename-dad`), merged `e2197a2e`
+
+About 155 teacher-facing strings in the app and in both server mailers (`server/api`, `server/worker`) now say D.A.D, and "the Account window" is "Settings, then D.A.D account". Left alone on purpose: the keychain service name (renaming it would sign teachers out), the `VERSHION_*` variables, the `vershion://` link scheme, the GitHub URLs, the backup file name and comments. Open: `server/web/legal/*.html`, `server/web/contact/index.html` and `server/web/account/credits.html` still say verSHion; the owner has not said whether to edit legal and contact pages. The Worker test `round42.test.ts` could not run in a fresh worktree (it needs `server/share-core/pkg` built).
+
+Left open (small): three Shared states not captured; card layout differences between Banks and Exams; missing footers on Banks, Exams and Home; small copy. Narrow width and dark mode were not checked.
 
 ### Server launch (`dad/server-launch`): what changed and what is open
 
