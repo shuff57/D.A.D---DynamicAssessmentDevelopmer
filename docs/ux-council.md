@@ -175,9 +175,20 @@ Run against the hidden "D.A.D test" assessment in Global Question Class, with Cl
 
 Open:
 - **Stop adding is hard to hit.** With a saved login an add takes 1–2 s, so most presses land after Save. **Owner decision (2026-11-25): pause just before Save so Stop can land.** Not built yet.
-- A revision has the same name as its original, so My Questions shows two identical titles told apart only by their chips.
+- ~~A revision has the same name as its original, so My Questions shows two identical titles told apart only by their chips.~~ Fixed on `dad/revision-titles`, see below.
 - In a worktree the checker files (`engine/browser/dist`) are missing; point `DAD_ENGINE_FILES` at the installed copy.
 - Test leftovers for the owner to delete: questions 1992176 and 1992209 in "D.A.D test", and three test rows in My Questions.
+
+### Revision titles (`dad/revision-titles`): owner decision (2026-11-25) and what changed
+
+**Owner chose:** the name stays the same; the revision's row gets a muted second line. Not a suffix in the name (it would reach MyOpenMath as the Description) and not a "Revised" chip.
+
+Locked:
+- A revision of a published question shows "Revised from the question added on Nov 25" under its name in My Questions, and the same line on step 3's finish. A revision of a published revision reads "Revision 2, from the question added on …", so two revisions made on one day still differ. The year is added only when the date is not this year.
+- The name is unchanged, so MyOpenMath's Description is the same for every version; the line never reaches MyOpenMath. The chips, the "Saved as a new question" note and the finish naming its place are as they were. The original has no line.
+- `Saved.revised_from` (`Revision { added_at, number }`) holds it; old libraries open unchanged, and a rewrite of a question that was never published adds nothing. The date is the original's newest publish receipt (its saved time if no receipt can be read).
+
+Open: dates are UTC like the rest of the app, so a revision made on a US evening can show the next day's date. Images: `/tmp/dad-revtitles/compare/`.
 
 ### Housekeeping (`dad/housekeeping`): what changed and what is open
 
