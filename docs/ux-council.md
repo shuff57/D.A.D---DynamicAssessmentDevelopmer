@@ -157,10 +157,33 @@ Each piece runs in its own thread and branch. The coordinating thread merges fin
 
 | # | Work | Branch | Status |
 |---|---|---|---|
-| 1 | End-to-end test on real MyOpenMath (write, try, publish, the finish, Stop adding, the In MyOpenMath label) | `dad/e2e-mom` | started |
+| 1 | End-to-end test on real MyOpenMath (write, try, publish, the finish, Stop adding, the In MyOpenMath label) | `dad/e2e-mom` | merged 2026-11-25 (`653b1d5b`); one follow-up, see below |
 | 2 | Server launch prep: deploy steps for `server/`, release build with the URL, D.A.D AI sign-in and credits (every account or paid step waits for the owner) | `dad/server-launch` | merged 2026-11-25 (`9311ad48`); owner steps remain, see below |
 | 3 | Older screens' UX (headers on Home, Grade and Shared; duplicate import and share screens; Help's five buttons; Figures opening on physics) | `dad/legacy-ux` | merged 2026-11-25 (`7ba4e770`), Opus 8.6 / DeepSeek 8.5 |
-| 4 | Housekeeping: full test suite including figures, the flaky Figures drag test, compiler warnings | `dad/housekeeping` | committed; final checks running |
+| 4 | Housekeeping: full test suite including figures, the flaky Figures drag test, compiler warnings | `dad/housekeeping` | merged 2026-11-25 (`3b83c711`) |
+
+After all four merges, `dad/engine` passes `cargo test --lib` (5,490 passed, 0 failed, 288 ignored, about 2 minutes), and the desktop build and the wasm check have no warnings.
+
+### End-to-end on MyOpenMath (`dad/e2e-mom`): what changed and what is open
+
+Run against the hidden "D.A.D test" assessment in Global Question Class, with Claude on this computer as the AI. Screenshots are in `/tmp/dad-e2e/shots/`. Writing, Try it, Publish (question 1992176), the finish, See it in MyOpenMath, the In MyOpenMath chip, Stop adding (nothing saved), reopening after a restart, and a revision saved as a new question (1992209) all worked once these fixes were in:
+- `42e2571f`: the finish names the place after a restart, and every place published to is remembered by name.
+- `9c8b4cb4`: "Saved as a new question" stays on screen after a revision.
+- `61816ab4`: Codex at its usage limit says "usage limit", not "out of credit" or "isn't signed in".
+- `5501b5de`: step 2 of a published question says "✔ In MyOpenMath" and offers "See Where It Is", not "Add It to MyOpenMath".
+- `385be8e3`: the MyOpenMath panel closes once Connect has read the courses, so the pickers show.
+
+Open:
+- **Stop adding is hard to hit.** With a saved login an add takes 1–2 s, so most presses land after Save. **Owner decision (2026-11-25): pause just before Save so Stop can land.** Not built yet.
+- A revision has the same name as its original, so My Questions shows two identical titles told apart only by their chips.
+- In a worktree the checker files (`engine/browser/dist`) are missing; point `DAD_ENGINE_FILES` at the installed copy.
+- Test leftovers for the owner to delete: questions 1992176 and 1992209 in "D.A.D test", and three test rows in My Questions.
+
+### Housekeeping (`dad/housekeeping`): what changed and what is open
+
+- A plain `cargo test --lib` takes about 1–2 minutes, down from 77. The 239 tests that took over 15 s are behind the test-only `slow-tests` feature, and none were deleted. Run everything with `cargo test --profile figtest --lib --features slow-tests` (about 29 minutes).
+- Fixed flaky tests: the Figures label drag (the preview redrew during the drag) and `c83_i2` (matched ids by their first letter, which collided with the shared id counter).
+- Open: 4 timing tests in the slow tier fail only under full parallel load (they pass alone). Measuring with thread CPU time would fix them. `conics::general` ignores its `dec` argument in a fallback path no caller reaches.
 
 ### Older screens (`dad/legacy-ux`): what changed and what is open
 
