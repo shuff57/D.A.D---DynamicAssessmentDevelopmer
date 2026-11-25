@@ -428,27 +428,17 @@ impl App {
 
     fn banks_body(&mut self, ui: &mut Ui, ctx: &egui::Context, key: UiId) {
         let total_q: usize = self.store.banks.iter().map(|b| b.questions.len()).sum();
-        let sub = format!(
-            "{} bank{} · {} question{}",
-            self.store.banks.len(),
-            if self.store.banks.len() == 1 { "" } else { "s" },
-            total_q,
-            if total_q == 1 { "" } else { "s" }
-        );
-        ui.horizontal(|ui| {
-            ui.vertical(|ui| {
-                kit::page_header(ui, &[], "Question banks", Some(&sub));
-            });
-            ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                if crate::pageshell::primary(ui, "New bank").clicked() {
-                    let id = self.new_bank("Untitled Question Bank");
-                    self.open_bank(&id);
-                }
-                // Named as Home's tile names it: the dock's Import is the MyOpenMath one.
-                if crate::pageshell::outline(ui, "Import to a bank").clicked() {
-                    self.screen = crate::Screen::Imports;
-                }
-            });
+        // A count that is zero is left out, as on Home ("1 bank · 0 questions" read as something missing).
+        let sub = crate::pageshell::count_line(&[(self.store.banks.len(), "bank", "banks"), (total_q, "question", "questions")]);
+        crate::pageshell::header_with(ui, "", "Question banks", sub.as_deref(), |ui| {
+            if crate::pageshell::primary(ui, "New bank").clicked() {
+                let id = self.new_bank("Untitled Question Bank");
+                self.open_bank(&id);
+            }
+            // Named as Home's tile names it: the dock's Import is the MyOpenMath one.
+            if crate::pageshell::outline(ui, "Import into a question bank").clicked() {
+                self.screen = crate::Screen::Imports;
+            }
         });
         ui.add_space(12.0);
 

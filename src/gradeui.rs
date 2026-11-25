@@ -340,7 +340,7 @@ fn icon_button(ui: &mut egui::Ui, icon: &str, hint: &str) -> egui::Response {
 
 // ---- the screen's parts --------------------------------------------------------------------------
 
-/// The empty Grade page's "Make an Exam", handed to `draw_grade` on the next frame.
+/// The empty Grade page's "New exam", handed to `draw_grade` on the next frame.
 const MAKE_EXAM: &str = "grade_make_exam";
 
 fn choose_exam(state: &mut GradeState, id: String) {
@@ -377,7 +377,7 @@ fn exam_chooser(ui: &mut egui::Ui, exams: &[(String, String, usize, usize)], sta
             // The empty page's one action: the exam grading needs.
             ui.label(theme::muted("There are no exams yet. Grading starts from an exam's answer key.").size(13.0));
             ui.add_space(10.0);
-            if pageshell::primary(ui, "Make an Exam").clicked() {
+            if pageshell::primary(ui, "New exam").clicked() {
                 ui.ctx().data_mut(|d| d.insert_temp(egui::Id::new(MAKE_EXAM), true));
             }
             return;

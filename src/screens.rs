@@ -1578,15 +1578,9 @@ impl crate::App {
         // Home to go back to). What is saved reads as one subtitle line, as Banks and Exams give
         // theirs, and a count that is zero is left out (three cards of "0" were the first thing
         // the eye met, and "0 questions" beside "1 bank" read as something missing).
-        let counts: Vec<String> = [(n_exams, "exam", "exams"), (n_banks, "bank", "banks"), (n_q, "question", "questions")]
-            .into_iter()
-            .filter(|(n, _, _)| *n > 0)
-            .map(|(n, one, many)| format!("{n} {}", if n == 1 { one } else { many }))
-            .collect();
-        let sub = if counts.is_empty() {
-            "Question banks and printed exams, saved on this machine.".to_string()
-        } else {
-            format!("Saved on this machine: {}", counts.join(" · "))
+        let sub = match crate::pageshell::count_line(&[(n_exams, "exam", "exams"), (n_banks, "bank", "banks"), (n_q, "question", "questions")]) {
+            Some(counts) => format!("Saved on this machine: {counts}"),
+            None => "Question banks and printed exams, saved on this machine.".to_string(),
         };
         kit::page_header(ui, &[], if fresh { "Welcome." } else { "Welcome back." }, Some(&sub));
         ui.add_space(14.0);
@@ -1603,7 +1597,7 @@ impl crate::App {
         let exam = (0, NavIcon::Plus, "New exam", "Start from a blank page", !fresh);
         let bank = (1, NavIcon::Banks, "New bank", "A shelf for questions", fresh);
         // Named for what it reads, so it doesn't sound like the dock's Import (question code).
-        let import = (2, NavIcon::Import, "Import to a bank", "Spreadsheets, quiz exports, photos", false);
+        let import = (2, NavIcon::Import, "Import into a question bank", "Spreadsheets, quiz exports, photos", false);
         let tiles: [(usize, NavIcon, &str, &str, bool); 3] = if fresh { [bank, exam, import] } else { [exam, bank, import] };
         let mut tile_hit: Option<usize> = None;
         // A narrow window keeps the three actions on one row of equal compact tiles, so the
@@ -2372,17 +2366,12 @@ impl crate::App {
                 // Wider than the other pages' 980: at 980 the page left a dead strip of grid right of
                 // its column on a desktop window.
                 ui.set_max_width(ui.available_width().min(1160.0));
-                ui.horizontal(|ui| {
-                    ui.vertical(|ui| {
-                        pageshell::title(ui, "", "D.A.D Settings", "Manage your MyOpenMath connection and the AI that writes or converts your questions.");
-                    });
-                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                        // A quiet help action, the tertiary tier: as a full outlined button it
-                        // outweighed Connect, the card's real action.
-                        if kit::tertiary(ui, egui_phosphor::regular::QUESTION, "How it works", 34.0).clicked() {
-                            app.help_open = true;
-                        }
-                    });
+                pageshell::header_with(ui, "", "D.A.D Settings", Some("Manage your MyOpenMath connection and the AI that writes or converts your questions."), |ui| {
+                    // A quiet help action, the tertiary tier: as a full outlined button it
+                    // outweighed Connect, the card's real action.
+                    if kit::tertiary(ui, egui_phosphor::regular::QUESTION, "How it works", 34.0).clicked() {
+                        app.help_open = true;
+                    }
                 });
                 ui.add_space(18.0);
 
