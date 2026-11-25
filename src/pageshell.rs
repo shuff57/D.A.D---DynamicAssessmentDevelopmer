@@ -138,14 +138,97 @@ pub fn title(ui: &mut Ui, crumbs: &str, title: &str, sub: &str) {
 
 /// [`title`] with an optional subtitle (Home has none).
 pub fn header(ui: &mut Ui, crumbs: &str, title: &str, sub: Option<&str>) {
-    ui.add_space(6.0);
-    if !crumbs.is_empty() {
-        ui.label(RichText::new(crumbs).size(crate::kit::ty::META).color(theme::muted_col()));
+    header_impl(ui, crumbs, title, sub, None);
+}
+
+/// [`header`] with the page's own actions (a "New bank" button): they sit right-aligned under the
+/// wordmark, first call at the right edge. `actions` runs in a right-to-left layout.
+pub fn header_with(ui: &mut Ui, crumbs: &str, title: &str, sub: Option<&str>, mut actions: impl FnMut(&mut Ui)) {
+    header_impl(ui, crumbs, title, sub, Some(&mut actions));
+}
+
+/// The wordmark's width in every page header.
+const WORDMARK_W: f32 = 208.0;
+
+/// The D.A.D wordmark for the current theme, loaded once per theme and kept in egui's memory.
+fn wordmark_texture(ctx: &egui::Context) -> Option<egui::TextureHandle> {
+    let dark = theme::is_dark();
+    let id = Id::new(("dad_wordmark", dark));
+    ctx.data(|data| data.get_temp::<egui::TextureHandle>(id)).or_else(|| {
+        let bytes: &[u8] = if dark {
+            include_bytes!("../assets/dad-logo-dark.png")
+        } else {
+            include_bytes!("../assets/dad-logo.png")
+        };
+        let image = image::load_from_memory_with_format(bytes, image::ImageFormat::Png).ok()?.into_rgba8();
+        let rgba = egui::ColorImage::from_rgba_unmultiplied([image.width() as usize, image.height() as usize], image.as_raw());
+        let texture = ctx.load_texture("D.A.D wordmark", rgba, egui::TextureOptions::LINEAR);
+        ctx.data_mut(|data| data.insert_temp(id, texture.clone()));
+        Some(texture)
+    })
+}
+
+/// Stage A's header: the title block on the left and the D.A.D wordmark on the right, ending at the
+/// content's right edge (where the columns below end). Narrower than 520 px the wordmark goes above
+/// the title and the actions below it.
+fn header_impl(ui: &mut Ui, crumbs: &str, title: &str, sub: Option<&str>, actions: Option<&mut dyn FnMut(&mut Ui)>) {
+    let title_block = |ui: &mut Ui| {
+        ui.add_space(6.0);
+        if !crumbs.is_empty() {
+            ui.label(RichText::new(crumbs).size(crate::kit::ty::META).color(theme::muted_col()));
+        }
+        ui.label(RichText::new(title).family(theme::serif_family()).size(34.0).color(theme::ink()));
+        if let Some(sub) = sub {
+            prose(ui, sub, 14.0);
+        }
+    };
+    let right_to_left = egui::Layout::right_to_left(egui::Align::Center);
+    let available = ui.available_width();
+    let Some(texture) = wordmark_texture(ui.ctx()) else {
+        title_block(ui);
+        if let Some(actions) = actions {
+            ui.add_space(8.0);
+            ui.allocate_ui_with_layout(Vec2::new(ui.available_width(), 40.0), right_to_left, actions);
+        }
+        return;
+    };
+    let width = available.min(WORDMARK_W);
+    let logo = |ui: &mut Ui| {
+        let size = texture.size_vec2() * (width / texture.size_vec2().x);
+        ui.add(egui::Image::new((texture.id(), size)).alt_text("D.A.D · Dynamic Assessment Developer"));
+    };
+    if available < 520.0 {
+        logo(ui);
+        title_block(ui);
+        if let Some(actions) = actions {
+            ui.add_space(8.0);
+            ui.allocate_ui_with_layout(Vec2::new(ui.available_width(), 40.0), right_to_left, actions);
+        }
+    } else {
+        ui.horizontal_top(|ui| {
+            let title_width = available - width - ui.spacing().item_spacing.x;
+            ui.allocate_ui_with_layout(Vec2::new(title_width, 0.0), egui::Layout::top_down(egui::Align::Min), title_block);
+            ui.with_layout(egui::Layout::top_down(egui::Align::Max), |ui| {
+                logo(ui);
+                if let Some(actions) = actions {
+                    ui.add_space(4.0);
+                    // One button row high: centred in the rest of the window the buttons ended up mid-page.
+                    ui.allocate_ui_with_layout(Vec2::new(ui.available_width(), 40.0), right_to_left, actions);
+                }
+            });
+        });
     }
-    ui.label(RichText::new(title).family(theme::serif_family()).size(34.0).color(theme::ink()));
-    if let Some(sub) = sub {
-        prose(ui, sub, 14.0);
-    }
+}
+
+/// "2 banks · 1 exam": each `(count, one, many)` that is above zero, so a zero never reads as
+/// something missing. `None` when every count is zero.
+pub fn count_line(counts: &[(usize, &str, &str)]) -> Option<String> {
+    let parts: Vec<String> = counts
+        .iter()
+        .filter(|(n, _, _)| *n > 0)
+        .map(|(n, one, many)| format!("{n} {}", if *n == 1 { one } else { many }))
+        .collect();
+    (!parts.is_empty()).then(|| parts.join(" · "))
 }
 
 /// A button whose rest, hover and pressed looks are set here, so every state answers the

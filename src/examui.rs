@@ -549,23 +549,15 @@ impl crate::App {
             egui::ScrollArea::vertical().auto_shrink([false, false]).show(ui, |ui| {
                 // The Banks page's content width, so the cards end on the same right edge.
                 ui.set_max_width(crate::bankui::banks_page_w(ui.available_width()));
-                let sub = format!(
-                    "{total} exam{} · {total_q} question{} placed",
-                    if total == 1 { "" } else { "s" },
-                    if total_q == 1 { "" } else { "s" },
-                );
+                // A count that is zero is left out, as on Home and Banks.
+                let sub = crate::pageshell::count_line(&[(total, "exam", "exams"), (total_q, "question placed", "questions placed")]);
                 // The page's action sits in the header, as on Banks.
-                ui.horizontal(|ui| {
-                    ui.vertical(|ui| {
-                        kit::page_header(ui, &[], "Exams", Some(&sub));
-                    });
-                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                        if crate::pageshell::primary(ui, "New exam").clicked() {
-                            let id = new_exam(app);
-                            app.exam = Some(id.clone());
-                            app.screen = crate::Screen::ExamEdit(id);
-                        }
-                    });
+                crate::pageshell::header_with(ui, "", "Exams", sub.as_deref(), |ui| {
+                    if crate::pageshell::primary(ui, "New exam").clicked() {
+                        let id = new_exam(app);
+                        app.exam = Some(id.clone());
+                        app.screen = crate::Screen::ExamEdit(id);
+                    }
                 });
                 ui.add_space(12.0);
                 ui.horizontal(|ui| {

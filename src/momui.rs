@@ -1507,41 +1507,8 @@ fn questions_header(ui: &mut Ui, worksheet: bool) {
     } else {
         ("MyOpenMath Questions", "Create questions or convert a worksheet, then try the questions before adding them to MyOpenMath.")
     };
-    let title = |ui: &mut Ui| pageshell::title(ui, "", heading, sub);
-    let dark = theme::is_dark();
-    let id = egui::Id::new(("dad_wordmark", dark));
-    let ctx = ui.ctx();
-    let texture = ctx.data(|data| data.get_temp::<egui::TextureHandle>(id)).or_else(|| {
-        let bytes: &[u8] = if dark {
-            include_bytes!("../assets/dad-logo-dark.png")
-        } else {
-            include_bytes!("../assets/dad-logo.png")
-        };
-        let image = image::load_from_memory_with_format(bytes, image::ImageFormat::Png).ok()?.into_rgba8();
-        let rgba = egui::ColorImage::from_rgba_unmultiplied(
-            [image.width() as usize, image.height() as usize], image.as_raw());
-        let texture = ctx.load_texture("D.A.D wordmark", rgba, egui::TextureOptions::LINEAR);
-        ctx.data_mut(|data| data.insert_temp(id, texture.clone()));
-        Some(texture)
-    });
-    let Some(texture) = texture else { title(ui); return };
-    let available = ui.available_width();
-    let width = available.min(208.0);
-    let draw_logo = |ui: &mut Ui| {
-        let size = texture.size_vec2() * (width / texture.size_vec2().x);
-        ui.add(egui::Image::new((texture.id(), size)).alt_text("D.A.D · Dynamic Assessment Developer"));
-    };
-    if available < 520.0 {
-        draw_logo(ui);
-        title(ui);
-    } else {
-        ui.horizontal(|ui| {
-            let title_width = available - width - ui.spacing().item_spacing.x;
-            ui.allocate_ui_with_layout(egui::vec2(title_width, 0.0), egui::Layout::top_down(egui::Align::Min), title);
-            // On the content's right edge, where the columns below end (the title's own width varies).
-            ui.with_layout(egui::Layout::right_to_left(egui::Align::Min), draw_logo);
-        });
-    }
+    // The wordmark is part of every page's header now (`pageshell::header`).
+    pageshell::title(ui, "", heading, sub);
 }
 
 fn page(ui: &mut Ui, ctx: &egui::Context, st: &mut State, cfg: &crate::ai::AiCfg, chosen: bool) {

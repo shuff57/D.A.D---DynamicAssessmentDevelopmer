@@ -260,27 +260,16 @@ impl SharedUi {
             if !pending && !tabs_for(&snap.gate, is_admin).contains(&self.model.tab) {
                 self.model.goto(Tab::Browse);
             }
-            let avail = ui.available_width();
-            let action_w = pill_width(ui, SHARE_ACTION) + 24.0;
-            let beside = ready && avail - action_w >= 320.0;
             // An open decision owns the window: the page title and blurb yield to the applicant's
             // card, so the form and the next applications stay on screen.
             let compact = self.model.tab == Tab::Admin && (self.admin.decision.is_some() || self.admin.confirming);
             if !compact {
-                ui.horizontal(|ui| {
-                    ui.vertical(|ui| {
-                        if beside {
-                            ui.set_max_width(avail - action_w);
-                        }
-                        pageshell::title(ui, "", "Shared", "Find questions other teachers shared, and share your own. Optional: everything else works without it.");
-                    });
-                    if beside {
-                        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| self.share_action(ui));
-                    }
-                });
-                if ready && !beside {
-                    ui.add_space(10.0);
-                    self.share_action(ui);
+                // Named for what it holds, so it isn't read as the dock's Share (which downloads files).
+                let sub = Some("Find questions other teachers shared, and share your own. Optional: everything else works without it.");
+                if ready {
+                    pageshell::header_with(ui, "", "Shared by teachers", sub, |ui| self.share_action(ui));
+                } else {
+                    pageshell::header(ui, "", "Shared by teachers", sub);
                 }
             }
             ui.add_space(if compact { 8.0 } else { 14.0 });
@@ -650,13 +639,6 @@ fn tab_button(ui: &mut Ui, label: &str) -> egui::Response {
             .corner_radius(egui::CornerRadius::same(17))
             .min_size(egui::vec2(0.0, 34.0)),
     )
-}
-
-/// The width of a `kit` pill button with this label.
-fn pill_width(ui: &Ui, label: &str) -> f32 {
-    let text = egui::RichText::new(label).family(theme::bold_family());
-    let galley = egui::WidgetText::from(text).into_galley(ui, Some(egui::TextWrapMode::Extend), f32::INFINITY, egui::TextStyle::Button);
-    galley.size().x + 2.0 * ui.spacing().button_padding.x
 }
 
 /// Reports and appeals. The pool keeps no list of the reports a person sent, so this shows what it
