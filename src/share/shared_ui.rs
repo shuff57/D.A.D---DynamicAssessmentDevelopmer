@@ -157,7 +157,7 @@ pub(crate) fn account_reasons_inline(ui: &mut Ui, row_gap: f32) {
     let perks = [
         (crate::handicons::SHARED, "Share banks", "Send banks to colleagues."),
         (ph::MAGNIFYING_GLASS, "Browse the pool", "Copy published questions."),
-        (crate::handicons::SPARKLE, "Hosted AI", "Turn a PDF into questions."),
+        (crate::handicons::SPARKLE, "D.A.D AI", "Writes questions, no key."),
     ];
     crate::kit::label(ui, "What an account adds");
     ui.add_space(if ui.ctx().content_rect().width() < 900.0 { 6.0 } else { 18.0 });

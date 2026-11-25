@@ -282,11 +282,11 @@ fn http_message(flow: Flow, status: u16, code: &str, field: Option<&str>, reason
             "The server refused this app's request. The server address may be wrong, or the server is not set up for this app.".into()
         }
         "unsupported_media_type" | "body_too_large" | "invalid_json" => {
-            "The server could not read the app's request. Check for updates to verSHion.".into()
+            "The server could not read the app's request. Check for updates to D.A.D.".into()
         }
         _ if status >= 500 => "The server had a problem. Try again later.".into(),
         _ if status == 404 || status == 405 => {
-            "That server does not offer verSHion accounts. Check the server address.".into()
+            "That server does not offer D.A.D accounts. Check the server address.".into()
         }
         _ => format!("The server refused the request (HTTP {status}). Try again later."),
     }

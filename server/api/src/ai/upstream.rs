@@ -160,6 +160,20 @@ pub fn shape_reply(raw: &Value) -> Option<Reply> {
 
 /// The request body. The client chose none of the model, reasoning or provider options.
 pub fn request_body(o: &OpenRouter, model: &str, messages: &[Message], max_tokens: i64, temperature: f64) -> Value {
+    request_body_as(o, model, messages, max_tokens, temperature, true)
+}
+
+/// [`request_body`] for a reply in JSON (`json`) or free text (D.A.D's question files are plain text, so JSON
+/// mode would wrap them). Only the reply's shape is the client's choice.
+pub fn request_body_as(o: &OpenRouter, model: &str, messages: &[Message], max_tokens: i64, temperature: f64, json: bool) -> Value {
+    let mut body = request_body_json(o, model, messages, max_tokens, temperature);
+    if !json && let Some(map) = body.as_object_mut() {
+        map.remove("response_format");
+    }
+    body
+}
+
+fn request_body_json(o: &OpenRouter, model: &str, messages: &[Message], max_tokens: i64, temperature: f64) -> Value {
     if o.plain {
         let mut body = json!({
             "model": model,
@@ -188,8 +202,8 @@ pub fn request_body(o: &OpenRouter, model: &str, messages: &[Message], max_token
     })
 }
 
-async fn call_once<T: Transport>(t: &T, o: &OpenRouter, model: &str, messages: &[Message], max_tokens: i64, temperature: f64) -> ModelOut {
-    let body = request_body(o, model, messages, max_tokens, temperature);
+async fn call_once<T: Transport>(t: &T, o: &OpenRouter, model: &str, messages: &[Message], max_tokens: i64, temperature: f64, json: bool) -> ModelOut {
+    let body = request_body_as(o, model, messages, max_tokens, temperature, json);
     match t.post(Post { url: &o.url, key: &o.key, body: &body, timeout: o.timeout }).await {
         Err(class) => {
             tracing::error!("ai: openrouter call failed ({class})");
@@ -212,7 +226,12 @@ async fn call_once<T: Transport>(t: &T, o: &OpenRouter, model: &str, messages: &
 /// One model turn. Primary once; then the fallback model (up to two tries) or, with none, the primary again.
 /// The result is the last failure's class when every try fails.
 pub async fn call_model<T: Transport>(t: &T, o: &OpenRouter, messages: &[Message], max_tokens: i64, temperature: f64) -> ModelOut {
-    let first = call_once(t, o, &o.model, messages, max_tokens, temperature).await;
+    call_model_as(t, o, messages, max_tokens, temperature, true).await
+}
+
+/// [`call_model`] with the reply in JSON (`json`) or free text.
+pub async fn call_model_as<T: Transport>(t: &T, o: &OpenRouter, messages: &[Message], max_tokens: i64, temperature: f64, json: bool) -> ModelOut {
+    let first = call_once(t, o, &o.model, messages, max_tokens, temperature, json).await;
     if matches!(first, ModelOut::Ok(_)) {
         return first;
     }
@@ -222,7 +241,7 @@ pub async fn call_model<T: Transport>(t: &T, o: &OpenRouter, messages: &[Message
     };
     let mut last = first;
     for _ in 0..tries {
-        last = call_once(t, o, model, messages, max_tokens, temperature).await;
+        last = call_once(t, o, model, messages, max_tokens, temperature, json).await;
         if matches!(last, ModelOut::Ok(_)) {
             break;
         }

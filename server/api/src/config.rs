@@ -69,11 +69,14 @@ impl Config {
             limits.daily_usd = n;
         }
         // CheaperInference is the default upstream (its own key, URL and model names). AI_UPSTREAM=openrouter picks OpenRouter instead.
+        // How long one upstream call may take (default 60 s). A model that writes long answers slowly needs more.
+        let timeout = Duration::from_secs(pos_int(get("AI_TIMEOUT_SECS")).map_or(60, |n| n as u64));
         let cheaper = get("AI_UPSTREAM").as_deref().map(|s| s.trim().to_ascii_lowercase()).as_deref() != Some("openrouter");
         let openrouter = if cheaper {
             nonempty(get("CHEAPERINFERENCE_API_KEY")).map(|key| OpenRouter {
                 key,
-                url: CHEAPERINFERENCE_URL.to_string(),
+                // Any OpenAI-compatible chat-completions address can stand in (a local model for testing).
+                url: nonempty(get("CHEAPERINFERENCE_URL")).unwrap_or_else(|| CHEAPERINFERENCE_URL.to_string()),
                 plain: true,
                 // Reasoning off by default (measured: same quality, far fewer tokens); CHEAPERINFERENCE_EXTRA overrides.
                 extra: get("CHEAPERINFERENCE_EXTRA")
@@ -83,7 +86,7 @@ impl Config {
                 model: nonempty(get("CHEAPERINFERENCE_MODEL")).unwrap_or_else(|| CHEAPERINFERENCE_DEFAULT_MODEL.to_string()),
                 fallback_model: nonempty(get("CHEAPERINFERENCE_FALLBACK_MODEL")),
                 privacy: true,
-                timeout: Duration::from_secs(60),
+                timeout,
             })
         } else {
             nonempty(get("OPENROUTER_API_KEY")).map(|key| OpenRouter {
@@ -92,7 +95,7 @@ impl Config {
                 fallback_model: nonempty(get("OPENROUTER_FALLBACK_MODEL")),
                 // Providers that may keep prompts are only allowed when the deployment says so.
                 privacy: get("OPENROUTER_PRIVACY").as_deref() != Some("0"),
-                timeout: Duration::from_secs(60),
+                timeout,
                 ..OpenRouter::new("")
             })
         };
@@ -136,6 +139,14 @@ mod tests {
         assert!(c.openrouter.is_none() && c.relay_key.is_none() && c.allowed_origins.is_empty());
         let d = Limits::default();
         assert_eq!((c.limits.chat_per_hour, c.limits.weekly_credits, c.limits.daily_usd), (d.chat_per_hour, d.weekly_credits, d.daily_usd));
+    }
+
+    #[test]
+    fn the_plain_upstream_address_and_the_call_timeout_can_be_set() {
+        let c = cfg(&[("CHEAPERINFERENCE_API_KEY", "ci"), ("CHEAPERINFERENCE_URL", "http://127.0.0.1:11434/v1/chat/completions"), ("AI_TIMEOUT_SECS", "300")]).openrouter.unwrap();
+        assert_eq!((c.url.as_str(), c.timeout), ("http://127.0.0.1:11434/v1/chat/completions", Duration::from_secs(300)));
+        let d = cfg(&[("CHEAPERINFERENCE_API_KEY", "ci"), ("AI_TIMEOUT_SECS", "soon")]).openrouter.unwrap();
+        assert_eq!((d.url.as_str(), d.timeout), (CHEAPERINFERENCE_URL, Duration::from_secs(60)));
     }
 
     #[test]

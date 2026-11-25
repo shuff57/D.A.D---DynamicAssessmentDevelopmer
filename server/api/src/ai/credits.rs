@@ -14,11 +14,13 @@ pub enum Service {
     Alternatives,
     AnswerKey,
     Grade,
+    /// D.A.D: write (or rewrite) one MyOpenMath question, with its test-and-repair turns.
+    Question,
 }
 
 impl Service {
-    pub const ALL: [Service; 6] =
-        [Service::Import, Service::Figure, Service::Handwriting, Service::Alternatives, Service::AnswerKey, Service::Grade];
+    pub const ALL: [Service; 7] =
+        [Service::Import, Service::Figure, Service::Handwriting, Service::Alternatives, Service::AnswerKey, Service::Grade, Service::Question];
 
     /// The wire name; anything else is not a service (`isServiceId`).
     pub fn parse(s: &str) -> Option<Service> {
@@ -29,6 +31,7 @@ impl Service {
             "alternatives" => Service::Alternatives,
             "answer_key" => Service::AnswerKey,
             "grade" => Service::Grade,
+            "question" => Service::Question,
             _ => return None,
         })
     }
@@ -41,6 +44,7 @@ impl Service {
             Service::Alternatives => "alternatives",
             Service::AnswerKey => "answer_key",
             Service::Grade => "grade",
+            Service::Question => "question",
         }
     }
 
@@ -49,7 +53,7 @@ impl Service {
         match self {
             Service::Import | Service::Figure => 2,
             Service::Handwriting => pages,
-            Service::Alternatives | Service::AnswerKey => 1,
+            Service::Alternatives | Service::AnswerKey | Service::Question => 1,
             Service::Grade => 3,
         }
     }
@@ -74,6 +78,8 @@ impl Service {
             Service::Handwriting => pages * 4,
             Service::Alternatives | Service::AnswerKey => 12,
             Service::Grade => pages * 6 + 12,
+            // Up to 4 engine tests, each reply asked again once if it fails, plus 2 replies that were not a question file.
+            Service::Question => 16,
         }
     }
 
@@ -83,6 +89,7 @@ impl Service {
             Service::Figure => 30 * 60_000,
             Service::Handwriting | Service::Grade => HOUR_MS,
             Service::Alternatives | Service::AnswerKey => 15 * 60_000,
+            Service::Question => 30 * 60_000,
         }
     }
 }
@@ -142,6 +149,14 @@ mod tests {
         assert_eq!((Service::Figure.calls(0), Service::Figure.ttl_ms()), (40, 30 * 60_000));
         assert_eq!((Service::Import.max_pages(), Service::Grade.max_pages(), Service::Figure.max_pages()), (20, 40, 0));
         assert!(Service::Import.takes_pages() && !Service::Figure.takes_pages());
+    }
+
+    #[test]
+    fn a_dad_question_costs_one_credit_and_has_room_for_its_repairs() {
+        let q = Service::parse("question").unwrap();
+        assert_eq!((q.id(), q.credits(0), q.takes_pages(), q.max_pages()), ("question", 1, false, 0));
+        assert_eq!((q.calls(0), q.ttl_ms()), (16, 30 * 60_000));
+        assert_eq!(describe_services()["question"], serde_json::json!({ "credits": 1, "per_page": false, "max_pages": 0 }));
     }
 
     #[test]

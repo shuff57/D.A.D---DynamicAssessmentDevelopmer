@@ -1205,6 +1205,12 @@ fn write_question(st: &mut State, ctx: &egui::Context, cfg: &crate::ai::AiCfg, r
         let mut eng = HttpEngine { base: engine };
         let log_job = job.clone();
         let log_ctx = ctx.clone();
+        // D.A.D AI charges one question's credits first; any other AI goes straight on.
+        if let Err(e) = crate::ai::start_service(&cfg, "question", 0).await {
+            if job.lock().map(|j| j.generation != generation).unwrap_or(true) { return; }
+            finish(&job, &ctx, Outcome::Authored { follow_up, q: None, passed: false, problems: Vec::new(), untested: Vec::new(), error: Some(e) });
+            return;
+        }
         let run = author_full(&request, &mut chat, &mut eng, &mut critic, Budget::tries(MAX_TRIES), move |line| {
             if let Ok(mut j) = log_job.lock() && j.generation == generation { j.log.push(line.to_string()); }
             log_ctx.request_repaint();
@@ -1330,7 +1336,14 @@ fn convert_worksheet(st: &mut State, ctx: &egui::Context, cfg: &crate::ai::AiCfg
             let _ = (index, total);
             progress(format!("Converting and checking problem {} of {batch_total}…", question.origin.number));
             let request = question.source.request();
-            let run = author_async_logged(&request, &mut chat, &mut engine, MAX_TRIES, |_| {}).await;
+            // D.A.D AI: one question's credits per problem. When they run out, this problem says so and
+            // the rest wait in the batch, as after Pause.
+            let charged = crate::ai::start_service(&cfg, "question", 0).await;
+            let out_of_credit = charged.is_err();
+            let run = match charged {
+                Ok(_) => author_async_logged(&request, &mut chat, &mut engine, MAX_TRIES, |_| {}).await,
+                Err(e) => crate::mom::author::AuthorRun { error: Some(e), ..Default::default() },
+            };
             let origin = question.origin.clone();
             let item = if let Some(mut q) = run.question {
                 if q.name.trim().is_empty() { q.name = format!("Worksheet problem {}", origin.number); }
@@ -1357,6 +1370,7 @@ fn convert_worksheet(st: &mut State, ctx: &egui::Context, cfg: &crate::ai::AiCfg
             };
             if let Ok(mut job) = job.lock() { job.outcomes.push(Outcome::WorksheetItem(origin, item)); }
             ctx.request_repaint();
+            if out_of_credit { break; }
         }
         finish(&job, &ctx, Outcome::WorksheetFinished);
     });

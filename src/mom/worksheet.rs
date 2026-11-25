@@ -192,6 +192,12 @@ pub async fn read(
         let page_count = pages.len();
         let before = questions.len();
         let notes_before = notes.len();
+        // D.A.D AI reads a file on one paid session (the server's "import": a flat price, 20 pages at most
+        // counted). Other AIs return at once. Out of credits, the rest of the files wait too.
+        if let Err(error) = crate::ai::start_service(cfg, "import", page_count.clamp(1, 20)).await {
+            notes.push(format!("{} — {error}", file.name));
+            break;
+        }
         for (index, page) in pages.into_iter().enumerate() {
             let location = if page_count == 1 { file.name.clone() } else { format!("{} · page {}", file.name, index + 1) };
             // "page 3 of 7", so the wait has a size.

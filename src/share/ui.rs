@@ -805,13 +805,13 @@ fn enrol_page(ui: &mut Ui, m: &mut AccountModel) {
 fn credits_block(ui: &mut Ui, m: &mut AccountModel) {
     m.want_credits();
     ui.add_space(4.0);
-    ui.label(theme::strong("Hosted AI credits").size(13.0));
+    ui.label(theme::strong("D.A.D AI credits").size(13.0));
     match m.credits.clone() {
         None => {
             ui.label(theme::muted("Looking up your balance...").size(12.5));
         }
         Some(super::api::Credits::Unlimited) => {
-            ui.label(theme::muted("This server does not count credits: the hosted AI is not limited for you.").size(12.5));
+            ui.label(theme::muted("This server does not count credits: D.A.D AI is not limited for you.").size(12.5));
         }
         Some(super::api::Credits::Counted { purchased, left, allowance }) => {
             // the balance and the way to add to it share a row (they wrap together on a narrow card)

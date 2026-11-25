@@ -44,6 +44,12 @@ impl Message {
     }
 }
 
+/// The reply shape the client asked for: JSON unless it sent `response_format: {"type": "text"}`. JSON stays the
+/// default because every older client (imports, figures, grading) expects it without asking.
+pub fn wants_json(body: &serde_json::Map<String, Value>) -> bool {
+    body.get("response_format").and_then(|f| f.get("type")).and_then(Value::as_str) != Some("text")
+}
+
 /// The OpenAI-style error body: never a raw upstream string.
 pub fn error_body(code: &str, message: &str) -> Value {
     json!({ "error": { "code": code, "message": message } })
