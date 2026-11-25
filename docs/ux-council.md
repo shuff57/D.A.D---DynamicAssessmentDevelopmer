@@ -161,6 +161,11 @@ Each piece runs in its own thread and branch. The coordinating thread merges fin
 | 2 | Server launch prep: deploy steps for `server/`, release build with the URL, D.A.D AI sign-in and credits (every account or paid step waits for the owner) | `dad/server-launch` | merged 2026-11-25 (`9311ad48`); owner steps remain, see below |
 | 3 | Older screens' UX (headers on Home, Grade and Shared; duplicate import and share screens; Help's five buttons; Figures opening on physics) | `dad/legacy-ux` | merged 2026-11-25 (`7ba4e770`), Opus 8.6 / DeepSeek 8.5 |
 | 4 | Housekeeping: full test suite including figures, the flaky Figures drag test, compiler warnings | `dad/housekeeping` | merged 2026-11-25 (`3b83c711`) |
+| 5 | Pause just before MyOpenMath's Save so Stop adding can land (owner decision 2026-11-25) | `dad/stop-adding` | started 2026-11-25 |
+| 6 | Say D.A.D, not verSHion, in what teachers read (`src/share/`, server emails) | `dad/rename-dad` | started 2026-11-25 |
+| 7 | Older screens: wordmark, the bank importer's two names, "Make an Exam", zero counts, "Shared" (the thread asks the owner each) | `dad/legacy-names` | started 2026-11-25 |
+| 8 | Tell a revision of a published question from its original in My Questions (the thread asks the owner how) | `dad/revision-titles` | started 2026-11-25 |
+| 9 | Slow tier: 4 timing tests that fail only under parallel load | `dad/test-timing` | started 2026-11-25 |
 
 After all four merges, `dad/engine` passes `cargo test --lib` (5,490 passed, 0 failed, 288 ignored, about 2 minutes), and the desktop build and the wasm check have no warnings.
 
