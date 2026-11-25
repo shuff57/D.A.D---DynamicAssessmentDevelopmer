@@ -2916,9 +2916,14 @@ fn try_it(ui: &mut Ui, ctx: &egui::Context, st: &mut State, cfg: &crate::ai::AiC
         ui.add_space(14.0);
         let (seen, reviewed) = st.current.as_ref().map(|c| (c.preview_opened, c.reviewed)).unwrap_or_default();
         if reviewed {
+            // Already published: say so and lead to its finish, not to adding it a second time.
+            if st.published.is_none() { st.published = Some(published_ids()); }
+            let in_mom = st.current.as_ref().and_then(|c| c.saved_id.as_ref())
+                .is_some_and(|id| st.published.as_ref().is_some_and(|p| p.contains(id)));
+            let (done, next) = if in_mom { ("✔ In MyOpenMath", "See Where It Is") } else { ("✔ Approved and saved", "Add It to MyOpenMath") };
             ui.horizontal(|ui| {
-                ui.label(RichText::new("✔ Approved and saved").color(theme::green()));
-                if pageshell::primary(ui, "Add It to MyOpenMath").clicked() { st.step = Step::Copy; }
+                ui.label(RichText::new(done).color(theme::green()));
+                if pageshell::primary(ui, next).clicked() { st.step = Step::Copy; }
             });
         } else {
             ui.label(theme::strong("Happy with it?").size(15.0));
