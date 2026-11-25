@@ -273,9 +273,9 @@ pub fn set_key(provider: &str, key: Option<&str>) -> Result<(), String> {
 pub fn set_key(provider: &str, key: Option<&str>) -> Result<(), String> {
     WEB_KEYS.with(|keys| {
         let mut keys = keys.borrow_mut();
-        match key.map(str::trim).filter(|k| !k.is_empty()) {
+        match key.map(clean_key).filter(|k| !k.is_empty()) {
             Some(k) => {
-                keys.0.insert(provider.to_string(), k.to_string());
+                keys.0.insert(provider.to_string(), k);
             }
             None => {
                 keys.0.remove(provider);
@@ -285,13 +285,48 @@ pub fn set_key(provider: &str, key: Option<&str>) -> Result<(), String> {
     Ok(())
 }
 
+/// What a teacher pastes is often more than the key: a "Key:" or `API_KEY=` label, quotes or
+/// backticks from an email, a line break, a full stop. Keep only the key itself.
+pub fn clean_key(raw: &str) -> String {
+    let unquoted: String = raw.chars()
+        .filter(|c| !matches!(c, '"' | '\'' | '`' | '\u{201C}' | '\u{201D}' | '\u{2018}' | '\u{2019}' | '<' | '>'))
+        .collect();
+    let strip_label = |t: &str| -> String {
+        if let Some(i) = t.find([':', '=']) {
+            let (label, rest) = (t[..i].to_ascii_lowercase(), &t[i + 1..]);
+            if !rest.is_empty() && ["key", "token", "secret", "bearer"].iter().any(|w| label.contains(w)) {
+                return rest.to_string();
+            }
+        }
+        t.to_string()
+    };
+    // The key is the longest word left; labels ("Key:", "Bearer") and stray words are shorter.
+    unquoted.split_whitespace()
+        .map(|t| strip_label(t.trim_end_matches(['.', ',', ';'])))
+        .fold(String::new(), |best, t| if t.len() > best.len() { t } else { best })
+}
+
+/// One sentence when a pasted key can't belong to this AI (most often: a key from another site).
+pub fn key_shape_problem(provider: &str, key: &str) -> Option<String> {
+    let key = clean_key(key);
+    if key.is_empty() { return None; }
+    let (name, prefix) = match provider {
+        "openrouter" => ("OpenRouter", "sk-or-"),
+        "anthropic" => ("Anthropic", "sk-ant-"),
+        "openai" => ("OpenAI", "sk-"),
+        _ => return None,
+    };
+    (!key.starts_with(prefix))
+        .then(|| format!("This doesn't look like an {name} key: they start with {prefix}. Check that you copied the whole key."))
+}
+
 /// Atomic write (temp + rename) of the whole map, mode 0600 on unix from creation.
 pub fn set_key_in(dir: &std::path::Path, provider: &str, key: Option<&str>) -> Result<(), String> {
     use std::io::Write as _;
     let mut keys = load_keys_in(dir);
-    match key.map(str::trim).filter(|k| !k.is_empty()) {
+    match key.map(clean_key).filter(|k| !k.is_empty()) {
         Some(k) => {
-            keys.0.insert(provider.to_string(), k.to_string());
+            keys.0.insert(provider.to_string(), k);
         }
         None => {
             keys.0.remove(provider);
@@ -394,6 +429,12 @@ fn list_url(cfg: &AiCfg, base: &str) -> String {
     }
 }
 
+/// What the key test asks for. OpenRouter's model list is public, so it answers any key (or none);
+/// its `/key` route answers only a real key.
+fn probe_url(cfg: &AiCfg, base: &str) -> String {
+    if cfg.provider == "openrouter" { format!("{base}/key") } else { list_url(cfg, base) }
+}
+
 /// Cheap authenticated probe for the Settings "Test connection" button: GET {base}/models.
 /// Blocking; call from a thread. The reply never contains the key.
 #[cfg(not(target_arch = "wasm32"))]
@@ -402,7 +443,7 @@ pub fn test_connection(cfg: &AiCfg) -> Result<(), String> {
     if base.is_empty() {
         return Err("Set a base URL first.".to_string());
     }
-    let url = list_url(cfg, base);
+    let url = probe_url(cfg, base);
     let mut req = agent().get(&url);
     if let Some(k) = request_key(cfg) {
         req = req.header("Authorization", &format!("Bearer {k}"));
@@ -423,7 +464,7 @@ pub async fn test_connection_async(cfg: &AiCfg) -> Result<(), String> {
     if base.is_empty() {
         return Err("Set a base URL first.".to_string());
     }
-    let url = list_url(cfg, base);
+    let url = probe_url(cfg, base);
     let status = fetch_status_async(&url, request_key(cfg).as_deref())
         .await
         .map_err(|e| cloud_error_hint(cfg, e))?;
@@ -2097,6 +2138,19 @@ mod tests {
         let _ = std::fs::remove_dir_all(&d);
         std::fs::create_dir_all(&d).unwrap();
         d
+    }
+
+    #[test]
+    fn a_pasted_key_keeps_only_the_key() {
+        for raw in ["  Key: sk-or-v1-abc123  ", "OPENROUTER_API_KEY=sk-or-v1-abc123", "\"sk-or-v1-abc123\"\n",
+                    "Your key is `sk-or-v1-abc123`.", "Bearer sk-or-v1-abc123", "sk-or-v1-abc123"] {
+            assert_eq!(clean_key(raw), "sk-or-v1-abc123", "{raw:?}");
+        }
+        // Base64-style keys keep their padding; a colon inside a key that has no label stays.
+        assert_eq!(clean_key("abcDEF123=="), "abcDEF123==");
+        assert_eq!(key_shape_problem("openrouter", "Key: sk-or-v1-abc"), None);
+        assert!(key_shape_problem("openrouter", "sk-ant-abc").unwrap().contains("sk-or-"));
+        assert_eq!(key_shape_problem("cloud", "anything"), None);
     }
 
     #[test]

@@ -1062,9 +1062,9 @@ const DOCK_NAV: [(NavIcon, &str); 6] = [
     (NavIcon::Import, "Import"),
     (NavIcon::Shared, "Share"),
     (NavIcon::Figures, "Figures"),
-    // One item for the account and the settings: signed in, it wears the person's initials,
-    // a filled disc as Google does; signed out, the plain person icon.
-    (NavIcon::Account, "Settings"),
+    // One item for the account and the settings, with the gear every app uses for Settings;
+    // signed in, it wears the person's initials in a filled disc, as Google does.
+    (NavIcon::Gear, "Settings"),
 ];
 
 /// What the dock drew and what was pressed this frame.
@@ -1117,7 +1117,7 @@ fn draw_dock(root: &mut egui::Ui, active: [bool; DOCK_NAV.len()], who: Option<&(
             ui.add_space(2.0);
 
             for (i, (icon, label)) in DOCK_NAV.into_iter().enumerate() {
-                let badge = if matches!(icon, NavIcon::Account) { who } else { None };
+                let badge = if matches!(icon, NavIcon::Gear) { who } else { None };
                 if dock_item(ui, icon, label, active[i], item_w, narrow, badge) {
                     out.picked = Some(i);
                 }
@@ -1625,7 +1625,7 @@ impl crate::App {
         let tiles: [(NavIcon, &str, &str, bool); 3] = [
             (NavIcon::Plus, "New exam", "Start from a blank page", !fresh),
             (NavIcon::Banks, "New bank", "A shelf for questions", fresh),
-            (NavIcon::Import, "Import", "Anything: text, files, photos", false),
+            (NavIcon::Import, "Import to a bank", "Anything: text, files, photos", false),
         ];
         let mut tile_hit: Option<usize> = None;
         // A narrow window keeps the three actions on one row of equal compact tiles, so the
@@ -2256,9 +2256,21 @@ impl crate::App {
         let mut buf: String = ctx.data_mut(|d| d.get_temp(id_buf)).unwrap_or_default();
         let probe: Probe = ctx.data_mut(|d| d.get_temp(id_probe)).unwrap_or_default();
         let mut msg: Option<(String, bool)> = ctx.data_mut(|d| d.get_temp(id_msg));
+        let id_from_save = egui::Id::new("ai_key_probe_from_save");
         if let Some(r) = probe.lock().ok().and_then(|mut g| g.take()) {
+            let from_save: bool = ctx.data_mut(|d| d.remove_temp(id_from_save)).unwrap_or(false);
+            // A key that works leaves the field; a turned-down one stays in it to check and fix.
+            if r.is_ok() { buf.clear(); }
             msg = Some(match r {
                 Ok(()) => ("Connection OK".to_string(), false),
+                // Just saved and turned down: taken back off, as the Questions card does, so the
+                // page never says "Key found" beside a key that can't work.
+                Err(e) if from_save && e.starts_with("Key rejected") => {
+                    let _ = crate::ai::set_key(&cfg.provider, None);
+                    buf = crate::ai::clean_key(&buf);
+                    let name = match cfg.provider.as_str() { "openrouter" => "OpenRouter", "cloud" => "Ollama Cloud", _ => "The AI" };
+                    (format!("{name} turned that key down, so D.A.D took it off. Check it below (often a letter is missing at the end), or make a new one."), true)
+                }
                 Err(e) => (e, true),
             });
         }
@@ -2269,21 +2281,48 @@ impl crate::App {
         let entry = |ui: &mut egui::Ui, buf: &mut String, msg: &mut Option<(String, bool)>| {
             ui.horizontal(|ui| {
                 ui.label(theme::text(if cfg.provider == "workers" { "Relay key" } else { "API key" }));
-                ui.add(
+                let show_id = egui::Id::new("ai_key_shown");
+                let shown: bool = ui.ctx().data(|d| d.get_temp(show_id)).unwrap_or(false);
+                let field = ui.add(
                     egui::TextEdit::singleline(buf)
                         .margin(egui::Margin::symmetric(12, 9))
-                        .password(true)
+                        .password(!shown)
                         .desired_width(300.0)
                         .hint_text("paste a key"),
                 );
-                if crate::pageshell::primary(ui, "Save key").clicked() && !buf.trim().is_empty() {
+                // A key is pasted once, not typed from memory: let the teacher see what went in.
+                if !buf.is_empty() && crate::kit::link(ui, if shown { "Hide" } else { "Show" }, false).clicked() {
+                    ui.ctx().data_mut(|d| d.insert_temp(show_id, !shown));
+                }
+                let enter = field.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter));
+                if (crate::pageshell::primary(ui, "Save key").clicked() || enter) && !crate::ai::clean_key(buf).is_empty() {
                     match crate::ai::set_key(&cfg.provider, Some(buf)) {
-                        Ok(()) => *msg = Some(("Key saved on this computer".to_string(), false)),
+                        Ok(()) => {
+                            // Saved is not the same as working: try it at once, as Test connection does.
+                            *msg = Some(("Testing…".to_string(), false));
+                            ctx.data_mut(|d| d.insert_temp(egui::Id::new("ai_key_probe_from_save"), true));
+                            let (probe2, ctx2, cfg2) = (probe.clone(), ctx.clone(), cfg.clone());
+                            #[cfg(not(target_arch = "wasm32"))]
+                            std::thread::spawn(move || {
+                                let r = crate::ai::test_connection(&cfg2);
+                                if let Ok(mut g) = probe2.lock() { *g = Some(r); }
+                                ctx2.request_repaint();
+                            });
+                            #[cfg(target_arch = "wasm32")]
+                            wasm_bindgen_futures::spawn_local(async move {
+                                let r = crate::ai::test_connection_async(&cfg2).await;
+                                if let Ok(mut g) = probe2.lock() { *g = Some(r); }
+                                ctx2.request_repaint();
+                            });
+                        }
                         Err(e) => *msg = Some((e, true)),
                     }
-                    buf.clear();
+                    // kept until the check says the key works
                 }
             });
+            if crate::ai::clean_key(buf).len() >= 8 && let Some(problem) = crate::ai::key_shape_problem(&cfg.provider, buf) {
+                ui.label(egui::RichText::new(problem).color(crate::theme::red()).size(13.0));
+            }
             if crate::platform::help_clip_name(&cfg.provider).is_some() {
                 let label = format!("{}  Watch how to get a key", egui_phosphor::regular::PLAY_CIRCLE);
                 if crate::pageshell::outline(ui, &label).clicked() {
@@ -2378,7 +2417,7 @@ impl crate::App {
                 // The section that can unblock the core job first; the optional sharing account last.
                 let items = [
                     pageshell::NavItem { icon: crate::handicons::SPARKLE, label: "AI" },
-                    pageshell::NavItem { icon: crate::handicons::PERSON, label: "MyOpenMath login" },
+                    pageshell::NavItem { icon: egui_phosphor::regular::KEY, label: "MyOpenMath login" },
                     pageshell::NavItem { icon: crate::handicons::DOWNLOAD, label: "My Questions" },
                     pageshell::NavItem { icon: crate::handicons::HELP, label: "Help & community" },
                     pageshell::NavItem { icon: crate::handicons::PERSON, label: "D.A.D account (optional)" },

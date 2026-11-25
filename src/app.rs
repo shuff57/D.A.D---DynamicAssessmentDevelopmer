@@ -67,9 +67,11 @@ pub enum Screen {
 pub enum Shortcut {
     NewBank,
     NewExam,
+    NewQuestion,
 }
 
-/// Ctrl/Cmd+N starts a new exam on Home/Exams and a new bank on Banks. Editors and an open
+/// Ctrl/Cmd+N starts a new exam on Home/Exams, a new bank on Banks and a new question on Questions
+/// (as New Question does: the one on screen is saved first). Editors and an open
 /// question draft keep the key for themselves.
 pub fn shortcut_action(screen: &Screen, has_draft: bool) -> Option<Shortcut> {
     if has_draft {
@@ -78,6 +80,7 @@ pub fn shortcut_action(screen: &Screen, has_draft: bool) -> Option<Shortcut> {
     match screen {
         Screen::Home | Screen::Exams => Some(Shortcut::NewExam),
         Screen::Banks => Some(Shortcut::NewBank),
+        Screen::Mom => Some(Shortcut::NewQuestion),
         _ => None,
     }
 }
@@ -169,8 +172,40 @@ impl App {
         }
     }
 
+    /// Screens where a file dropped on the window goes to Questions (Import or Convert, by type).
+    /// Imports, Banks, Exams, Grade and Figures take drops of their own, as do the bank Import window
+    /// and the resolve-images dialog (either can open over Home), and the browser workspace is the
+    /// teacher's MyOpenMath tab.
+    fn routes_drops(&self, ctx: &egui::Context) -> bool {
+        matches!(self.screen, Screen::Mom | Screen::Home | Screen::Settings | Screen::Shared | Screen::Account | Screen::Welcome)
+            && !crate::momui::browser_workspace_open()
+            && !crate::importui::resolve_open()
+            && !crate::importui::import_modal_open(ctx)
+    }
+
+    /// While a file is dragged over a window that takes it: say so over the whole window, as mail
+    /// and file apps do, so dropping is something the teacher can see is allowed.
+    fn drop_cue(&self, ctx: &egui::Context) {
+        if !self.routes_drops(ctx) || ctx.input(|i| i.raw.hovered_files.is_empty()) { return; }
+        let rect = ctx.content_rect().shrink(10.0);
+        let painter = ctx.layer_painter(egui::LayerId::new(egui::Order::Foreground, egui::Id::new("dad_drop_cue")));
+        painter.rect(rect, 16.0, theme::card().gamma_multiply(0.92), egui::Stroke::new(3.0, theme::accent_col()), egui::StrokeKind::Inside);
+        painter.text(rect.center() - egui::vec2(0.0, 14.0), egui::Align2::CENTER_CENTER, "Drop to add",
+            egui::FontId::proportional(26.0), theme::ink());
+        let where_to = if matches!(self.screen, Screen::Mom) && crate::momui::picture_drop_target(self.settings.ai_provider != "claude-cli") {
+            "A photo becomes this question's reference picture. Question files go to Import; PDF and Word worksheets go to Convert."
+        } else {
+            "Question files go to Import. Worksheets (PDF, Word, photos) go to Convert."
+        };
+        painter.text(rect.center() + egui::vec2(0.0, 18.0), egui::Align2::CENTER_CENTER, where_to,
+            egui::FontId::proportional(15.0), theme::muted_col());
+    }
+
     /// Opens a file already in memory (browser drop/picker, officecraft `deliver`).
     pub fn open_import_bytes(&mut self, name: &str, bytes: Vec<u8>) {
+        if matches!(self.screen, Screen::Mom) && crate::momui::take_dropped_picture(name, &bytes, self.settings.ai_provider != "claude-cli") {
+            return;
+        }
         if crate::momui::is_question_file(name, &bytes) {
             crate::momui::open_question_file(name, bytes);
         } else if name.rsplit_once('.').is_some_and(|(_, ext)| {
@@ -178,7 +213,17 @@ impl App {
         }) {
             crate::momui::open_worksheet(name, bytes);
         } else {
-            self.toast_err(format!("D.A.D cannot import {name}. Choose a MyOpenMath question, D.A.D package, or worksheet."));
+            let ext = name.rsplit_once('.').map(|(_, e)| e.to_ascii_lowercase()).unwrap_or_default();
+            // Say how to turn the file into one D.A.D reads, where there is a usual way.
+            let how = match ext.as_str() {
+                "heic" | "heif" => "iPhone photos: share it as a JPEG (Photos: Export, or AirDrop with Most Compatible), then drop that.".to_string(),
+                "doc" => "Old Word files: open it in Word or Google Docs and save it as .docx.".to_string(),
+                "xlsx" | "xls" | "csv" => "Spreadsheets of questions go into a question bank: Home, then Import to a bank.".to_string(),
+                "pptx" | "ppt" | "odt" => "Save or print it as a PDF, then drop the PDF.".to_string(),
+                "html" | "htm" | "rtf" | "md" => "If it holds MyOpenMath question code, rename it to end in .txt and drop it again. A worksheet: save it as a PDF.".to_string(),
+                _ => "D.A.D reads MyOpenMath question code (.php, .txt), D.A.D packages and backups (.json), and worksheets (PDF, Word .docx, photos).".to_string(),
+            };
+            self.toast_err(format!("Can't add {name}. {how}"));
             return;
         }
         self.screen = Screen::Mom;
@@ -396,7 +441,7 @@ impl App {
     /// every 10 frames after a 60 frame warm-up. Coordinates are egui points.
     pub fn raw_input_hook(&mut self, ctx: &egui::Context, raw: &mut egui::RawInput) {
         #[cfg(not(target_arch = "wasm32"))]
-        if matches!(self.screen, Screen::Mom) && !crate::momui::browser_workspace_open() {
+        if self.routes_drops(ctx) {
             for file in std::mem::take(&mut raw.dropped_files) {
                 let name = file.path().file_name().map(|name| name.to_string_lossy())
                     .unwrap_or_else(|| "dropped file".into());
@@ -544,7 +589,9 @@ impl App {
         let Some(action) = shortcut_action(&self.screen, self.qedit.is_some()) else {
             return;
         };
-        if ctx.egui_wants_keyboard_input() {
+        // A text box keeps the keyboard, except Ctrl/Cmd+N on Questions: no text box uses it, and it
+        // is what "new" means in every app.
+        if ctx.egui_wants_keyboard_input() && action != Shortcut::NewQuestion {
             return;
         }
         let pressed = ctx.input_mut(|i| {
@@ -561,6 +608,10 @@ impl App {
             Shortcut::NewExam => {
                 let id = self.new_exam("Untitled Exam");
                 self.open_exam(&id);
+            }
+            Shortcut::NewQuestion => {
+                crate::momui::new_question_shortcut();
+                crate::momui::request_destination(ctx, crate::momui::Destination::Questions);
             }
         }
     }
@@ -586,6 +637,7 @@ impl App {
         self.handle_shortcuts(&ctx);
         // Sidebar + active screen + shell overlays (import dialog, help, toasts).
         self.draw_screen(&ctx);
+        self.drop_cue(&ctx);
         // The "Share to pool…" window (looks the sign-in up through the Account window), then the
         // Account window, over whatever screen is open; both return at once while closed.
         self.publish.show(&ctx, &mut self.account);
@@ -640,6 +692,7 @@ mod shortcut_tests {
         assert_eq!(shortcut_action(&Screen::Home, false), Some(Shortcut::NewExam));
         assert_eq!(shortcut_action(&Screen::Exams, false), Some(Shortcut::NewExam));
         assert_eq!(shortcut_action(&Screen::Banks, false), Some(Shortcut::NewBank));
+        assert_eq!(shortcut_action(&Screen::Mom, false), Some(Shortcut::NewQuestion));
     }
 
     #[test]

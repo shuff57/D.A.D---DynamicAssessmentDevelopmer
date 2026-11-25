@@ -78,7 +78,7 @@ impl Answer {
         Self::ChemicalEquation, Self::Molecule,
     ];
 
-    /// The answer types most questions use, shown first; the rest sit under "More answer types".
+    /// The answer types most questions use, shown first; the rest sit under "More question types".
     pub const COMMON: [Answer; 8] = [
         Self::Number, Self::Exact, Self::Expression, Self::Choice, Self::SelectAll, Self::Text, Self::Written, Self::Drawing,
     ];

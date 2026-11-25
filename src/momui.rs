@@ -97,9 +97,10 @@ struct SharedQuestion {
 
 pub(crate) fn is_question_file(name: &str, bytes: &[u8]) -> bool {
     let extension = name.rsplit_once('.').map(|(_, ext)| ext.to_ascii_lowercase());
+    // A .txt is question code by what is in it, even half a question, not a worksheet to transcribe.
     matches!(extension.as_deref(), Some("php" | "json"))
-        || extension.as_deref() == Some("txt")
-            && std::str::from_utf8(bytes).is_ok_and(|text| !MomQuestion::parse(text).qtext.is_empty())
+        || matches!(extension.as_deref(), Some("txt" | "md"))
+            && std::str::from_utf8(bytes).is_ok_and(|text| !MomQuestion::parse(text).qtext.is_empty() || looks_like_question_code(text))
 }
 
 /// The records of a "Back Up My Questions" file (a whole library), or None for any other file.
@@ -116,8 +117,75 @@ fn imported_sources(file: &PickedFile) -> Result<Vec<String>, String> {
             .map_err(|_| "Choose a D.A.D question package containing a questions list.")?;
         Ok(package.questions.into_iter().map(|question| question.src).collect())
     } else {
-        Ok(vec![text.to_owned()])
+        Ok(vec![unwrap_reply(text)])
     }
+}
+
+/// Question code copied out of a chat with an AI: drop the sentence before it and the ``` fences
+/// around it, as the writer's own replies are read (`author::parse_reply`).
+fn unwrap_reply(text: &str) -> String {
+    let code = fenced_or_raw(text);
+    // Both MyOpenMath boxes in one paste without D.A.D's markers (a reply copied as text, or a
+    // teacher's notes): split them, so it is one question and not "Common Control only".
+    // Only when the parser finds no Question Text itself (the older `//question text` and `///`
+    // layouts it already reads stay its job).
+    if !code.contains("// === ") && MomQuestion::parse(&code).qtext.trim().is_empty() && let Some((control, qtext)) = split_boxes(&code) {
+        return joined_paste(&control, &qtext);
+    }
+    code
+}
+
+/// Common Control and Question Text in one text: at a "Question Text" heading line, else where the
+/// code ends and the lines with `$answerbox` begin. None when it is not both.
+fn split_boxes(text: &str) -> Option<(String, String)> {
+    let lines: Vec<&str> = text.lines().collect();
+    let heading = |l: &str, name: &str| {
+        let t = l.trim().trim_start_matches('/').trim().trim_end_matches(':').trim().to_ascii_lowercase();
+        t == name
+    };
+    if let Some(i) = lines.iter().position(|l| heading(l, "question text")) {
+        let control: Vec<&str> = lines[..i].iter().copied().filter(|l| !heading(l, "common control")).collect();
+        let qtext = lines[i + 1..].join("\n");
+        return (!qtext.trim().is_empty() && assigns_a_variable(&control.join("\n"))).then(|| (control.join("\n"), qtext));
+    }
+    if !assigns_a_variable(text) || !text.contains("$answerbox") { return None; }
+    let code_line = |l: &str| { let t = l.trim(); t.starts_with("//") || assigns_a_variable(t) || crate::mom::format::looks_like_code(t) };
+    let last = lines.iter().rposition(|l| code_line(l))?;
+    let qtext = lines[last + 1..].join("\n");
+    qtext.contains("$answerbox").then(|| (lines[..=last].join("\n"), qtext))
+}
+
+fn fenced_or_raw(text: &str) -> String {
+    let fence = |l: &&str| l.trim_start().starts_with("```");
+    // A fenced block is the code, whatever is in it (as every chat app shows it): from the opening
+    // fence to the closing one, or to the end when the closing fence was not copied.
+    if text.lines().any(|l| fence(&l)) {
+        // Every fenced block, in order (an unclosed last one runs to the end).
+        let mut blocks: Vec<Vec<&str>> = Vec::new();
+        let mut open: Option<Vec<&str>> = None;
+        for line in text.lines() {
+            if fence(&line) {
+                match open.take() { Some(block) => blocks.push(block), None => open = Some(Vec::new()) }
+            } else if let Some(block) = open.as_mut() {
+                block.push(line);
+            }
+        }
+        blocks.extend(open);
+        let blocks: Vec<String> = blocks.into_iter().map(|b| b.join("\n")).collect();
+        // Chat apps often answer "Common Control: ```…``` Question Text: ```…```": two blocks with no
+        // D.A.D markers are the two MyOpenMath boxes, whichever order they came in.
+        if let [a, b, ..] = blocks.as_slice() && !text.contains("// === ") {
+            // Only when they have the two boxes' shape: one sets variables, the other shows answer
+            // boxes and sets none ("Version 1 / Version 2" stays the first block).
+            let boxes = |c: &str, q: &str| assigns_a_variable(c) && q.contains("$answerbox") && !assigns_a_variable(q);
+            if boxes(a, b) { return joined_paste(a, b); }
+            if boxes(b, a) { return joined_paste(b, a); }
+        }
+        return blocks.into_iter().next().unwrap_or_default();
+    }
+    // No fence: drop any sentence before D.A.D's first section marker.
+    let start = text.find("// === ").unwrap_or(0);
+    text[start..].to_string()
 }
 
 fn export_shared_questions(questions: &[Saved]) -> Result<bool, String> {
@@ -130,8 +198,18 @@ fn export_shared_questions(questions: &[Saved]) -> Result<bool, String> {
     Ok(true)
 }
 
+/// Beside a file button: the window also takes dropped files (desktop), as file apps do.
+fn drop_hint(ui: &mut Ui) {
+    if cfg!(not(target_arch = "wasm32")) {
+        ui.add_space(10.0);
+        ui.label(theme::muted("or drop files on this window").size(13.0));
+    }
+}
+
 fn import_questions(ui: &mut Ui, st: &mut State) {
+    let before = st.question_files.len();
     st.question_files.extend(crate::platform::take_picked());
+    if st.question_files.len() > before { st.import_hint = None; }
     pageshell::title(ui, "", "Import MyOpenMath questions",
         "Bring in MyOpenMath question code, a D.A.D package from another teacher, or your own backup.");
     // A worksheet is the other "bring it in" job, and it has its own place: say so before the picker
@@ -142,7 +220,11 @@ fn import_questions(ui: &mut Ui, st: &mut State) {
     ui.add_space(12.0);
     egui::ScrollArea::vertical().show(ui, |ui| {
         pageshell::card(ui, |ui| {
-            if pageshell::outline(ui, "Choose question files").clicked()
+            if ui.horizontal_wrapped(|ui| {
+                    let r = pageshell::outline(ui, "Choose question files");
+                    drop_hint(ui);
+                    r
+                }).inner.clicked()
                 && let Some(paths) = crate::platform::pick_files("MyOpenMath questions or D.A.D packages", &["php", "txt", "json"])
             {
                 for path in paths {
@@ -153,14 +235,80 @@ fn import_questions(ui: &mut Ui, st: &mut State) {
                     }
                 }
             }
-            for file in &st.question_files { ui.label(theme::text(&file.name)); }
+            // A list of chosen files, each with Remove, as file pickers in other apps have.
+            let mut remove = None;
+            for (i, file) in st.question_files.iter().enumerate() {
+                ui.horizontal(|ui| {
+                    ui.label(theme::text(&file.name));
+                    if crate::kit::link(ui, "Remove", false).clicked() { remove = Some(i); }
+                });
+            }
+            if let Some(i) = remove { st.question_files.remove(i); }
             let caption = ui.label(theme::strong("Or paste question code"));
-            ui.add(egui::TextEdit::multiline(&mut st.import_source).desired_width(f32::INFINITY).desired_rows(5))
+            let paste = ui.add(egui::TextEdit::multiline(&mut st.import_source).desired_width(f32::INFINITY).desired_rows(5)
+                .hint_text("MyOpenMath code, a reply from an AI chat, or a problem in your own words"))
                 .labelled_by(caption.id);
-            if pageshell::primary_on(ui, "Import into My Questions", !busy(st) &&
-                (!st.question_files.is_empty() || !st.import_source.trim().is_empty())).clicked()
+            if paste.changed() { st.import_hint = None; }
+            // Esc backs out of a hint the last press raised; nothing typed is lost.
+            if st.import_hint.is_some() && ui.input_mut(|i| i.consume_key(egui::Modifiers::NONE, egui::Key::Escape)) { st.import_hint = None; }
+            let paste_send = paste.has_focus() && ui.input_mut(|i| i.consume_key(egui::Modifiers::COMMAND, egui::Key::Enter));
+            // One filled button: while the paste waits on a next step (its Question Text, or writing
+            // a question from words), that step's button is the one.
+            let waiting = st.import_hint.is_some();
+            let can_import = !busy(st) && (!st.question_files.is_empty() || !st.import_source.trim().is_empty());
+            if !waiting && (pageshell::primary_on(ui, "Import into My Questions", can_import).clicked() || paste_send && can_import)
             {
                 import_drafts(st);
+            }
+            match st.import_hint.clone() {
+                Some(NotAQuestion::Words(words)) => {
+                    ui.add_space(8.0);
+                    ui.add(egui::Label::new(theme::strong("This looks like a problem in words, not MyOpenMath code.").size(14.0)).wrap());
+                    ui.add(egui::Label::new(theme::muted("D.A.D can write a MyOpenMath question from it.").size(13.0)).wrap());
+                    if pageshell::primary(ui, "Write a Question From It").clicked() {
+                        // A description typed on step 1 but not written yet is a draft: the words go
+                        // under it. One left from a question already written is not kept.
+                        let draft = if st.current.is_none() { st.form.topic_text.trim_end().to_string() } else { String::new() };
+                        start_new_question(st);
+                        st.form.topic_text = if draft.is_empty() { words } else { format!("{draft}\n{words}") };
+                        st.write_now = true;
+                        st.error = crate::store::save_json(FORM, &st.form).err();
+                        st.import_source.clear();
+                        st.import_hint = None;
+                        request_destination(ui.ctx(), Destination::Questions);
+                    }
+                }
+                Some(NotAQuestion::Link(url)) => {
+                    ui.add_space(8.0);
+                    ui.add(egui::Label::new(theme::strong("That's a link. D.A.D can't read web pages.").size(14.0)).wrap());
+                    let how = if url.contains("myopenmath.com") {
+                        "Open the question in MyOpenMath's question editor, copy its Common Control box and paste it above, then copy its Question Text box into the second box that appears."
+                    } else {
+                        "If it's a worksheet, save or print it as a PDF and drop the PDF on Convert. If it's MyOpenMath question code, copy the code itself and paste it above."
+                    };
+                    ui.add(egui::Label::new(theme::muted(how).size(13.0)).wrap());
+                    if pageshell::primary(ui, "Open It in Your Browser").clicked() {
+                        ui.ctx().open_url(egui::OpenUrl::new_tab(url));
+                    }
+                }
+                Some(hint @ (NotAQuestion::ControlOnly(_) | NotAQuestion::QtextOnly(_))) => {
+                    ui.add_space(8.0);
+                    let (title, why) = if matches!(hint, NotAQuestion::ControlOnly(_)) {
+                        ("Now paste MyOpenMath's Question Text box", "The code above has no Question Text. In MyOpenMath's editor it is the box under Common Control.")
+                    } else {
+                        ("Now paste MyOpenMath's Common Control box", "The text above is a Question Text box: it shows answer boxes but sets nothing. In MyOpenMath's editor, Common Control is the box above it.")
+                    };
+                    let caption = ui.label(theme::strong(title));
+                    ui.add(egui::Label::new(theme::muted(why).size(13.0)).wrap());
+                    let other = ui.add(egui::TextEdit::multiline(&mut st.import_qtext).desired_width(f32::INFINITY).desired_rows(3))
+                        .labelled_by(caption.id);
+                    let ok = !busy(st) && !st.import_qtext.trim().is_empty();
+                    let send = other.has_focus() && ui.input_mut(|i| i.consume_key(egui::Modifiers::COMMAND, egui::Key::Enter));
+                    if (pageshell::primary_on(ui, "Import into My Questions", ok).clicked() || send) && ok {
+                        import_drafts(st);
+                    }
+                }
+                None => {}
             }
             if let Some(error) = &st.error {
                 ui.add(egui::Label::new(RichText::new(error).color(theme::red())).wrap());
@@ -172,12 +320,110 @@ fn import_questions(ui: &mut Ui, st: &mut State) {
     });
 }
 
+/// A fresh step 1. The question on screen goes to My Questions first (as "Needs review" if it was
+/// not approved), so starting another never throws away what the AI just wrote.
+fn start_new_question(st: &mut State) {
+    save_current(st);
+    // "New" means a blank description; course, topic and question options stay picked.
+    st.form.topic_text.clear();
+    st.step = Step::Describe;
+    st.worksheet_mode = false;
+    st.current = None;
+    st.topic_image = None;
+    st.topic_image_error = None;
+    st.error = None;
+    st.preview_html = None;
+    if st.form.figure.take().is_some() {
+        st.form.line_variant = None;
+        st.error = crate::store::save_json(FORM, &st.form).err();
+    }
+}
+
+/// What a paste that is not a whole question is, so Import can say what to do with it instead of
+/// naming a missing section.
+#[derive(Clone, Debug, PartialEq)]
+enum NotAQuestion {
+    /// A web address: D.A.D can't read MyOpenMath pages, but it can open this one in the browser.
+    Link(String),
+    /// A problem in words: it is a description for step 1.
+    Words(String),
+    /// Code with no Question Text: most often MyOpenMath's Common Control box on its own.
+    ControlOnly(String),
+    /// MyOpenMath's Question Text box on its own (it shows `$answerbox`, but sets nothing).
+    QtextOnly(String),
+}
+
+fn not_a_question(text: &str) -> NotAQuestion {
+    let t = text.trim();
+    // A link anywhere in a short paste is the link ("Here is the question: https://…"), as a mail
+    // app or an address box reads it; code with a link in a comment stays code.
+    let link = t.split_whitespace().map(|w| w.trim_matches(|c: char| matches!(c, '(' | ')' | '<' | '>' | ',' | '"' | '\''))
+        .trim_end_matches('.'))
+        .find(|w| w.starts_with("http://") || w.starts_with("https://") || w.starts_with("www.") || w.contains("myopenmath.com/"));
+    if let Some(w) = link && t.lines().count() <= 3 && !looks_like_question_code(t) {
+        let url = if w.starts_with("http") { w.to_string() } else { format!("https://{w}") };
+        return NotAQuestion::Link(url);
+    }
+    let sets = assigns_a_variable(t);
+    if !sets && t.contains("$answerbox") { return NotAQuestion::QtextOnly(t.to_string()); }
+    if sets || looks_like_question_code(t) { NotAQuestion::ControlOnly(t.to_string()) } else { NotAQuestion::Words(t.to_string()) }
+}
+
+/// A line that sets an IMathAS variable: `$a = …`, `$answer[0] = …`.
+fn assigns_a_variable(text: &str) -> bool {
+    text.lines().any(|line| {
+        let t = line.trim_start();
+        t.strip_prefix('$').is_some_and(|rest| {
+            let name = rest.bytes().take_while(|b| b.is_ascii_alphanumeric() || *b == b'_' || *b == b'[' || *b == b']').count();
+            let after = rest[name..].trim_start();
+            // "$y = 2x + 3$. What is the slope?" is math written with $…$: a `$` that closes it (then
+            // a space, punctuation or the end) is not a variable.
+            let closes = after.char_indices().any(|(i, c)| c == '$' && after[i + 1..].chars().next().is_none_or(|n| n.is_whitespace() || ".,;:!?)".contains(n)));
+            name > 0 && after.starts_with('=') && !after.starts_with("==") && !closes
+        })
+    })
+}
+
+/// The shape of IMathAS code, not just its characters: a math problem in words has `$` in its
+/// prices ("A shirt costs $25"), so a `$` alone is not code. Code assigns a variable (`$a = …`),
+/// calls a macro on a line of its own, or carries D.A.D's section markers.
+fn looks_like_question_code(text: &str) -> bool {
+    // A first line like "$5,000 is invested…" or "$f(x) = 3x$" is a problem in words (a price, or
+    // math written with $…$), not code, though it starts with `$`.
+    let first = text.lines().map(str::trim).find(|l| !l.is_empty()).unwrap_or("");
+    let prose_dollar = first.strip_prefix('$').is_some_and(|rest| rest.starts_with(|c: char| c.is_ascii_digit()) || rest.contains('$'));
+    // "Factor (x^2 - 9)" or "Simplify (x+2)(x-3)" is an instruction in words: IMathAS statements
+    // start with `$`, a lowercase keyword or a lowercase macro written right against its `(`.
+    let prose_call = first.starts_with(|c: char| c.is_ascii_uppercase())
+        || first.split_once('(').is_some_and(|(name, _)| name.ends_with(' ')
+            && !["if", "for", "foreach", "while"].contains(&name.trim()));
+    let looks = crate::mom::format::looks_like_code(text) && !prose_dollar && !prose_call;
+    assigns_a_variable(text) || text.contains("// ===") || text.contains("$answerbox") || text.contains("rand(") || looks
+}
+
+/// MyOpenMath's two editor boxes, pasted apart, as one question.
+fn joined_paste(control: &str, qtext: &str) -> String {
+    format!("// === COMMON CONTROL ===\n{}\n\n// === QUESTION TEXT ===\n{}\n", control.trim(), qtext.trim())
+}
+
 fn import_drafts(st: &mut State) {
+    // A Common Control paste waiting for its Question Text: the two boxes make one question.
+    if !st.import_qtext.trim().is_empty() {
+        match &st.import_hint {
+            Some(NotAQuestion::ControlOnly(control)) => st.import_source = joined_paste(control, &st.import_qtext),
+            Some(NotAQuestion::QtextOnly(qtext)) => st.import_source = joined_paste(&st.import_qtext, qtext),
+            _ => {}
+        }
+    }
+    st.import_hint = None;
     let mut known: std::collections::HashSet<String> = st.library.questions.iter()
         .map(|draft| MomQuestion::parse(&draft.src).emit()).collect();
     let mut errors = Vec::new();
     let mut drafts = Vec::new();
     let mut duplicates = 0;
+    // A chosen file that is half a question: its code moves into the paste box, where the box for
+    // the other half appears, so the message never points at a box that is not there.
+    let mut unfinished: Vec<(String, String)> = Vec::new();
     let paste = PickedFile { name: "Pasted code".into(), bytes: st.import_source.as_bytes().to_vec() };
     for file in st.question_files.iter().chain((!st.import_source.trim().is_empty()).then_some(&paste)) {
         // A "Back Up My Questions" file holds whole records: restore them as they were (approved
@@ -196,7 +442,11 @@ fn import_drafts(st: &mut State) {
             Ok(sources) => for src in sources {
                 let mut q = MomQuestion::parse(&src);
                 if q.qtext.trim().is_empty() {
-                    errors.push(format!("{} has a question with no Question Text section.", file.name));
+                    if std::ptr::eq(file, &paste) {
+                        st.import_hint = Some(not_a_question(&src));
+                    } else {
+                        unfinished.push((file.name.clone(), src));
+                    }
                     continue;
                 }
                 if q.name.trim().is_empty() { q.name = "Imported question".into(); }
@@ -208,6 +458,19 @@ fn import_drafts(st: &mut State) {
             Err(error) => errors.push(format!("{}: {error}", file.name)),
         }
     }
+    let moved = st.import_hint.is_none() && st.import_source.trim().is_empty() && !unfinished.is_empty();
+    if moved {
+        let (name, src) = &unfinished[0];
+        st.import_source = src.clone();
+        st.import_hint = Some(not_a_question(src));
+        // The other chosen files are in (or were duplicates): clear the list so a second press
+        // does not bring them in again, and the half question's box is the one next step.
+        let _ = name;
+        st.question_files.clear();
+    }
+    for (name, _) in unfinished.iter().skip(usize::from(moved)) {
+        errors.push(format!("{name} is half a question (no Question Text). Import it on its own to add the other half."));
+    }
     let count = drafts.len();
     let before = st.library.questions.len();
     st.library.questions.extend(drafts);
@@ -218,10 +481,16 @@ fn import_drafts(st: &mut State) {
     }
     let drafts = if count == 1 { "question" } else { "questions" };
     let repeated = if duplicates == 1 { "duplicate" } else { "duplicates" };
-    st.lib_note = Some(format!("Imported {count} {drafts}. Skipped {duplicates} {repeated}."));
-    if errors.is_empty() {
-        st.question_files.clear();
+    // "Imported 0 questions" beside an explanation only contradicts it.
+    if count > 0 || duplicates > 0 {
+        st.lib_note = Some(if duplicates == 0 { format!("Imported {count} {drafts}.") } else { format!("Imported {count} {drafts}. Skipped {duplicates} {repeated}.") });
+    }
+    // Files that came in leave the list even while a hint about the paste is up; the paste stays
+    // for its next step.
+    if errors.is_empty() { st.question_files.clear(); }
+    if errors.is_empty() && st.import_hint.is_none() {
         st.import_source.clear();
+        st.import_qtext.clear();
     }
     st.error = (!errors.is_empty()).then(|| errors.join("\n"));
 }
@@ -379,6 +648,21 @@ struct State {
     tool_page: Option<Destination>,
     question_files: Vec<PickedFile>,
     import_source: String,
+    /// The key just saved in the AI card, being tried against its AI (named, so a result that comes
+    /// back after the teacher switched AI acts on the AI it was for).
+    key_check: Option<(String, String, Arc<Mutex<Option<Result<(), String>>>>)>,
+    /// What that try found, for which AI: the sentence, and whether it is a problem.
+    key_check_msg: Option<(String, String, bool)>,
+    /// The key field in the AI card shows its text.
+    ai_key_shown: bool,
+    /// Write as soon as step 1 is drawn ("Write a Question From It" on Import).
+    write_now: bool,
+    /// What a dropped photo became, said once beside it.
+    topic_image_note: Option<String>,
+    /// The paste was not a whole question: what it looks like, and so what to do instead.
+    import_hint: Option<NotAQuestion>,
+    /// MyOpenMath's Question Text box, when the paste above was its Common Control box.
+    import_qtext: String,
     worksheet_save_error: Option<String>,
     scroll_to_question: bool,
     form: Form,
@@ -448,6 +732,44 @@ pub fn leave() {
         #[cfg(not(target_arch = "wasm32"))]
         if state.browser.surface().is_some() { state.browser.close(); }
     });
+}
+
+/// Ctrl/Cmd+N on the Questions screen: the same as the New Question command.
+pub fn new_question_shortcut() {
+    ST.with(|state| {
+        let mut st = state.borrow_mut();
+        if !busy(&st) { start_new_question(&mut st); st.tool_page = None; }
+    });
+}
+
+/// Step 1 of a new question is on screen, where a dropped photo is the reference picture (as an
+/// image dropped on a message box attaches to it), not a worksheet to convert.
+/// `reads_pictures`: the AI in use can read a picture (Claude on this computer can't), else a photo
+/// goes on to Convert as before.
+pub fn picture_drop_target(reads_pictures: bool) -> bool {
+    reads_pictures && ST.with(|state| {
+        let st = state.borrow();
+        st.tool_page.is_none() && !st.worksheet_mode && st.step == Step::Describe && !busy(&st)
+    })
+}
+
+/// A photo dropped on step 1 becomes the question's reference picture. False when step 1 is not
+/// on screen or the file is not a picture, so the caller routes it as usual.
+pub fn take_dropped_picture(name: &str, bytes: &[u8], reads_pictures: bool) -> bool {
+    let picture = name.rsplit_once('.').is_some_and(|(_, ext)| ["png", "jpg", "jpeg", "webp"].iter().any(|e| ext.eq_ignore_ascii_case(e)));
+    if !picture || !picture_drop_target(reads_pictures) { return false; }
+    ST.with(|state| {
+        let mut st = state.borrow_mut();
+        match worksheet::image_as_png(bytes) {
+            Ok(png) => {
+                st.topic_image = Some(PickedFile { name: name.into(), bytes: png });
+                st.topic_image_error = None;
+                st.topic_image_note = Some("Added as this question's picture. To turn a worksheet photo into questions, use Convert.".into());
+            }
+            Err(error) => st.topic_image_error = Some(error),
+        }
+    });
+    true
 }
 
 /// Stage a worksheet delivered by the host's open-file handler.
@@ -1174,23 +1496,11 @@ fn steps(ui: &mut Ui, st: &mut State) {
         }
         // A command, not a step: it sits apart from the progress pills, at the row's far end.
         if has_q && !busy(st) && ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+            let shortcut = ui.ctx().format_shortcut(&egui::KeyboardShortcut::new(egui::Modifiers::COMMAND, egui::Key::N));
             crate::kit::tertiary(ui, egui_phosphor::regular::PLUS, "New Question", 36.0)
-                .on_hover_text("Start a new question. Your course and question options stay picked")
+                .on_hover_text(format!("Start a new question ({shortcut}). Your course and question options stay picked"))
         }).inner.clicked() {
-            // The question on screen goes to My Questions first (as "Needs review" if it was not
-            // approved), so starting another never throws away what the AI just wrote.
-            save_current(st);
-            st.step = Step::Describe;
-            st.worksheet_mode = false;
-            st.current = None;
-            st.topic_image = None;
-            st.topic_image_error = None;
-            st.error = None;
-            st.preview_html = None;
-            if st.form.figure.take().is_some() {
-                st.form.line_variant = None;
-                st.error = crate::store::save_json(FORM, &st.form).err();
-            }
+            start_new_question(st);
         }
     });
 }
@@ -1268,7 +1578,12 @@ fn worksheet_form(ui: &mut Ui, ctx: &egui::Context, st: &mut State, cfg: &crate:
             }
             return;
         }
-        if can_pick && pageshell::primary(ui, "Choose worksheet files").clicked() {
+        let choose = can_pick && ui.horizontal_wrapped(|ui| {
+            let r = pageshell::primary(ui, "Choose worksheet files");
+            drop_hint(ui);
+            r
+        }).inner.clicked();
+        if choose {
             if let Some(paths) = crate::platform::pick_files("Math or science worksheets", worksheet::EXTENSIONS) {
                 for path in paths {
                     let name = path.file_name().unwrap_or_default().to_string_lossy().into_owned();
@@ -1515,6 +1830,26 @@ fn ai_card(ui: &mut Ui, st: &mut State, cfg: &crate::ai::AiCfg, chosen: bool) {
     let local = crate::ai::cli::installed();
     #[cfg(target_arch = "wasm32")]
     let local: Vec<&'static str> = Vec::new();
+    // A saved key is tried once: a key the AI turns down is taken back off, so "ready" is not a
+    // promise the first question breaks.
+    if let Some((provider, key, result)) = st.key_check.as_ref().and_then(|(p, k, c)| c.lock().ok().and_then(|mut g| g.take()).map(|r| (p.clone(), k.clone(), r))) {
+        st.key_check = None;
+        let name = plain_ais(&local).into_iter().find(|a| a.0 == provider).map_or(provider.clone(), |a| a.1.to_string());
+        let (msg, bad) = match result {
+            Ok(()) => (format!("✔ {name} accepted the key."), false),
+            Err(e) if e.starts_with("Key rejected") => {
+                let _ = crate::ai::set_key(&provider, None);
+                // Given back, masked (a classroom screen may be projected), with "Show key" beside it:
+                // the teacher can check what was cut off instead of finding the key again.
+                if provider == cfg.provider && st.ai_card_key.is_empty() { st.ai_card_key = key; st.ai_key_shown = false; }
+                (format!("{name} turned that key down, so D.A.D took it off. Check it below (often a letter is missing at the end), or make a new one."), true)
+            }
+            Err(e) => (format!("Key saved. D.A.D couldn't check it just now ({e})"), false),
+        };
+        st.key_check_msg = Some((provider, msg, bad));
+    }
+    // A result belongs to the AI it was for: switching AI clears it.
+    if st.key_check_msg.as_ref().is_some_and(|(p, _, _)| *p != cfg.provider) { st.key_check_msg = None; }
     let ready = ai_ready(cfg);
     let open = st.ai_open || !chosen || !ready;
     pageshell::card(ui, |ui| {
@@ -1533,6 +1868,12 @@ fn ai_card(ui: &mut Ui, st: &mut State, cfg: &crate::ai::AiCfg, chosen: bool) {
                 st.ai_open = true;
             }
         });
+        if st.key_check.as_ref().is_some_and(|(p, _, _)| *p == cfg.provider) {
+            ui.label(theme::muted("Checking the key…").size(12.0));
+        } else if let Some((_, msg, bad)) = &st.key_check_msg {
+            let color = if *bad { theme::red() } else { theme::green() };
+            ui.add(egui::Label::new(RichText::new(msg).color(color).size(12.0)).wrap());
+        }
         if !open { return; }
         ui.add_space(4.0);
         if !ready && cfg.provider == "account" {
@@ -1541,18 +1882,50 @@ fn ai_card(ui: &mut Ui, st: &mut State, cfg: &crate::ai::AiCfg, chosen: bool) {
             ui.add_space(8.0);
         } else if !ready && cfg.uses_key() {
             // The fix for the AI in use, right here: its key, not a trip to Settings.
-            field_label(ui, "Paste its key");
+            let rejected = st.key_check_msg.as_ref().is_some_and(|(_, _, bad)| *bad) && !st.ai_card_key.is_empty();
+            field_label(ui, if rejected { "Check the key" } else { "Paste its key" });
             if let Some(need) = plain_ais(&local).into_iter().find(|a| a.0 == cfg.provider).map(|a| a.2) {
                 ui.add(egui::Label::new(theme::muted(need).size(12.0)).wrap());
             }
             // Stacked: the side column is narrow, and a key row side by side ran past its edge.
-            let r = ui.add(egui::TextEdit::singleline(&mut st.ai_card_key).password(true).margin(egui::Margin::symmetric(10, 8))
+            let r = ui.add(egui::TextEdit::singleline(&mut st.ai_card_key).password(!st.ai_key_shown).margin(egui::Margin::symmetric(10, 8))
                 .desired_width(ui.available_width()).hint_text("paste a key"));
+            // A key is pasted once, not typed from memory: let the teacher see what went in.
+            if !st.ai_card_key.is_empty() && crate::kit::link(ui, if st.ai_key_shown { "Hide key" } else { "Show key" }, false).clicked() {
+                st.ai_key_shown = !st.ai_key_shown;
+            }
             r.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::TextEdit, true, "AI key"));
-            let ok = st.ai_card_key.trim().len() > 10;
-            if ui.add_enabled_ui(ok, |ui| crate::kit::secondary(ui, "Save Key", 36.0)).inner.clicked() && ok {
-                match crate::ai::set_key(&cfg.provider, Some(st.ai_card_key.trim())) {
-                    Ok(()) => { st.ai_card_key.clear(); st.ai_keep = true; st.note = Some("Key saved on this computer.".into()); }
+            // Whatever came with the paste (a "Key:" label, quotes, a line break) is dropped on save;
+            // a key from another site is named before it is saved, not when writing fails.
+            // Named once there is enough to judge, not after the first character.
+            if crate::ai::clean_key(&st.ai_card_key).len() >= 8 && let Some(problem) = crate::ai::key_shape_problem(&cfg.provider, &st.ai_card_key) {
+                ui.add(egui::Label::new(RichText::new(problem).color(theme::red()).size(12.0)).wrap());
+            }
+            let ok = !crate::ai::clean_key(&st.ai_card_key).is_empty();
+            let enter = r.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter));
+            if (ui.add_enabled_ui(ok, |ui| crate::kit::secondary(ui, "Save Key", 36.0)).inner.clicked() || enter) && ok {
+                match crate::ai::set_key(&cfg.provider, Some(&st.ai_card_key)) {
+                    Ok(()) => {
+                        let sent = crate::ai::clean_key(&st.ai_card_key);
+                        st.ai_card_key.clear();
+                        st.ai_keep = true;
+                        st.key_check_msg = None;
+                        let check: Arc<Mutex<Option<Result<(), String>>>> = Default::default();
+                        st.key_check = Some((cfg.provider.clone(), sent, check.clone()));
+                        let (cfg2, ctx2) = (cfg.clone(), ui.ctx().clone());
+                        #[cfg(not(target_arch = "wasm32"))]
+                        std::thread::spawn(move || {
+                            let r = crate::ai::test_connection(&cfg2);
+                            if let Ok(mut g) = check.lock() { *g = Some(r); }
+                            ctx2.request_repaint();
+                        });
+                        #[cfg(target_arch = "wasm32")]
+                        wasm_bindgen_futures::spawn_local(async move {
+                            let r = crate::ai::test_connection_async(&cfg2).await;
+                            if let Ok(mut g) = check.lock() { *g = Some(r); }
+                            ctx2.request_repaint();
+                        });
+                    }
                     Err(error) => st.error = Some(format!("Could not save the key: {error}")),
                 }
             }
@@ -1663,7 +2036,14 @@ fn ai_pick<T: Copy + PartialEq>(ui: &mut Ui, id: &str, all: &[T], label: impl Fn
 fn answer_type_picker(ui: &mut Ui, part: usize, answer: &mut Option<Answer>, codes: bool) {
     let label = move |answer: Answer| {
         let (code, name, _) = answer.details();
-        if codes { format!("{name} ({code})") } else { name.to_string() }
+        if codes { return format!("{name} ({code})"); }
+        // MyOpenMath's own menu name beside the plain one where they differ ("Fill in the blank"
+        // is "String" there), so the word matches what the teacher sees in MyOpenMath's editor.
+        let flat = |t: &str| t.to_ascii_lowercase().chars().filter(char::is_ascii_alphanumeric).collect::<String>();
+        let mom = form::type_menu_label(code);
+        let (a, b) = (flat(name), flat(mom));
+        if mom.is_empty() || answer == Answer::Dropdown || a.contains(&b) || b.contains(&a) { name.to_string() }
+        else { format!("{name} (MyOpenMath: {mom})") }
     };
     let selected = answer.map_or_else(|| AI_CHOOSES.to_string(), label);
     egui::ComboBox::from_id_salt(("mom_answer_type", part))
@@ -1677,7 +2057,7 @@ fn answer_type_picker(ui: &mut Ui, part: usize, answer: &mut Option<Answer>, cod
                 ui.selectable_value(answer, Some(option), label(option)).on_hover_text(option.details().2);
             }
             ui.separator();
-            egui::CollapsingHeader::new(theme::muted("More answer types").size(13.0)).id_salt(("mom_answer_more", part)).show(ui, |ui| {
+            egui::CollapsingHeader::new(theme::muted("More question types").size(13.0)).id_salt(("mom_answer_more", part)).show(ui, |ui| {
                 for option in Answer::ALL.into_iter().filter(|a| !Answer::COMMON.contains(a)) {
                     ui.selectable_value(answer, Some(option), label(option)).on_hover_text(option.details().2);
                 }
@@ -1747,6 +2127,23 @@ fn describe(ui: &mut Ui, ctx: &egui::Context, st: &mut State, cfg: &crate::ai::A
             .margin(egui::Margin::symmetric(12, 8))
             .desired_rows(3).hint_text("For example: Ask students to compare two linear graphs."));
         description.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::TextEdit, true, "Describe the question"));
+        // Enter stays a new line (it is a paragraph box); Ctrl+Enter (⌘Enter on a Mac) sends it, as
+        // in chat and mail apps.
+        let send_key = description.has_focus() && ui.input_mut(|i| i.consume_key(egui::Modifiers::COMMAND, egui::Key::Enter));
+        // Question code pasted here would go to the AI as a description; Import is where it belongs.
+        if matches!(not_a_question(&f.topic_text), NotAQuestion::Link(_)) {
+            ui.add(egui::Label::new(theme::muted("That's a link: the AI can't open web pages. Describe the question in words, or bring a MyOpenMath question in with Import.").size(12.0)).wrap());
+        }
+        let code_here = f.topic_text.trim().len() > 12 && looks_like_question_code(&f.topic_text);
+        if code_here && crate::kit::link(ui, "This looks like MyOpenMath code. Bring it in with Import instead", true).clicked() {
+            let code = std::mem::take(&mut f.topic_text);
+            st.import_source = code;
+            st.import_hint = None;
+            st.tool_page = Some(Destination::Import);
+            request_destination(ui.ctx(), Destination::Import);
+            return;
+        }
+        let f = &mut st.form;
 
         // Course and Topic side by side: two choices that narrow the same thing.
         let pair_w = ((ui.available_width() - 16.0) / 2.0).clamp(140.0, 320.0);
@@ -1790,7 +2187,11 @@ fn describe(ui: &mut Ui, ctx: &egui::Context, st: &mut State, cfg: &crate::ai::A
         };
         // Write, then the optional picture beside it, quieter: attach sits next to send.
         let write = ui.horizontal_wrapped(|ui| {
-            let write = pageshell::primary_on(ui, "Write My Question", missing.is_none() && !working).clicked() && missing.is_none() && !working;
+            let shortcut = ui.ctx().format_shortcut(&egui::KeyboardShortcut::new(egui::Modifiers::COMMAND, egui::Key::Enter));
+            let now = std::mem::take(&mut st.write_now);
+            let write = (pageshell::primary_on(ui, "Write My Question", missing.is_none() && !working)
+                .on_hover_text(format!("Or press {shortcut} in the description")).clicked() || send_key || now)
+                && missing.is_none() && !working;
             ui.add_space(12.0);
             if ui.add_enabled_ui(!working && !picture_blocked, |ui| crate::kit::tertiary(ui, egui_phosphor::regular::IMAGE, "Add a reference picture", 36.0)).inner.clicked() {
                 match crate::platform::pick_question_image() {
@@ -1819,6 +2220,8 @@ fn describe(ui: &mut Ui, ctx: &egui::Context, st: &mut State, cfg: &crate::ai::A
             }
         }
         if let Some(error) = &st.topic_image_error { ui.add(egui::Label::new(error).wrap()); }
+        if st.topic_image.is_none() { st.topic_image_note = None; }
+        if let Some(note) = &st.topic_image_note { ui.add(egui::Label::new(theme::muted(note).size(12.0)).wrap()); }
         if write {
             st.current = None;
             st.request = st.form.request();
@@ -1885,7 +2288,7 @@ fn more_options(ui: &mut Ui, st: &mut State) {
     let f = &mut st.form;
     part_count_picker(ui, f);
     let per_part = f.part_range.map_or(f.part_count, |[_, max]| Some(max)).is_some_and(|n| n > 1);
-    field_label(ui, if per_part { "MyOpenMath answer type for each part" } else { "MyOpenMath answer type" });
+    field_label(ui, if per_part { "Question type for each part" } else { "Question type" });
     for i in 0..f.answers.len() {
         ui.horizontal_wrapped(|ui| {
             if per_part {
@@ -1901,7 +2304,7 @@ fn more_options(ui: &mut Ui, st: &mut State) {
     if f.answers.iter().any(Option::is_some) {
         ui.checkbox(&mut f.prefer_answer_types, "Let AI choose a different type if it fits better");
     }
-    if advanced { egui::CollapsingHeader::new("Compare MyOpenMath answer types")
+    if advanced { egui::CollapsingHeader::new("Compare MyOpenMath question types")
         .id_salt("mom_answer_types_help")
         .show(ui, |ui| {
             for answer in Answer::ALL {
@@ -1997,18 +2400,26 @@ fn part_count_picker(ui: &mut Ui, form: &mut Form) {
         form.part_count = (mode == 1).then_some(count);
         form.part_range = (mode == 2).then_some([count, (count + 1).min(MAX_PARTS)]);
     }
+    // Dropdowns, like every other count on this form: a drag-number gave no sign it could be typed.
     if let Some([min, max]) = &mut form.part_range {
         ui.horizontal(|ui| {
-            let from = ui.label("Minimum");
-            ui.add(egui::DragValue::new(min).range(1..=*max)).labelled_by(from.id);
-            let to = ui.label("Maximum");
-            ui.add(egui::DragValue::new(max).range(*min..=MAX_PARTS)).labelled_by(to.id);
+            let (lo, hi) = (*min, *max);
+            count_dropdown(ui, "mom_parts_min", "Minimum", min, 1..=hi);
+            ui.add_space(12.0);
+            count_dropdown(ui, "mom_parts_max", "Maximum", max, lo..=MAX_PARTS);
         });
     } else if let Some(count) = &mut form.part_count {
-        let label = ui.label("Parts");
-        ui.add(egui::DragValue::new(count).range(1..=MAX_PARTS)).labelled_by(label.id);
+        ui.horizontal(|ui| count_dropdown(ui, "mom_parts", "Parts", count, 1..=MAX_PARTS));
     }
     form.fix();
+}
+
+fn count_dropdown(ui: &mut Ui, id: &str, name: &str, value: &mut usize, range: std::ops::RangeInclusive<usize>) {
+    let label = ui.label(name);
+    let words = |n: usize| if n == 1 { "1 part".to_string() } else { format!("{n} parts") };
+    egui::ComboBox::from_id_salt(id).selected_text(words(*value)).width(110.0).show_ui(ui, |ui| {
+        for n in range { ui.selectable_value(value, n, words(n)); }
+    }).response.labelled_by(label.id);
 }
 
 fn line_question_form(
@@ -2349,19 +2760,15 @@ fn question_follow_ups(ui: &mut Ui, ctx: &egui::Context, st: &mut State, cfg: &c
                 current.follow_up_draft = if on { String::new() } else { change.label().to_string() };
             }
         };
+        let mut rewrite = false;
         ui.add_enabled_ui(!working, |ui| {
             ui.horizontal_wrapped(|ui| {
                 for change in [Change::Easier, Change::Harder, Change::Numbers] { chip(ui, change, current); }
                 ui.add_space(8.0);
                 let can_send = !current.follow_up_draft.trim().is_empty();
-                if ui.add_enabled_ui(can_send, |ui| pageshell::outline(ui, "Rewrite It")).inner.clicked() && can_send {
-                    let message = std::mem::take(&mut current.follow_up_draft).trim().to_string();
-                    // A change's own text sends that change's full instruction.
-                    let change = Change::ALL.into_iter().find(|c| *c != Change::Other && c.label() == message).unwrap_or(Change::Other);
-                    let request = form::change_request(&follow_up_context(current), &current.q.emit(), change, &message);
-                    current.follow_up_failed = false;
-                    send = Some((request, message));
-                }
+                let shortcut = ui.ctx().format_shortcut(&egui::KeyboardShortcut::new(egui::Modifiers::COMMAND, egui::Key::Enter));
+                rewrite = ui.add_enabled_ui(can_send, |ui| pageshell::outline(ui, "Rewrite It")).inner
+                    .on_hover_text(format!("Or press {shortcut} in the box below")).clicked() && can_send;
             });
             egui::CollapsingHeader::new(theme::muted("More changes").size(13.0)).id_salt("mom_more_changes").show(ui, |ui| {
                 ui.horizontal_wrapped(|ui| {
@@ -2370,8 +2777,19 @@ fn question_follow_ups(ui: &mut Ui, ctx: &egui::Context, st: &mut State, cfg: &c
             });
             let input = ui.add(egui::TextEdit::multiline(&mut current.follow_up_draft)
                 .desired_width(f32::INFINITY).desired_rows(2)
-                .hint_text("Or type a change, then press Rewrite It. For example: “Keep the graph and add a second part.”"));
+                .hint_text(format!("Or type a change, then press Rewrite It ({}). For example: “Keep the graph and add a second part.”",
+                    ui.ctx().format_shortcut(&egui::KeyboardShortcut::new(egui::Modifiers::COMMAND, egui::Key::Enter)))));
             input.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::TextEdit, !working, "Question follow-up"));
+            rewrite |= input.has_focus() && !current.follow_up_draft.trim().is_empty()
+                && ui.input_mut(|i| i.consume_key(egui::Modifiers::COMMAND, egui::Key::Enter));
+            if rewrite {
+                let message = std::mem::take(&mut current.follow_up_draft).trim().to_string();
+                // A change's own text sends that change's full instruction.
+                let change = Change::ALL.into_iter().find(|c| *c != Change::Other && c.label() == message).unwrap_or(Change::Other);
+                let request = form::change_request(&follow_up_context(current), &current.q.emit(), change, &message);
+                current.follow_up_failed = false;
+                send = Some((request, message));
+            }
         });
         if !current.follow_ups.is_empty() {
             ui.add_space(8.0);
@@ -2997,6 +3415,60 @@ mod tests {
     use super::*;
 
     #[test]
+    fn question_code_copied_from_an_ai_chat_imports() {
+        let reply = "Here is your question:\n```\n// === NAME - DESCRIPTION: Add one ===\n// === SET QUESTION TYPE TO: number ===\n\n// === COMMON CONTROL ===\n$a = rand(2,9)\n$answer = $a + 1\n\n// === QUESTION TEXT ===\nWhat is `$a + 1`? $answerbox\n```\nLet me know if you want changes.";
+        let file = PickedFile { name: "Pasted code".into(), bytes: reply.as_bytes().to_vec() };
+        let q = MomQuestion::parse(&imported_sources(&file).unwrap()[0]);
+        assert_eq!(q.name, "Add one");
+        assert!(q.qtext.contains("$answerbox") && !q.qtext.contains("```") && !q.qtext.contains("Let me know"), "{q:?}");
+        // A fenced block with no section markers is still the code, not the sentence before it.
+        assert_eq!(unwrap_reply("Here is the code:\n```php\n$a = rand(2,9)\n$answer = $a + 1\n```\nEnjoy!"), "$a = rand(2,9)\n$answer = $a + 1");
+        assert_eq!(unwrap_reply("Here:\n```\n$a = 1"), "$a = 1", "an unclosed fence runs to the end");
+        let two = "Common Control:\n```\n$a = rand(2,9)\n$answer = $a + 1\n```\nQuestion Text:\n```\nWhat is `$a + 1`? $answerbox\n```";
+        let q = MomQuestion::parse(&unwrap_reply(two));
+        assert!(q.control.contains("rand(2,9)") && q.qtext.contains("$answerbox"), "{q:?}");
+        // Both boxes copied as plain text: split where the code ends.
+        let q = MomQuestion::parse(&unwrap_reply("$a = rand(2,9)\n$answer = $a + 1\nWhat is `$a + 1`? $answerbox"));
+        assert!(q.control.contains("$answer = $a + 1") && q.qtext.starts_with("What is"), "{q:?}");
+        // Or at a heading.
+        let q = MomQuestion::parse(&unwrap_reply("// Common Control\n$a = rand(2,9)\n// Question Text\nWhat is $a? $answerbox"));
+        assert!(q.control.contains("rand(2,9)") && q.qtext.contains("$answerbox") && !q.control.contains("Common Control"), "{q:?}");
+        // Two blocks that are not the two boxes: the first one only.
+        assert_eq!(unwrap_reply("V1:\n```\n$a = 1\n```\nV2:\n```\n$a = 2\n```"), "$a = 1");
+    }
+
+    #[test]
+    fn a_paste_that_is_not_a_question_says_what_it_is() {
+        assert_eq!(not_a_question("https://www.myopenmath.com/course/moddataset.php?cid=1&id=12345"),
+            NotAQuestion::Link("https://www.myopenmath.com/course/moddataset.php?cid=1&id=12345".into()));
+        assert!(matches!(not_a_question("A shirt costs $25 and is 20% off. What is the sale price?"), NotAQuestion::Words(_)));
+        assert!(matches!(not_a_question("What is `$a + 1`? $answerbox"), NotAQuestion::QtextOnly(_)));
+        assert!(matches!(not_a_question("$5,000 is invested at 4% interest. How much is there after 3 years?"), NotAQuestion::Words(_)));
+        assert!(matches!(not_a_question("$f(x) = 3x + 2$. Find f(4)."), NotAQuestion::Words(_)));
+        assert!(matches!(not_a_question("$y = 2x + 3$. What is the slope?"), NotAQuestion::Words(_)));
+        for words in ["Factor (x^2 - 9)", "Simplify (x+2)(x-3)", "Evaluate (2/3) + (1/4)"] {
+            assert!(matches!(not_a_question(words), NotAQuestion::Words(_)), "{words}");
+        }
+        assert!(matches!(not_a_question("loadlibrary(\"stats\")\n$a = 1"), NotAQuestion::ControlOnly(_)));
+        assert!(looks_like_question_code("if ($a > 1) {\n  $b = 2\n}"));
+        assert_eq!(not_a_question("Find the slope of the line through (1, 2) and (3, 8)."),
+            NotAQuestion::Words("Find the slope of the line through (1, 2) and (3, 8).".into()));
+        assert!(matches!(not_a_question("$a = rand(2,9)\n$answer = $a + 1"), NotAQuestion::ControlOnly(_)));
+    }
+
+    #[test]
+    fn common_control_and_question_text_pasted_apart_import_as_one_question() {
+        // The first press finds no Question Text and asks for it; nothing is saved yet.
+        let mut st = State::default();
+        st.import_source = "$a = rand(2,9)\n$answer = $a + 1".into();
+        import_drafts(&mut st);
+        assert!(matches!(st.import_hint, Some(NotAQuestion::ControlOnly(_))));
+        assert!(st.lib_note.is_none() && st.library.questions.is_empty(), "no 'Imported 0' beside the hint");
+        let q = MomQuestion::parse(&joined_paste("$a = rand(2,9)\n$answer = $a + 1", "What is `$a + 1`? $answerbox"));
+        assert!(q.control.contains("rand(2,9)") && q.qtext.contains("$answerbox"));
+    }
+
+    #[test]
     fn a_backup_comes_back_approved_and_a_share_package_does_not_count_as_one() {
         let backup = Library { questions: vec![Saved { id: "a".into(), request: "Slope".into(), src: "// x".into(), passed: true, reviewed: true, saved_at: 1, ..Default::default() }], worksheet: None };
         let file = PickedFile { name: "dad-my-questions.json".into(), bytes: serde_json::to_vec(&backup).unwrap() };
@@ -3443,10 +3915,14 @@ mod autoadd {
             ui.horizontal(|ui| {
                 let r = ui.add(egui::TextEdit::singleline(&mut p.user).desired_width(180.0).hint_text("Username"));
                 r.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::TextEdit, true, "MyOpenMath username"));
+                // Enter in the username goes on to the password, as sign-in forms do.
+                let next = r.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter));
                 let r = ui.add(egui::TextEdit::singleline(&mut p.pass).password(true).desired_width(180.0).hint_text("Password"));
                 r.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::TextEdit, true, "MyOpenMath password"));
+                if next { r.request_focus(); }
+                let enter = r.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter));
                 let ok = !p.user.trim().is_empty() && !p.pass.is_empty();
-                if pageshell::primary_on(ui, "Save Login", ok).clicked() && ok {
+                if (pageshell::primary_on(ui, "Save Login", ok).clicked() || enter) && ok {
                     let r = poster::store_login(Some((p.user.trim(), &p.pass)));
                     p.pass.clear();
                     p.has_login = Some(r.is_ok());

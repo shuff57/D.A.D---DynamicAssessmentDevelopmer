@@ -678,6 +678,11 @@ pub fn open_import_modal(ctx: &egui::Context, bank_id: &Id) {
     });
 }
 
+/// The resolve-images dialog is open; it takes dropped originals itself.
+pub fn resolve_open() -> bool {
+    RESOLVE.with(|r| r.borrow().is_some())
+}
+
 pub fn import_modal_open(ctx: &egui::Context) -> bool {
     ctx.data(|d| d.get_temp::<Option<Id>>(modal_key())).flatten().is_some()
 }
@@ -1187,12 +1192,19 @@ fn page(app: &mut crate::App, ui: &mut egui::Ui, ctx: &egui::Context, st: &mut S
         };
         ui.allocate_ui_with_layout(Vec2::new(w, 0.0), Layout::top_down(Align::Min), |ui| {
             ui.set_max_width(w);
+            // This page fills exam question banks. The dock's Import is the one for MyOpenMath
+            // question code: name this one for its own job and point there, so "Import" is not two
+            // pages that promise different things.
             kit::page_header(
                 ui,
-                &["Home", "Import"],
-                "Import questions",
-                Some("One place for everything: pasted text, files, spreadsheets or a photo of a worksheet. We work out the format for you."),
+                &["Home", "Import to a bank"],
+                "Import into a question bank",
+                Some("For exams and question banks: pasted text, files, spreadsheets or a photo of a worksheet. We work out the format for you."),
             );
+            if kit::link(ui, "MyOpenMath question code has its own page: Import MyOpenMath questions", true).clicked() {
+                crate::momui::request_destination(ui.ctx(), crate::momui::Destination::Import);
+                app.screen = crate::Screen::Mom;
+            }
             // Spaced so the history heading and its first line sit in the first view at 1280x800
             // and at 760 wide while nothing is staged.
             let empty = st.sources.is_empty();
