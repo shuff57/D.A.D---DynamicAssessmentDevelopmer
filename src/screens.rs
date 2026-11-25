@@ -1578,7 +1578,7 @@ impl crate::App {
         // Home to go back to). What is saved reads as one subtitle line, as Banks and Exams give
         // theirs, and a count that is zero is left out (three cards of "0" were the first thing
         // the eye met, and "0 questions" beside "1 bank" read as something missing).
-        let counts: Vec<String> = [(n_banks, "bank", "banks"), (n_exams, "exam", "exams"), (n_q, "question", "questions")]
+        let counts: Vec<String> = [(n_exams, "exam", "exams"), (n_banks, "bank", "banks"), (n_q, "question", "questions")]
             .into_iter()
             .filter(|(n, _, _)| *n > 0)
             .map(|(n, one, many)| format!("{n} {}", if n == 1 { one } else { many }))
@@ -1597,11 +1597,14 @@ impl crate::App {
         let grid_gap = kit::GUTTER;
         let avail = ui.available_width();
         let stacked = avail < 620.0;
-        let tiles: [(NavIcon, &str, &str, bool); 3] = [
-            (NavIcon::Plus, "New exam", "Start from a blank page", !fresh),
-            (NavIcon::Banks, "New bank", "A shelf for questions", fresh),
-            (NavIcon::Import, "Import to a bank", "Anything: text, files, photos", false),
-        ];
+        // The filled tile comes first in both states: a first bank on an empty store (the card
+        // below says to start there), a new exam once there is work. Each tile keeps its action
+        // index (0 exam, 1 bank, 2 import) whatever its place.
+        let exam = (0, NavIcon::Plus, "New exam", "Start from a blank page", !fresh);
+        let bank = (1, NavIcon::Banks, "New bank", "A shelf for questions", fresh);
+        // Named for what it reads, so it doesn't sound like the dock's Import (question code).
+        let import = (2, NavIcon::Import, "Import to a bank", "Spreadsheets, quiz exports, photos", false);
+        let tiles: [(usize, NavIcon, &str, &str, bool); 3] = if fresh { [bank, exam, import] } else { [exam, bank, import] };
         let mut tile_hit: Option<usize> = None;
         // A narrow window keeps the three actions on one row of equal compact tiles, so the
         // recent work still starts near the top instead of under three full-width slabs.
@@ -1611,9 +1614,9 @@ impl crate::App {
             ui.horizontal(|ui| {
                 ui.spacing_mut().item_spacing.x = gap;
                 for i in range {
-                    let (icon, title, sub, pri) = tiles[i];
+                    let (action, icon, title, sub, pri) = tiles[i];
                     if home_tile(ui, widths[i], icon, title, sub, pri, stacked) {
-                        tile_hit = Some(i);
+                        tile_hit = Some(action);
                     }
                 }
             });
@@ -1644,7 +1647,7 @@ impl crate::App {
                             theme::text(
                                 "A bank is a bag of questions: reuse the same questions in as \
                                  many exams as you like. Write them yourself, or hand a PDF, a \
-                                 scan or screenshots to the built-in AI and it comes back as a bank.",
+                                 scan or screenshots to your AI and it comes back as a bank.",
                             )
                             .size(13.0),
                         )
@@ -3225,7 +3228,7 @@ fn exam_card_text_x(w: f32) -> (f32, f32) {
 }
 
 /// "Edited 2 hours ago", "Edited yesterday", "Edited Oct 9".
-fn edited_label(secs: i64) -> String {
+pub(crate) fn edited_label(secs: i64) -> String {
     let r = rel_time(secs);
     let r = if MONTHS.iter().any(|m| r.starts_with(m)) || r.chars().next().is_some_and(|c| c.is_ascii_digit()) {
         r

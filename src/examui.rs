@@ -867,9 +867,10 @@ fn exams_actions_w(ui: &egui::Ui) -> f32 {
     g.size().x + 2.0 * 18.0 + 8.0 + EXAMS_ACT_H
 }
 
-/// A card's footer date: "Edited <date>", "Archived · " first for an archived exam.
+/// A card's footer date: "Edited 2 hours ago" as Home and Banks say it, "Archived · " first for an
+/// archived exam.
 fn exams_when(row: &ExamRow) -> String {
-    format!("{}Edited {}", if row.archived { "Archived · " } else { "" }, bankui::fmt_date(row.modified))
+    format!("{}{}", if row.archived { "Archived · " } else { "" }, crate::screens::edited_label(row.modified))
 }
 
 /// The card's main action: the house primary (filled accent, on-accent label) at card size, so it
