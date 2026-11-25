@@ -1381,7 +1381,11 @@ fn start_preview(st: &mut State, ctx: &egui::Context) {
     let name = if c.q.name.trim().is_empty() { "Practice question".to_string() } else { c.q.name.clone() };
     st.preview_html = None;
     st.preview_for = src.clone();
+    // Drawn on its own as Try it opens, not at the teacher's press: what the last job said stays
+    // (such as "Saved as a new question" after revising a published one).
+    let (note, lib_note) = (st.note.take(), st.lib_note.take());
     let job = start(st, "Drawing the preview");
+    (st.note, st.lib_note) = (note, lib_note);
     let (engine, ctx) = (st.engine.clone(), ctx.clone());
     run_bg(async move {
         // The page's own Check Answers / New Version calls go to the same engine: "bundled" makes the
