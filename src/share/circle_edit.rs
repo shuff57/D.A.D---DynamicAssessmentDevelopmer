@@ -2870,8 +2870,8 @@ impl CircleEditModel {
                         p.retry = true;
                         p.retry_at = wait;
                         match metric.as_deref() {
-                            Some("circle_rollbacks") => p.message = "You have restored as many older versions today as verSHion allows. Try again tomorrow.".into(),
-                            Some("circle_commits") => p.message = "You have sent as many versions to circles today as verSHion allows. Your changes are still on this device. Try again tomorrow.".into(),
+                            Some("circle_rollbacks") => p.message = "You have restored as many older versions today as D.A.D allows. Try again tomorrow.".into(),
+                            Some("circle_commits") => p.message = "You have sent as many versions to circles today as D.A.D allows. Your changes are still on this device. Try again tomorrow.".into(),
                             // (round 17, critic 96 minor 3) reading the circle's banks: the circle's limit, when it resets, and
                             // no Try again (it would meet the same limit)
                             Some("item_reads") => {
@@ -2888,7 +2888,7 @@ impl CircleEditModel {
                     }
                     RefusalKind::NotFound => p.message = "That circle or bank is not available to you any more. It may have been closed, removed or hidden, or you may have left the circle.".into(),
                     RefusalKind::ModerationState { message } => {
-                        p.message = message.as_deref().map(api::plain).filter(|m| !m.is_empty()).unwrap_or_else(|| "verSHion does not allow that in this circle right now.".into());
+                        p.message = message.as_deref().map(api::plain).filter(|m| !m.is_empty()).unwrap_or_else(|| "D.A.D does not allow that in this circle right now.".into());
                     }
                     RefusalKind::InvalidRequest { field } => {
                         p.message = match field.as_deref() {
@@ -2899,12 +2899,12 @@ impl CircleEditModel {
                             Some("merge_token" | "merged_from") => "What you got is out of date. Get latest again, then send.".into(),
                             Some("commit_id") => "That send could not be identified. Start it again.".into(),
                             Some("license") => "Choose a licence for this bank.".into(),
-                            Some(f) => format!("verSHion did not accept the {}. Nothing was changed.", f.replace('_', " ")),
-                            None => "verSHion did not accept that. Nothing was changed.".into(),
+                            Some(f) => format!("D.A.D did not accept the {}. Nothing was changed.", f.replace('_', " ")),
+                            None => "D.A.D did not accept that. Nothing was changed.".into(),
                         }
                     }
                     RefusalKind::Other if r.detail.code == "pool_migrating" => {
-                        p.message = "verSHion's server is being upgraded. Try again in a few minutes.".into();
+                        p.message = "D.A.D's server is being upgraded. Try again in a few minutes.".into();
                         p.retry = true;
                         p.retry_at = wait;
                     }
@@ -3021,7 +3021,7 @@ impl CircleEditModel {
                 }
                 continue;
             }
-            let p = Problem { message: "verSHion's server did not answer. Nothing was changed. Try again.".into(), retry: true, retry_at: None, account: false };
+            let p = Problem { message: "D.A.D's server did not answer. Nothing was changed. Try again.".into(), retry: true, retry_at: None, account: false };
             self.fail_kind(k, p);
         }
     }
@@ -3275,7 +3275,7 @@ impl CircleEditModel {
         if !self.launch(Work::Licence { bid })
             && let EditView::Send(v) = &mut self.view
         {
-            v.licence = LicenceState::Failed(Problem { message: "Not signed in. Open the Account window and sign in.".into(), retry: true, retry_at: None, account: true });
+            v.licence = LicenceState::Failed(Problem { message: "Not signed in. Open Settings, then D.A.D account, and sign in.".into(), retry: true, retry_at: None, account: true });
         }
     }
 
@@ -3316,7 +3316,7 @@ impl CircleEditModel {
                     }
                     (None, Some(link)) => match link.licence() {
                         Some(l) => LicenceState::Known(l),
-                        None => LicenceState::Failed(Problem { message: "This bank's licence is not known on this device and verSHion's server did not say. Try again.".into(), retry: true, retry_at: None, account: false }),
+                        None => LicenceState::Failed(Problem { message: "This bank's licence is not known on this device and D.A.D's server did not say. Try again.".into(), retry: true, retry_at: None, account: false }),
                     },
                     _ => LicenceState::Failed(Problem { message: "This bank is no longer linked to the circle.".into(), retry: false, retry_at: None, account: false }),
                 }
@@ -3854,7 +3854,7 @@ impl CircleEditModel {
         if self.launch(Work::Send { cid, bid, req: Box::new(req), fetch }) {
             self.inflight = Some(Inflight { link, bank, pictures: shown, image_ok, dropped, asked, perm, retry, base, partial: composed, held_back });
         } else if let EditView::Send(v) = &mut self.view {
-            v.stage = SendStage::Failed(Problem { message: "Not signed in. Open the Account window and sign in.".into(), retry: true, retry_at: None, account: true });
+            v.stage = SendStage::Failed(Problem { message: "Not signed in. Open Settings, then D.A.D account, and sign in.".into(), retry: true, retry_at: None, account: true });
         }
     }
 
@@ -4338,7 +4338,7 @@ impl CircleEditModel {
         if !self.launch(w)
             && let EditView::Merge(m) = &mut self.view
         {
-            m.phase = MergePhase::Failed(Problem { message: "Not signed in. Open the Account window and sign in.".into(), retry: true, retry_at: None, account: true });
+            m.phase = MergePhase::Failed(Problem { message: "Not signed in. Open Settings, then D.A.D account, and sign in.".into(), retry: true, retry_at: None, account: true });
         }
         true
     }
@@ -5027,7 +5027,7 @@ impl CircleEditModel {
             && let EditView::History(h) = &mut self.view
         {
             h.loading_more = false;
-            h.problem = Some(Problem { message: "Not signed in. Open the Account window and sign in.".into(), retry: true, retry_at: None, account: true });
+            h.problem = Some(Problem { message: "Not signed in. Open Settings, then D.A.D account, and sign in.".into(), retry: true, retry_at: None, account: true });
         }
     }
 
@@ -5118,7 +5118,7 @@ impl CircleEditModel {
         if !self.launch(Work::Version { cid, bid, n })
             && let EditView::Version(v) = &mut self.view
         {
-            v.load = VersionLoad::Failed(Problem { message: "Not signed in. Open the Account window and sign in.".into(), retry: true, retry_at: None, account: true });
+            v.load = VersionLoad::Failed(Problem { message: "Not signed in. Open Settings, then D.A.D account, and sign in.".into(), retry: true, retry_at: None, account: true });
         }
     }
 
@@ -5214,7 +5214,7 @@ impl CircleEditModel {
             && let EditView::History(h) = &mut self.view
             && let Some(r) = &mut h.restore
         {
-            r.stage = RestoreStage::Failed(Problem { message: "Not signed in. Open the Account window and sign in.".into(), retry: true, retry_at: None, account: true });
+            r.stage = RestoreStage::Failed(Problem { message: "Not signed in. Open Settings, then D.A.D account, and sign in.".into(), retry: true, retry_at: None, account: true });
         }
     }
 
@@ -5415,7 +5415,7 @@ impl CircleEditModel {
             && let EditView::History(h) = &mut self.view
             && let Some(t) = &mut h.trim
         {
-            t.stage = TrimStage::Failed(Problem { message: "Not signed in. Open the Account window and sign in.".into(), retry: true, retry_at: None, account: true });
+            t.stage = TrimStage::Failed(Problem { message: "Not signed in. Open Settings, then D.A.D account, and sign in.".into(), retry: true, retry_at: None, account: true });
         }
     }
 
@@ -5809,9 +5809,9 @@ fn hidden_lines(held: bool, withheld: bool, can_fix: bool) -> Vec<String> {
     let mut out = Vec::new();
     if withheld {
         out.push(if can_fix {
-            "This version is held back while an administrator reviews it: something in it matched what verSHion checks for, so nobody can open it until an administrator releases it. Change the questions that may be the cause and send a clean version.".to_string()
+            "This version is held back while an administrator reviews it: something in it matched what D.A.D checks for, so nobody can open it until an administrator releases it. Change the questions that may be the cause and send a clean version.".to_string()
         } else {
-            "This version is held back while an administrator reviews it: something in it matched what verSHion checks for, so nobody can open it until an administrator releases it. Only the bank's author or the circle's owner can send a clean version. Ask one of them.".to_string()
+            "This version is held back while an administrator reviews it: something in it matched what D.A.D checks for, so nobody can open it until an administrator releases it. Only the bank's author or the circle's owner can send a clean version. Ask one of them.".to_string()
         });
     }
     if held {
@@ -5831,7 +5831,7 @@ fn unclear_why(e: &PoolError) -> Option<String> {
     match e {
         PoolError::Api(ApiError::Offline(why)) => Some(why.trim().to_string()),
         PoolError::Api(ApiError::BadReply(_) | ApiError::TooLarge(_)) => Some("The circle's answer could not be read.".into()),
-        PoolError::Refused(r) if matches!(r.detail.status, 500 | 502 | 504) && matches!(r.kind, RefusalKind::Other) => Some("verSHion's server had a problem on its side.".into()),
+        PoolError::Refused(r) if matches!(r.detail.status, 500 | 502 | 504) && matches!(r.kind, RefusalKind::Other) => Some("D.A.D's server had a problem on its side.".into()),
         _ => None,
     }
 }
@@ -5966,7 +5966,7 @@ pub fn restore_lines(version: u64, to: u64, held: bool, withheld: bool, can_fix:
         // A restore sends nothing from this computer: "take it out and send again" would point at the
         // wrong questions, so the advice names what a restore can do instead.
         if withheld && can_fix {
-            out.push(format!("It is held back while an administrator reviews it: something in version {to} matched what verSHion checks for, so nobody can open the new version until an administrator releases it. To give the circle a clean newest version, restore a different version, or send a clean one from the bank in My Banks."));
+            out.push(format!("It is held back while an administrator reviews it: something in version {to} matched what D.A.D checks for, so nobody can open the new version until an administrator releases it. To give the circle a clean newest version, restore a different version, or send a clean one from the bank in My Banks."));
             out.extend(hidden_lines(held, false, can_fix));
             return out;
         }

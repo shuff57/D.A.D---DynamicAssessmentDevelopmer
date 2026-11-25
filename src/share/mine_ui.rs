@@ -243,7 +243,7 @@ fn gate_page(ui: &mut Ui, m: &mut MineModel) {
         }
         Gate::NotSetUp => para(ui, crate::share::NOT_SET_UP),
         Gate::NoServer => {
-            para(ui, "No pool server is set up yet. Open the Account window to enter one.");
+            para(ui, "No pool server is set up yet. Open Settings, then D.A.D account, to enter one.");
             open_account = kit::primary_button(ui, "Open account...").clicked();
         }
         Gate::SignedOut => {
@@ -253,7 +253,7 @@ fn gate_page(ui: &mut Ui, m: &mut MineModel) {
         }
         Gate::Unreachable => {
             body(ui, "Your sign-in could not be checked. You may be offline.");
-            para(ui, "Open the Account window to try again. You can still use everything else in verSHion.");
+            para(ui, "Open Settings, then D.A.D account, to try again. You can still use everything else in D.A.D.");
             open_account = kit::primary_button(ui, "Open account...").clicked();
         }
         Gate::NotApproved(status) => {
@@ -540,7 +540,7 @@ fn counter_panel(ui: &mut Ui, m: &mut MineModel) {
 
 fn counter_sent(ui: &mut Ui, m: &mut MineModel, ack: &super::pool::CounterNoticeAck) {
     heading(ui, "Counter-notice sent");
-    body(ui, "It was passed on to the person who complained. verSHion did not keep what you typed.");
+    body(ui, "It was passed on to the person who complained. D.A.D did not keep what you typed.");
     if ack.restore_not_before > 0 {
         para(
             ui,
@@ -610,7 +610,7 @@ pub(super) fn settings_body(ui: &mut Ui, m: &mut MineModel, legal: bool) {
         }
         ExportState::Saved { place, parts } => {
             body(ui, &format!("Saved to {}{}.", api::plain(&place), if parts > 0 { format!(", with {parts} more file(s) beside it") } else { String::new() }));
-            para(ui, "The file holds personal information and your answer keys. Keep it somewhere private. verSHion did not keep a copy.");
+            para(ui, "The file holds personal information and your answer keys. Keep it somewhere private. D.A.D did not keep a copy.");
             if kit::ghost_button(ui, "Download again").clicked() {
                 m.start_export();
             }

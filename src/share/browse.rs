@@ -1663,7 +1663,7 @@ impl BrowseModel {
             return Some(why);
         }
         if u.record.base.is_empty() {
-            return Some("This bank was imported before verSHion kept a copy of what it imported (or the copy was too big to keep), so it can not tell your changes from the pool's. Add the new version as a new bank instead.".into());
+            return Some("This bank was imported before D.A.D kept a copy of what it imported (or the copy was too big to keep), so it can not tell your changes from the pool's. Add the new version as a new bank instead.".into());
         }
         if u.changes.as_ref().is_some_and(|c| c.bank_missing) {
             return Some(format!("The bank \"{}\" is not there any more, so there is nothing to merge into. Add the new version as a new bank instead.", text::shown(&u.record.bank_name)));

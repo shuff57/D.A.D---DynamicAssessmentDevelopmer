@@ -188,8 +188,8 @@ pub struct PurgeEntry {
 }
 
 /// Shown instead of every account page by a release build made without `VERSHION_POOL_URL`.
-pub const NOT_SET_UP: &str = "Sharing is not set up in this build of verSHion. Everything else works as usual. (The \
-     person who builds verSHion for your school sets the pool server when building it.)";
+pub const NOT_SET_UP: &str = "Sharing is not set up in this build of D.A.D. Everything else works as usual. (The \
+     person who builds D.A.D for your school sets the pool server when building it.)";
 
 pub const SETTINGS_DOC: &str = "share.json";
 

@@ -294,7 +294,7 @@ fn the_strip_says_every_state_of_the_table() {
     assert_eq!((v.line.as_str(), v.buttons.clone()), ("Couldn't check the circle just now. Your bank works as usual.", vec![TryAgain]));
     // Put back from a safety copy.
     let v = strip_view(&input(&l, &status(0, 0, true, true)));
-    assert_eq!((v.line.as_str(), v.buttons.clone()), ("This bank was put back from a safety copy, so verSHion can't tell what you changed since version 1.", vec![GetLatest, TreatInStep, Unlink]));
+    assert_eq!((v.line.as_str(), v.buttons.clone()), ("This bank was put back from a safety copy, so D.A.D can't tell what you changed since version 1.", vec![GetLatest, TreatInStep, Unlink]));
     assert!(v.warn);
     // Held back for review.
     let mut held = l.clone();

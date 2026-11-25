@@ -714,7 +714,7 @@ fn c98_m2_a_save_failure_says_her_edits_are_not_saved_and_what_to_do() {
     let denied = t::banks_not_saved("Permission denied (os error 13)");
     assert!(denied.contains("your own edits aren't saved either") && denied.contains("press Try again"), "{denied}");
     let other = t::banks_not_saved("something else");
-    assert!(other.contains("press Try again") && !other.contains("Check verSHion's data folder"), "{other}");
+    assert!(other.contains("press Try again") && !other.contains("Check D.A.D's data folder"), "{other}");
     // the safety copy alone failing does not say her edits are lost
     assert!(!t::safety_copy_not_saved("No space left on device (os error 28)").contains("your own edits"));
     // on the strip
@@ -753,7 +753,7 @@ fn c98_m3_cant_read_is_said_per_reason() {
     let who = olga_named(&s);
     frames(&mut m, &mut banks, &ctx, &mut acct, &who, 3);
     let v = strip_view(&mut m, &banks, &who);
-    assert!(v.line.contains("verSHion couldn't read it") && !v.line.contains("no longer keeps"), "{}", v.line);
+    assert!(v.line.contains("D.A.D couldn't read it") && !v.line.contains("no longer keeps"), "{}", v.line);
     // the newest version held back for review, and the one she matched not kept: waiting for the review helps
     let (mut m, s, mut banks, ctx, mut acct) = rig();
     s.keep("Post", "/circles/heads", 200, json!({"banks": [{"bank_id": BID, "status": "under_review"}]}));
@@ -889,7 +889,7 @@ fn c98_m6_the_news_list_layout() {
 fn c98_m7_the_news_words() {
     let (mut m, s, mut banks, ctx, mut acct) = with_news();
     let strip = frames(&mut m, &mut banks, &ctx, &mut acct, &olga_named(&s), 2);
-    assert!(strip.contains("An earlier version of the app had not kept") && !strip.contains("An earlier verSHion"), "{strip}");
+    assert!(strip.contains("An earlier version of the app had not kept") && !strip.contains("An earlier D.A.D"), "{strip}");
     assert!(strip.contains("Easy -> no difficulty") && !strip.contains("-> none"), "{strip}");
 }
 
@@ -904,7 +904,7 @@ fn c98_m8_waiting_for_the_circle_check() {
     let out = AccountSnapshot { gate: super::publish::Gate::SignedOut, session: None, account_open: true, account: None, name: None };
     let t = frames(&mut m, &mut banks, &ctx, &mut acct, &out, 2);
     assert_eq!(badge(&mut m, &banks[0].clone()), super::bank_links::WAITING_NOTE);
-    assert!(t.contains("Your changes are counted once verSHion can check the circle.") && !t.contains("not counted"), "{t}");
+    assert!(t.contains("Your changes are counted once D.A.D can check the circle.") && !t.contains("not counted"), "{t}");
     let _ = s;
     // a copy with no record at all: "changes not counted", with what that means
     assert!(super::bank_links::note_hint("changes not counted").is_some_and(|h| h.contains("can't count")));

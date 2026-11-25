@@ -1054,7 +1054,7 @@ fn r7_owner_circle_screens_say_circle_not_shared_pool() {
     // (critic 78 I3, round 8: which invite code is meant is said; still no "pool")
     assert!(!says_pool(EMAIL_NEEDS_ACCOUNT) && EMAIL_NEEDS_ACCOUNT.contains("with its invite code entered"), "{EMAIL_NEEDS_ACCOUNT}");
     let invite = circle_words(INVITE_REQUIRED_TEXT);
-    assert!(!says_pool(&invite) && invite.starts_with("Your verSHion account needs an invite code"), "{invite}");
+    assert!(!says_pool(&invite) && invite.starts_with("Your D.A.D account needs an invite code"), "{invite}");
     let detail = super::api::ErrorDetail { status: 503, code: "pool_not_configured".into(), field: None, reason: None, ack_allowed: None, author_only: false, retry_after: None, json: json!({"error": "pool_not_configured"}) };
     let kind = RefusalKind::classify(&detail);
     let not_set_up = circle_words(&super::pool::PoolError::Refused(Box::new(Refusal { kind, detail })).message());

@@ -325,7 +325,7 @@ fn c78_i2_a_conflict_after_an_unclear_send_says_it_may_be_the_persons_own() {
 
 /// The account's invite code (from an administrator) as a circle screen says it: never as if the circle's own code
 /// were wrong, and still no "pool".
-pub(super) const CIRCLE_INVITE_REQUIRED: &str = "Your verSHion account needs an invite code from an administrator before it can use circles. The code it needs is not a circle's code. Open the Account window, find \"Invite code\" and enter it. Everything else in verSHion keeps working.";
+pub(super) const CIRCLE_INVITE_REQUIRED: &str = "Your D.A.D account needs an invite code from an administrator before it can use circles. The code it needs is not a circle's code. Open Settings, then D.A.D account. Find \"Invite code\" and enter it. Everything else in D.A.D keeps working.";
 
 #[test]
 fn c78_i3_a_circle_screen_says_the_account_needs_its_own_invite_code_not_that_the_circles_code_is_wrong() {
@@ -353,7 +353,7 @@ fn c78_i3_a_circle_screen_says_the_account_needs_its_own_invite_code_not_that_th
 fn c78_i3_the_email_invite_help_says_the_account_code_and_the_circles_code_apart() {
     assert_eq!(
         super::circles_text::EMAIL_NEEDS_ACCOUNT,
-        "To join, they need a verSHion account that an administrator has approved, with its invite code entered. Until then the circle's code in the mail can't be used."
+        "To join, they need a D.A.D account that an administrator has approved, with its invite code entered. Until then the circle's code in the mail can't be used."
     );
 }
 

@@ -356,7 +356,7 @@ fn trust_modal(ctx: &egui::Context, m: &mut AccountModel) {
             para(
                 ui,
                 "Only continue if this is your school's D.A.D pool server. Your email and password will be sent to \
-                 it. verSHion asks again whenever the address changes.",
+                 it. D.A.D asks again whenever the address changes.",
             );
             ui.horizontal_wrapped(|ui| {
                 yes = pageshell::primary(ui, "Yes, it is my school's server").clicked();
@@ -1061,7 +1061,7 @@ pub(super) fn status_text(s: &Status) -> (&'static str, &'static str) {
         Status::Rejected { revoked: true, .. } => ("Approval withdrawn", "Your account's approval was withdrawn."),
         Status::Suspended { .. } => ("Suspended", "This account is suspended and cannot share."),
         Status::Unverified => ("Not finished", "Finish the account with the link in the confirmation email."),
-        Status::Other(_) => ("Status unknown", "This version of verSHion does not know this account state."),
+        Status::Other(_) => ("Status unknown", "This version of D.A.D does not know this account state."),
     }
 }
 

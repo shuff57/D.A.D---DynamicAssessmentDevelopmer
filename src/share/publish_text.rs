@@ -201,7 +201,7 @@ pub fn generic_code_text(code: &str, limit: Option<u64>) -> String {
         "expected_string" | "expected_array" | "expected_object" | "expected_bool" | "expected_number" | "expected_integer" => {
             "this has the wrong shape".into()
         }
-        "schema_version_unsupported" => "this file is from a newer version of verSHion".into(),
+        "schema_version_unsupported" => "this file is from a newer version of D.A.D".into(),
         "scan_budget" => "this text is too long or too repetitive to check; split it".into(),
         "normalized_too_large" => "this text is too large once cleaned up".into(),
         "no_questions" => "there are no questions to share".into(),

@@ -220,7 +220,7 @@ fn invite_required_is_one_clear_message_with_the_way_to_the_account_window() {
     let e = super::transport::block_on(srv.mine()).unwrap_err();
     assert!(matches!(e.kind(), Some(RefusalKind::InviteRequired)));
     let m = e.message();
-    assert!(m.contains("invite code") && m.contains("Account window") && m.contains("Invite code"));
+    assert!(m.contains("invite code") && m.contains("D.A.D account") && m.contains("Invite code"));
     assert_eq!(m, INVITE_REQUIRED_TEXT);
     let mut inv = model();
     inv.note_required();

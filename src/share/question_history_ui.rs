@@ -800,7 +800,7 @@ impl QuestionPage {
                     Some(YourCopy::NotCounted(_) | YourCopy::Unknown) => " Only your copy changed. This computer can't tell whether it counts as a change to send.".to_string(),
                     _ => " Only your copy changed: it counts as an unsent change until you send.".to_string(),
                 };
-                let text = format!("{} is now as it was in version {v}.{counts}{back_new} A restore point of all your banks was saved first, with verSHion's other safety copies. Undo is available until you leave this page.", capital(&what));
+                let text = format!("{} is now as it was in version {v}.{counts}{back_new} A restore point of all your banks was saved first, with D.A.D's other safety copies. Undo is available until you leave this page.", capital(&what));
                 self.undo_text = Some(text.clone());
                 self.restore = Some(RestoreView { version: v, state: RestoreState::Done(text) });
                 self.picture = None;

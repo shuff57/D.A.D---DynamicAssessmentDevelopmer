@@ -531,7 +531,7 @@ fn m3_adds_not_finished_when_verhsion_closed_are_said_on_the_next_start() {
     let mut m = model();
     m.set_adds_log(log.clone());
     let t = rows(&mut m);
-    assert!(t.contains("verSHion closed before 1 bank you asked to add was finished. Add it again from the circle's page."), "{t}");
+    assert!(t.contains("D.A.D closed before 1 bank you asked to add was finished. Add it again from the circle's page."), "{t}");
     assert!(!t.contains("Cells"), "no title: another account may be using this computer now: {t}");
     let ctx = ctx();
     assert!(super::circles_phasec_tests::click_text(&ctx, 1280.0, "Dismiss", 0, &mut |ui| super::bank_links_ui::adding_rows_of(ui, &mut m)));
@@ -679,14 +679,14 @@ pub(super) fn says_pool(t: &str) -> bool {
 fn w1_the_pools_words_read_as_verhsions_and_never_as_the_circles() {
     use super::circles_text::circle_words;
     let cases = [
-        ("The pool had a problem of its own. Nothing was changed; try again in a minute.", "verSHion's server had a problem of its own. Nothing was changed; try again in a minute."),
-        ("The pool does not allow that for this account.", "verSHion's server does not allow that for this account."),
-        ("You have changed answer-key settings as many times as the pool allows today. Try again tomorrow.", "You have changed answer-key settings as many times as verSHion allows today. Try again tomorrow."),
-        ("this question is in a form the pool does not take", "this question is in a form verSHion does not take"),
-        ("That step is for the pool's administrators.", "That step is for verSHion's administrators."),
-        ("The pool server is being set up and can not take this yet. Try again later.", "verSHion's server is being set up and can not take this yet. Try again later."),
-        ("The pool is being upgraded. Try again in a few minutes.", "verSHion's server is being upgraded. Try again in a few minutes."),
-        ("The pool can not take this as it is. Nothing was sent.", "verSHion's server can not take this as it is. Nothing was sent."),
+        ("The pool had a problem of its own. Nothing was changed; try again in a minute.", "D.A.D's server had a problem of its own. Nothing was changed; try again in a minute."),
+        ("The pool does not allow that for this account.", "D.A.D's server does not allow that for this account."),
+        ("You have changed answer-key settings as many times as the pool allows today. Try again tomorrow.", "You have changed answer-key settings as many times as D.A.D allows today. Try again tomorrow."),
+        ("this question is in a form the pool does not take", "this question is in a form D.A.D does not take"),
+        ("That step is for the pool's administrators.", "That step is for D.A.D's administrators."),
+        ("The pool server is being set up and can not take this yet. Try again later.", "D.A.D's server is being set up and can not take this yet. Try again later."),
+        ("The pool is being upgraded. Try again in a few minutes.", "D.A.D's server is being upgraded. Try again in a few minutes."),
+        ("The pool can not take this as it is. Nothing was sent.", "D.A.D's server can not take this as it is. Nothing was sent."),
     ];
     for (from, want) in cases {
         assert_eq!(circle_words(from), want);
@@ -826,7 +826,7 @@ fn w3_no_circle_screen_says_pool() {
 
 #[test]
 fn w4_one_server_error_reads_the_same_on_every_circle_screen() {
-    let want = "verSHion's server had a problem of its own. Nothing was changed; try again in a minute.";
+    let want = "D.A.D's server had a problem of its own. Nothing was changed; try again in a minute.";
     // The Circles tab (here its list, as on Bank settings: the circles model's own problems).
     let s = Script::new();
     s.on("Get", "/circles", 500, json!({"error": "internal"}));
@@ -865,8 +865,8 @@ fn w5_the_hide_key_question_on_bank_settings_does_not_say_pool() {
     for t in [text::HIDE_ON_ASK, text::HIDE_TRIES, text::PICTURES_CHANGE_DECIDE, text::HELD_BANK, text::REPORT_THANKS, text::EMPTY_BANKS_HELP_EDITOR, text::NOT_REACHED] {
         assert!(!says_pool(t), "{t}");
     }
-    assert!(text::HIDE_ON_ASK.contains("verSHion first checks the viewers' copy"), "{}", text::HIDE_ON_ASK);
-    assert!(text::HIDE_TRIES.contains("also when verSHion asks for decisions"), "{}", text::HIDE_TRIES);
+    assert!(text::HIDE_ON_ASK.contains("D.A.D first checks the viewers' copy"), "{}", text::HIDE_ON_ASK);
+    assert!(text::HIDE_TRIES.contains("also when D.A.D asks for decisions"), "{}", text::HIDE_TRIES);
 }
 
 // ---- round 4: the surviving mutants of this round's own code, pinned -------------------------------------------------

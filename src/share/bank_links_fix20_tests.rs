@@ -253,13 +253,13 @@ fn c100_m12_the_review_line_is_three_sentences() {
 /// (minor 12) The held strip names verSHion three times at most (it was four): twice in the saved-banks reason, once in the
 /// advice, and never again in the "tries again" that follows.
 #[test]
-fn c100_m12_the_held_line_names_vershion_once() {
+fn c100_m12_the_held_line_names_dad_once() {
     let why = format!("{} {}", t::save_problem(""), t::SAVE_ADVICE);
     // the words the strip puts before it, as the app composes them
-    let outer = "Shared with Algebra team. verSHion couldn't save your banks (verSHion isn't allowed to write to its data folder), so the circle's difficulty isn't in this bank yet, and your own edits aren't saved either.";
+    let outer = "Shared with Algebra team. D.A.D couldn't save your banks (D.A.D isn't allowed to write to its data folder), so the circle's difficulty isn't in this bank yet, and your own edits aren't saved either.";
     for tries in [0, 1, 2, 9] {
         let line = format!("{outer} {}", t::held_line(&why, tries));
-        let n = line.matches("verSHion").count();
+        let n = line.matches("D.A.D").count();
         assert!(n <= 3, "{n} times in: {line}");
     }
     assert!(t::held_line(&why, 1).contains("tries again every minute"));

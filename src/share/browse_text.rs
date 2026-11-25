@@ -43,7 +43,7 @@ pub fn check_marker(c: &LicenseCheck) -> Option<&'static str> {
         LicenseStatus::Mismatch => Some("The licence may not match the material this was built from."),
         LicenseStatus::Unverified => Some("The sources of these questions could not be fully checked."),
         LicenseStatus::ClaimedIndependent => Some("The author says they wrote these themselves; an earlier similar publication exists."),
-        LicenseStatus::Other => Some("The licence check gave an answer this version of verSHion does not know."),
+        LicenseStatus::Other => Some("The licence check gave an answer this version of D.A.D does not know."),
     }
 }
 
@@ -60,7 +60,7 @@ pub fn check_text(c: Option<&LicenseCheck>) -> String {
         LicenseStatus::ClaimedIndependent => {
             "The author says they wrote these questions independently of an earlier publication that looks similar. The earlier author is credited below."
         }
-        LicenseStatus::Other => "This version of verSHion does not know what the pool's licence check means.",
+        LicenseStatus::Other => "This version of D.A.D does not know what the pool's licence check means.",
     };
     match c.reason.as_deref().map(api::plain).filter(|r| !r.is_empty()) {
         Some(r) => format!("{base} ({r})"),
@@ -132,7 +132,7 @@ impl ReportChoice {
 
 pub const THANKS: &str = "Thank you. A report is read by the people who run the pool. Nothing is shown to the author about who sent it.";
 pub const REPORT_OWN: &str = "You can not report your own item.";
-pub const SIGNED_OUT_LINE: &str = "Browsing the pool needs an account. Sign in, or create one, in the Account window. Everything else in verSHion keeps working without one.";
+pub const SIGNED_OUT_LINE: &str = "Browsing the pool needs an account. Sign in, or create one, in Settings, then D.A.D account. Everything else in D.A.D keeps working without one.";
 pub const LICENSE_FILTER_NOTE: &str = "The pool can search by words, subject, kind of question, tag, standard and licence. Grade is only matched among the results already on the page.";
 pub const IMPORT_COPY_LINE: &str = "The import makes a private copy on this device. The answer key is included only if the author shared it.";
 pub const UPDATE_SAFE_LINE: &str = "The new version is added as a new bank. Your current bank is not touched, so nothing you changed is lost; delete whichever you do not want.";

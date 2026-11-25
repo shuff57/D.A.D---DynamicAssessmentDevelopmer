@@ -566,7 +566,7 @@ fn limits_and_states_are_sorted() {
     assert_eq!(kind("422 Unprocessable Entity", json!({"error": "license_not_public"})), RefusalKind::LicenseNotPublic);
     assert_eq!(kind("422 Unprocessable Entity", json!({"error": "kind_mismatch"})), RefusalKind::KindMismatch);
     assert_eq!(kind("422 Unprocessable Entity", json!({"error": "too_many_tags", "limit": 200})), RefusalKind::TooManyTags { limit: 200 });
-    assert_eq!(kind("422 Unprocessable Entity", json!({"error": "schema_upgrade_required", "message": "Republishing needs schema version 2 (update verSHion)."})), RefusalKind::SchemaUpgradeRequired { message: "Republishing needs schema version 2 (update verSHion).".into() });
+    assert_eq!(kind("422 Unprocessable Entity", json!({"error": "schema_upgrade_required", "message": "Republishing needs schema version 2 (update D.A.D)."})), RefusalKind::SchemaUpgradeRequired { message: "Republishing needs schema version 2 (update D.A.D).".into() });
     assert_eq!(kind("413 Payload Too Large", json!({"error": "body_too_large", "limit": 4194304})), RefusalKind::BodyTooLarge { limit: Some(4194304) });
     assert_eq!(kind("400 Bad Request", json!({"error": "invalid_request", "field": "visibility"})), RefusalKind::InvalidRequest { field: Some("visibility".into()) });
     assert_eq!(kind("403 Forbidden", json!({"error": "account_not_approved", "message": "Your account is waiting for approval."})), RefusalKind::NotApproved { message: Some("Your account is waiting for approval.".into()) });

@@ -699,7 +699,7 @@ fn c66_i4_the_banks_list_says_when_an_add_failed_or_was_not_connected_until_dism
         })
     };
     let t = draw(&mut m);
-    assert!(t.contains("\"Unit 3 test\" couldn't be added: Could not reach verSHion's server. Try again from the circle's page."), "{t}");
+    assert!(t.contains("\"Unit 3 test\" couldn't be added: Could not reach D.A.D's server. Try again from the circle's page."), "{t}");
     assert!(t.contains("\"Linear equations starter\" was added, but it is not connected to the circle: 2 of 3 pictures couldn't be fetched."), "{t}");
     assert!(!t.contains("Fine"), "a bank added and linked needs no line: {t}");
     let ctx = egui::Context::default();
