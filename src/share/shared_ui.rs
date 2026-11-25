@@ -245,8 +245,9 @@ impl SharedUi {
             self.model.note_invite_required();
         }
         egui::ScrollArea::vertical().auto_shrink([false, false]).show(ui, |ui| {
-            // The same column as Settings, the other page built from a stack of cards.
-            ui.set_max_width(ui.available_width().min(crate::pageshell::PAGE_W));
+            // The same column as Settings, the other page built from a stack of cards (1160, as
+            // Settings widened to; at 980 its cards and footer stopped 32 pt short of every other page).
+            ui.set_max_width(ui.available_width().min(1160.0));
             // The page's one action beside the title, as Banks has "New bank" (once the tabs show).
             let ready = guide == Guide::Ready;
             // (round 54) a confirmed account waiting for approval gets the Circles tab and its settings; the public
@@ -263,17 +264,15 @@ impl SharedUi {
             let action_w = pill_width(ui, SHARE_ACTION) + 24.0;
             let beside = ready && avail - action_w >= 320.0;
             // An open decision owns the window: the page title and blurb yield to the applicant's
-            // card, so the form and the next applications stay on screen. The breadcrumb stays.
+            // card, so the form and the next applications stay on screen.
             let compact = self.model.tab == Tab::Admin && (self.admin.decision.is_some() || self.admin.confirming);
-            if compact {
-                ui.label(egui::RichText::new("Home  /  Shared").size(11.5).color(theme::muted_col()));
-            } else {
+            if !compact {
                 ui.horizontal(|ui| {
                     ui.vertical(|ui| {
                         if beside {
                             ui.set_max_width(avail - action_w);
                         }
-                        pageshell::title(ui, "Home  /  Shared", "Shared", "Find questions other teachers shared, and share your own. Optional: everything else works without it.");
+                        pageshell::title(ui, "", "Shared", "Find questions other teachers shared, and share your own. Optional: everything else works without it.");
                     });
                     if beside {
                         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| self.share_action(ui));
@@ -285,6 +284,7 @@ impl SharedUi {
                 }
             }
             ui.add_space(if compact { 8.0 } else { 14.0 });
+            let mut legal_done = false;
             match guide {
                 Guide::Ready => changed |= self.tabs(ui, account, browse, mine, banks, exams, false),
                 // The waiting card says what an approval is for, and the two tabs a pending account may use follow it.
@@ -293,12 +293,28 @@ impl SharedUi {
                     ui.add_space(12.0);
                     changed |= self.tabs(ui, account, browse, mine, banks, exams, true);
                 }
+                // A form keeps a form's width, and what sharing is for sits beside it, as Grade's
+                // steps sit beside its chooser: the card no longer stops two thirds across the
+                // page, and the legal links end the aside instead of ending the page.
+                g if ui.available_width() >= 900.0 => {
+                    let w = ui.available_width();
+                    let side = (w * 0.34).clamp(300.0, 380.0);
+                    ui.horizontal_top(|ui| {
+                        ui.spacing_mut().item_spacing.x = 16.0;
+                        ui.allocate_ui_with_layout(egui::Vec2::new(w - side - 16.0, 0.0), egui::Layout::top_down(egui::Align::Min), |ui| {
+                            self.guide_card(ui, &g, account)
+                        });
+                        ui.allocate_ui_with_layout(egui::Vec2::new(side, 0.0), egui::Layout::top_down(egui::Align::Min), sharing_aside);
+                    });
+                    legal_done = true;
+                }
                 g => self.guide_card(ui, &g, account),
             }
             ui.add_space(12.0);
             // Legal pages are a footnote, not a card of their own, but they sit on a quiet field:
             // over bare grid paper the small grey links lost contrast (named on both tabs).
             let lw = ui.available_width().min(FORM_CARD_W);
+            if !legal_done {
             ui.allocate_ui_with_layout(
                 egui::Vec2::new(lw, 0.0),
                 egui::Layout::top_down(egui::Align::Min),
@@ -315,6 +331,7 @@ impl SharedUi {
                         });
                 },
             );
+            }
             ui.add_space(20.0);
             pageshell::footer(
                 ui,
@@ -707,3 +724,37 @@ fn reports_body(ui: &mut Ui, mine: &mut MineUi, model: &mut SharedModel) {
 pub fn gate_of(account: &AccountUi) -> Gate {
     snapshot_of(&account.model).gate
 }
+
+/// Beside a guide card on a wide window: what sharing gives a teacher, in three steps, and the legal
+/// pages at its foot (small print inside the aside, not a grey box closing the page).
+fn sharing_aside(ui: &mut Ui) {
+    use egui::{Align2, FontId, RichText, Sense, Vec2};
+    pageshell::card(ui, |ui| {
+        ui.label(RichText::new("What sharing does").family(theme::serif_family()).size(16.0).color(theme::ink()));
+        ui.add_space(10.0);
+        let steps = [
+            ("Find", "Browse questions other teachers shared and copy the ones you want into your banks."),
+            ("Share", "Send one of your banks to everyone, or only to a circle of teachers you choose."),
+            ("Optional", "Writing, converting and adding questions to MyOpenMath all work without it."),
+        ];
+        for (i, (title, body)) in steps.iter().enumerate() {
+            ui.horizontal_top(|ui| {
+                let (r, _) = ui.allocate_exact_size(Vec2::splat(26.0), Sense::hover());
+                ui.painter().circle_filled(r.center(), 13.0, theme::accent_faded());
+                ui.painter().text(r.center(), Align2::CENTER_CENTER, (i + 1).to_string(), FontId::new(13.0, theme::bold_family()), theme::accent_col());
+                ui.add_space(6.0);
+                ui.vertical(|ui| {
+                    ui.label(theme::strong(*title).size(14.0));
+                    ui.add(egui::Label::new(theme::muted(*body).size(12.5)).wrap());
+                });
+            });
+            ui.add_space(12.0);
+        }
+        ui.separator();
+        ui.add_space(4.0);
+        crate::kit::small_caps(ui, "Legal pages (drafts)");
+        ui.add_space(2.0);
+        super::mine_ui::legal_links_for(ui, &super::ShareSettings::legal_base());
+    });
+}
+
