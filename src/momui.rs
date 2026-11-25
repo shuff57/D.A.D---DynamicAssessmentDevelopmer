@@ -75,6 +75,43 @@ pub struct Saved {
     pub reviewed: bool,
     /// Seconds since 1970.
     pub saved_at: u64,
+    /// Set on a revision of a question already in MyOpenMath (the revision is a new question
+    /// with the same name; this is what tells the two apart in My Questions).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    revised_from: Option<Revision>,
+}
+
+/// What a revision of a published question came from. It stays in D.A.D: the name, which is
+/// MyOpenMath's Description, is not changed, so nothing here reaches MyOpenMath.
+#[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq)]
+struct Revision {
+    /// Seconds since 1970 when the earlier version was added to MyOpenMath.
+    added_at: u64,
+    /// 1 for the first revision of a published question, 2 for a revision of that revision, and so on.
+    number: u32,
+}
+
+impl Revision {
+    /// The revision made now of a published question that was itself `previous` (if it was a revision).
+    fn after(previous: Option<Revision>, added_at: u64) -> Revision {
+        Revision { added_at, number: previous.map_or(0, |p| p.number) + 1 }
+    }
+
+    /// The second line on the question's row, and on its finish.
+    fn line(&self, now: u64) -> String {
+        let date = short_date(self.added_at, now);
+        if self.number <= 1 { format!("Revised from the question added on {date}") }
+        else { format!("Revision {}, from the question added on {date}", self.number) }
+    }
+}
+
+/// "Nov 25", with the year when it is not this year's ("Nov 25, 2025"). UTC, like the other dates in the app.
+fn short_date(secs: u64, now: u64) -> String {
+    const MONTHS: [&str; 12] = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    let (y, m, d) = crate::time::civil_from_days((secs / 86_400) as i64);
+    let (this_year, ..) = crate::time::civil_from_days((now / 86_400) as i64);
+    let month = MONTHS[(m - 1) as usize];
+    if y == this_year { format!("{month} {d}") } else { format!("{month} {d}, {y}") }
 }
 
 #[derive(Serialize, Deserialize, Default)]
@@ -553,6 +590,8 @@ struct Current {
     worksheet_source: Option<String>,
     /// The saved entry this came from or was saved as.
     saved_id: Option<String>,
+    /// Set when this is a revision of a question already in MyOpenMath.
+    revised_from: Option<Revision>,
     /// The app opened the student player for this version.
     preview_opened: bool,
     /// The teacher confirmed this version in the student player.
@@ -1052,11 +1091,19 @@ fn take(st: &mut State, outcome: Outcome) {
                 let mut saved_id = st.current.as_ref().and_then(|c| c.saved_id.clone());
                 if st.published.is_none() { st.published = Some(published_ids()); }
                 let new_version = saved_id.as_ref().is_some_and(|id| st.published.as_ref().is_some_and(|p| p.contains(id)));
-                if new_version { saved_id = None; }
+                // A revision that is not itself published is rewritten in place and stays a revision of
+                // the same original; one that is published is revised into yet another new question.
+                let earlier = saved_id.as_ref().and_then(|id| st.library.questions.iter().find(|s| &s.id == id));
+                let mut revised_from = earlier.and_then(|s| s.revised_from).or(st.current.as_ref().and_then(|c| c.revised_from));
+                if new_version {
+                    let added_at = saved_id.as_deref().and_then(added_at).or(earlier.map(|s| s.saved_at)).unwrap_or_else(timestamp);
+                    revised_from = Some(Revision::after(revised_from, added_at));
+                    saved_id = None;
+                }
                 let worksheet_source = st.current.as_ref().and_then(|c| c.worksheet_source.clone());
                 let mut follow_ups = st.current.as_mut().map(|c| std::mem::take(&mut c.follow_ups)).unwrap_or_default();
                 follow_ups.extend(follow_up);
-                st.current = Some(Current { q, request: st.request.clone(), follow_ups, passed: Some(passed), problems, untested, saved_id, worksheet_source, ..Default::default() });
+                st.current = Some(Current { q, request: st.request.clone(), follow_ups, passed: Some(passed), problems, untested, saved_id, revised_from, worksheet_source, ..Default::default() });
                 // In My Questions at once (as "Needs review"), so closing D.A.D before approving it
                 // never loses a question the AI just wrote.
                 save_current(st);
@@ -1362,6 +1409,7 @@ fn convert_worksheet(st: &mut State, ctx: &egui::Context, cfg: &crate::ai::AiCfg
                     worksheet_origin: Some(origin.clone()),
                     reviewed: false,
                     saved_at: timestamp(),
+                    revised_from: None,
                 })
             } else {
                 let error = run.error.or_else(|| run.problems.into_iter().next())
@@ -1459,6 +1507,7 @@ fn save_current(st: &mut State) {
         worksheet_origin,
         reviewed: c.reviewed,
         saved_at: timestamp(),
+        revised_from: c.revised_from,
     };
     c.saved_id = Some(entry.id.clone());
     match st.library.questions.iter_mut().find(|s| s.id == entry.id) {
@@ -2009,6 +2058,18 @@ fn receipt_for(id: &str) -> Option<crate::mom::poster::Publication> {
         _ => None,
     })
 }
+
+/// When a saved question was added to MyOpenMath: its newest receipt's time.
+#[cfg(not(target_arch = "wasm32"))]
+fn added_at(id: &str) -> Option<u64> {
+    let dir = crate::store::store_dir().join("mom/publications");
+    crate::store::list_dir("mom/publications").into_iter().filter(|file| file.starts_with(&format!("{id}-")))
+        .filter_map(|file| std::fs::metadata(dir.join(file)).and_then(|m| m.modified()).ok())
+        .filter_map(|time| time.duration_since(std::time::UNIX_EPOCH).ok()).map(|d| d.as_secs()).max()
+}
+
+#[cfg(target_arch = "wasm32")]
+fn added_at(_id: &str) -> Option<u64> { None }
 
 /// The next worksheet draft not yet in MyOpenMath, after the one on screen.
 #[cfg(not(target_arch = "wasm32"))]
@@ -3340,6 +3401,7 @@ fn copy_step(ui: &mut Ui, ctx: &egui::Context, st: &mut State) {
     if in_mom && !st.add_elsewhere {
         let receipt = c.saved_id.as_deref().and_then(receipt_for);
         let name = c.q.name.trim().to_string();
+        let revision = c.revised_from;
         st.poster.load();
         pageshell::card(ui, |ui| {
             ui.label(RichText::new("✔ It's in MyOpenMath").color(theme::green()).family(theme::bold_family()).size(20.0));
@@ -3350,6 +3412,7 @@ fn copy_step(ui: &mut Ui, ctx: &egui::Context, st: &mut State) {
                 _ => format!("“{name}” is in your MyOpenMath assessment."),
             };
             ui.add(egui::Label::new(theme::text(line).size(14.0)).wrap());
+            if let Some(revision) = &revision { ui.label(theme::muted(revision.line(timestamp())).size(12.0)); }
             if let Some(p) = &receipt { ui.label(theme::muted(format!("MyOpenMath question ID {}", p.question)).size(12.0)); }
             ui.add_space(8.0);
             ui.horizontal_wrapped(|ui| {
@@ -3481,6 +3544,7 @@ fn open_saved(st: &mut State, saved: Saved) {
         untested: saved.untested,
         worksheet_source: saved.worksheet_source,
         saved_id: Some(saved.id),
+        revised_from: saved.revised_from,
         preview_opened: saved.reviewed,
         preview_confirmed: saved.reviewed,
         reviewed: saved.reviewed,
@@ -3525,6 +3589,9 @@ fn side(ui: &mut Ui, ctx: &egui::Context, st: &mut State) {
             let name = if q.name.is_empty() { "Untitled question".to_string() } else { q.name.clone() };
             ui.add_space(6.0);
             ui.add(egui::Label::new(theme::text(&name).size(14.0)).wrap());
+            if let Some(revision) = &s.revised_from {
+                ui.add(egui::Label::new(theme::muted(revision.line(timestamp())).size(12.0)).wrap());
+            }
             if let Some(source) = &s.worksheet_source {
                 ui.add(egui::Label::new(theme::muted(source).size(12.0)).wrap());
             }
@@ -3963,6 +4030,94 @@ mod tests {
     fn slug_makes_a_file_name() {
         assert_eq!(slug("Slope between two points — two-part!"), "slope-between-two-points-two-part");
         assert_eq!(slug("  "), "question");
+    }
+
+    /// The AI's answer to "revise this question", as `take` receives it.
+    fn revision_arrives(st: &mut State, name: &str) {
+        let q = MomQuestion { name: name.into(), qtype: "number".into(), qtext: "T".into(), ..Default::default() };
+        take(st, Outcome::Authored { follow_up: Some("make it harder".into()), q: Some(q), passed: true, problems: vec![], untested: vec![], error: None });
+    }
+
+    /// A published question the teacher opened to revise.
+    fn published_question(st: &mut State, id: &str, name: &str, saved_at: u64, revised_from: Option<Revision>) {
+        st.library.questions.insert(0, Saved { id: id.into(), src: MomQuestion { name: name.into(), ..Default::default() }.emit(), passed: true, reviewed: true, saved_at, revised_from, ..Default::default() });
+        st.published.get_or_insert_with(Default::default).insert(id.into());
+        st.current = Some(Current { saved_id: Some(id.into()), reviewed: true, revised_from, ..Default::default() });
+    }
+
+    #[test]
+    fn a_revision_is_shown_apart_from_its_original() {
+        let mut st = State::default();
+        let first = 1_700_000_000; // Nov 14, 2023
+        published_question(&mut st, "orig", "Solve a two-step equation", first, None);
+        revision_arrives(&mut st, "Solve a two-step equation");
+        let id = st.current.as_ref().unwrap().saved_id.clone().unwrap();
+        assert_ne!(id, "orig", "the revision is a new question");
+        let (original, revision) = (st.library.questions.iter().find(|s| s.id == "orig").unwrap(), st.library.questions.iter().find(|s| s.id == id).unwrap());
+        assert_eq!(original.revised_from, None, "the earlier version is as it was");
+        assert_eq!(revision.revised_from, Some(Revision { added_at: first, number: 1 }));
+        // The name, which MyOpenMath takes as the Description, is the same; the second line is what differs.
+        assert_eq!(MomQuestion::parse(&original.src).name, MomQuestion::parse(&revision.src).name);
+        assert_eq!(revision.revised_from.unwrap().line(first), "Revised from the question added on Nov 14");
+        assert!(st.current.as_ref().unwrap().revised_from.is_some(), "the finish shows it too");
+        assert!(st.lib_note.as_deref().is_some_and(|n| n.starts_with("Saved as a new question")));
+    }
+
+    #[test]
+    fn a_question_never_published_is_unchanged_by_a_rewrite() {
+        let mut st = State::default();
+        st.published = Some(Default::default());
+        st.library.questions.insert(0, Saved { id: "draft".into(), src: MomQuestion { name: "Slope".into(), ..Default::default() }.emit(), passed: true, saved_at: 5, ..Default::default() });
+        st.current = Some(Current { saved_id: Some("draft".into()), ..Default::default() });
+        revision_arrives(&mut st, "Slope");
+        assert_eq!(st.library.questions.len(), 1, "rewritten in place");
+        assert_eq!(st.library.questions[0].id, "draft");
+        assert_eq!(st.library.questions[0].revised_from, None);
+        assert_eq!(st.current.as_ref().unwrap().revised_from, None);
+        assert!(st.lib_note.as_deref().is_none_or(|n| !n.starts_with("Saved as a new question")));
+    }
+
+    #[test]
+    fn a_second_revision_stays_distinct() {
+        let mut st = State::default();
+        published_question(&mut st, "orig", "Slope", 1_700_000_000, None);
+        revision_arrives(&mut st, "Slope");
+        // Another rewrite before the revision is added: still the one revision, in place.
+        revision_arrives(&mut st, "Slope");
+        let rev1 = st.current.as_ref().unwrap().saved_id.clone().unwrap();
+        assert_eq!(st.library.questions.len(), 2);
+        assert_eq!(st.library.questions.iter().find(|s| s.id == rev1).unwrap().revised_from.unwrap().number, 1);
+        // The revision is added to MyOpenMath, and revised again, the same day.
+        st.published.as_mut().unwrap().insert(rev1.clone());
+        revision_arrives(&mut st, "Slope");
+        let rev2 = st.current.as_ref().unwrap().saved_id.clone().unwrap();
+        assert!(rev2 != rev1 && rev2 != "orig");
+        assert_eq!(st.library.questions.len(), 3);
+        let lines: Vec<String> = ["orig", rev1.as_str(), rev2.as_str()].iter()
+            .map(|id| st.library.questions.iter().find(|s| s.id == *id).unwrap().revised_from.map(|r| r.line(1_700_000_000)).unwrap_or_default())
+            .collect();
+        assert_eq!(lines[0], "");
+        assert_eq!(lines[1], "Revised from the question added on Nov 14");
+        assert!(lines[2].starts_with("Revision 2, from the question added on"), "{}", lines[2]);
+        assert_ne!(lines[1], lines[2], "two revisions made on one day still read differently");
+    }
+
+    #[test]
+    fn a_revision_line_names_the_year_only_when_it_is_not_this_year() {
+        let nov_25_2026 = 1_795_564_800;
+        assert_eq!(short_date(nov_25_2026, nov_25_2026 + 5), "Nov 25");
+        assert_eq!(short_date(nov_25_2026, nov_25_2026 + 30 * 86_400), "Nov 25");
+        assert_eq!(short_date(nov_25_2026, nov_25_2026 + 90 * 86_400), "Nov 25, 2026", "Feb 2027");
+        assert_eq!(short_date(nov_25_2026, nov_25_2026 + 400 * 86_400), "Nov 25, 2026");
+    }
+
+    #[test]
+    fn a_saved_library_from_before_revisions_still_opens() {
+        let saved: Saved = serde_json::from_str(r#"{"id":"a","request":"x","src":"","passed":true,"saved_at":1}"#).unwrap();
+        assert_eq!(saved.revised_from, None);
+        let json = serde_json::to_string(&Saved { revised_from: Some(Revision { added_at: 9, number: 2 }), ..saved.clone() }).unwrap();
+        assert_eq!(serde_json::from_str::<Saved>(&json).unwrap().revised_from, Some(Revision { added_at: 9, number: 2 }));
+        assert!(!serde_json::to_string(&saved).unwrap().contains("revised_from"));
     }
 
     #[test]
