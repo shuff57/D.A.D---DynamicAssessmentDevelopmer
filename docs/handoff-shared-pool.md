@@ -2,6 +2,10 @@
 
 Paste everything below the line into a new Claude Code session opened in /home/shuff57/Documents/GitHub/verSHion.
 
+> **Status 2026-11-25 (D.A.D):** the launch parts below are out of date. The server moved from the Worker to `server/api`
+> on the VPS (docs/hosting-port.md), so "Cloudflare Pages for /account/*" and "api.<my domain>" no longer apply. The D.A.D
+> server's launch steps are in docs/server-launch.md. `VERSHION_LEGAL_URL` is the site root that serves `/legal/`.
+
 ---
 
 You are taking over a long-running "gauntlet loop" build of the verSHion shared question pool (Rust egui exam builder, native + wasm, local-first, Test Parrot clone). Teachers sign up, publish tests/questions to a public pool, and import copies with attribution + licence. The app stays usable offline/signed out. First read, in this order: ~/.claude/projects/-home-shuff57-Documents-GitHub-verSHion/memory/MEMORY.md and shared-pool-accounts.md (decisions), server/worker/README.md and server/share-core/README.md (the spec, round-by-round "Round N changes", cap tables, documented limits), docs/shared-pool.md (old spec, partly stale), server/web/legal/README.md (draft legal pages). Then `git status` (nothing is committed or deployed; many files are modified — do not commit, push or deploy without my say-so).

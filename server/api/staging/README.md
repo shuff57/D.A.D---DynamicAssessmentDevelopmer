@@ -28,9 +28,12 @@ this build"):
 
 ```
 VERSHION_POOL_URL=https://staging-vershion.lefthanddev.com \
-VERSHION_LEGAL_URL=https://staging-vershion.lefthanddev.com/legal \
+VERSHION_LEGAL_URL=https://staging-vershion.lefthanddev.com \
 trunk build --release --dist dist-web --public-url /
 ```
+
+`VERSHION_LEGAL_URL` is the site root: the app adds `/legal/terms.html` itself (`share::mine_text::legal_url`), so a
+value ending in `/legal` gives `/legal/legal/...`.
 
 `--public-url /` is required: the default is relative (`./`), so a mailed link such as `/account/verify#token=…` looks for
 the script at `/account/…`, gets the app's HTML instead, fails the integrity check and the page never leaves "Loading".
