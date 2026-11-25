@@ -61,11 +61,11 @@ pub trait Vault: Send + Sync {
 }
 
 pub const KEYCHAIN_MISSING: &str = "No keychain is available on this computer, so you will stay signed in only until you \
-     close verSHion. (On Linux, sign-in is remembered when a Secret Service such as GNOME Keyring or \
+     close D.A.D. (On Linux, sign-in is remembered when a Secret Service such as GNOME Keyring or \
      KWallet is running.) Nothing is written to a file instead.";
 
 pub const KEYCHAIN_FAILED: &str = "The keychain refused to save your sign-in, so you will stay signed in only until you \
-     close verSHion. Nothing was written to a file instead.";
+     close D.A.D. Nothing was written to a file instead.";
 
 /// Memory only: tests, the browser build, and the native fallback when there is no keychain.
 #[derive(Default)]
