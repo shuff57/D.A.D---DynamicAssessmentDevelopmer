@@ -500,6 +500,10 @@ pub fn plain_progress(line: &str, max_tries: usize) -> Option<String> {
 
 /// An error as a teacher should see it.
 pub fn plain_error(e: &str) -> String {
+    // D.A.D AI's own sentences (`ai::account_message`) already say what to do, and name D.A.D's places.
+    if e.starts_with("D.A.D ") || e.starts_with("Your D.A.D ") || e.starts_with("The D.A.D server ") || e.starts_with("Couldn't reach the D.A.D server") || e.starts_with("Sign in first: Settings, then D.A.D account") {
+        return e.to_string();
+    }
     let l = e.to_ascii_lowercase();
     if l.contains("api key") || l.contains("401") || l.contains("unauthorized") {
         return "The AI isn't set up yet. Open Settings, then AI, and add your key.".into();

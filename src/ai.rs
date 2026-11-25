@@ -1057,6 +1057,12 @@ fn chat_request(cfg: &AiCfg, turns: &[Turn], temp: f64, json: bool, tools: Optio
                 .collect();
             let mut body = json!({"model": cfg.model, "stream": false, "temperature": temp, "messages": messages});
             if json { body["response_format"] = json!({"type": "json_object"}); }
+            if cfg.is_relay() {
+                // The relay answers in JSON unless asked for text; a question file is plain text.
+                if !json { body["response_format"] = json!({"type": "text"}); }
+                // A signed-in account's calls ride on the credit session its service opened.
+                if let Some(s) = current_session() { body["session"] = json!(s); }
+            }
             if let Some(level) = cfg.think.as_deref() {
                 body["reasoning_effort"] = json!(match level { "off" => "none", "on" => "medium", l => l });
             }
@@ -1108,7 +1114,7 @@ pub fn chat_turns_tools(cfg: &AiCfg, turns: &[Turn], temp: f64, tools: &Value) -
     // A CLI has no function tools here; it gets the text LOOKUP protocol instead.
     if cli::is_cli(cfg) { return cli::chat(cfg, turns).map(|text| ChatReply { text, calls: Vec::new() }); }
     let req = chat_request(cfg, turns, temp, false, Some(tools))?;
-    let reply = post_json(&req.url, req.body.clone(), req.key.as_deref())?;
+    let reply = post_json(&req.url, req.body.clone(), req.key.as_deref()).map_err(|e| account_message(cfg, &e))?;
     log_served(cfg, &reply);
     chat_reply_full(&req, &reply)
 }
@@ -1117,7 +1123,7 @@ pub fn chat_turns_tools(cfg: &AiCfg, turns: &[Turn], temp: f64, tools: &Value) -
 #[cfg(target_arch = "wasm32")]
 pub async fn chat_turns_tools_async(cfg: &AiCfg, turns: &[Turn], temp: f64, tools: &Value) -> Result<ChatReply, String> {
     let req = chat_request(cfg, turns, temp, false, Some(tools))?;
-    let reply = post_json_async(&req.url, &req.body, req.key.as_deref()).await?;
+    let reply = post_json_async(&req.url, &req.body, req.key.as_deref()).await.map_err(|e| account_message(cfg, &e))?;
     chat_reply_full(&req, &reply)
 }
 
@@ -1137,7 +1143,7 @@ pub fn chat_turns(cfg: &AiCfg, turns: &[Turn], temp: f64) -> Result<String, Stri
     #[cfg(not(target_arch = "wasm32"))]
     if cli::is_cli(cfg) { return cli::chat(cfg, turns); }
     let req = chat_request(cfg, turns, temp, true, None)?;
-    let reply = post_json(&req.url, req.body.clone(), req.key.as_deref())?;
+    let reply = post_json(&req.url, req.body.clone(), req.key.as_deref()).map_err(|e| account_message(cfg, &e))?;
     chat_reply_text(&req, &reply)
 }
 
@@ -1146,7 +1152,7 @@ pub fn chat_turns_text(cfg: &AiCfg, turns: &[Turn], temp: f64) -> Result<String,
     #[cfg(not(target_arch = "wasm32"))]
     if cli::is_cli(cfg) { return cli::chat(cfg, turns); }
     let req = chat_request(cfg, turns, temp, false, None)?;
-    let reply = post_json(&req.url, req.body.clone(), req.key.as_deref())?;
+    let reply = post_json(&req.url, req.body.clone(), req.key.as_deref()).map_err(|e| account_message(cfg, &e))?;
     log_served(cfg, &reply);
     chat_reply_text(&req, &reply)
 }
@@ -1155,7 +1161,7 @@ pub fn chat_turns_text(cfg: &AiCfg, turns: &[Turn], temp: f64) -> Result<String,
 #[cfg(target_arch = "wasm32")]
 pub async fn chat_turns_async(cfg: &AiCfg, turns: &[Turn], temp: f64, json: bool) -> Result<String, String> {
     let req = chat_request(cfg, turns, temp, json, None)?;
-    let reply = post_json_async(&req.url, &req.body, req.key.as_deref()).await?;
+    let reply = post_json_async(&req.url, &req.body, req.key.as_deref()).await.map_err(|e| account_message(cfg, &e))?;
     chat_reply_text(&req, &reply)
 }
 
@@ -1431,7 +1437,7 @@ pub fn begin_service(cfg: &AiCfg, service: &str, pages: usize) -> Result<Charged
     account_signed_in_check(cfg)?;
     let url = format!("{}/service", cfg.base.trim_end_matches('/'));
     let key = request_key(cfg);
-    let reply = post_json(&url, json!({"service": service, "pages": pages}), key.as_deref()).map_err(|e| credit_message(&e))?;
+    let reply = post_json(&url, json!({"service": service, "pages": pages}), key.as_deref()).map_err(|e| account_message(cfg, &credit_message(&e)))?;
     let session = reply.get("session").and_then(Value::as_str).map(str::to_string);
     if let Ok(mut s) = SERVICE_SESSION.lock() {
         *s = session;
@@ -1449,7 +1455,7 @@ pub async fn begin_service_async(cfg: &AiCfg, service: &str, pages: usize) -> Re
     account_signed_in_check(cfg)?;
     let url = format!("{}/service", cfg.base.trim_end_matches('/'));
     let key = request_key(cfg);
-    let reply = post_json_async(&url, &json!({"service": service, "pages": pages}), key.as_deref()).await.map_err(|e| credit_message(&e))?;
+    let reply = post_json_async(&url, &json!({"service": service, "pages": pages}), key.as_deref()).await.map_err(|e| account_message(cfg, &credit_message(&e)))?;
     let session = reply.get("session").and_then(Value::as_str).map(str::to_string);
     if let Ok(mut s) = SERVICE_SESSION.lock() {
         *s = session;
@@ -1464,6 +1470,37 @@ fn account_signed_in_check(cfg: &AiCfg) -> Result<(), String> {
         return Err("Sign in first: Settings, then D.A.D account (or wait a moment if you just opened the page), then try again.".to_string());
     }
     Ok(())
+}
+
+/// [`begin_service`] on either build: the desktop's blocking call is ready at once, the browser awaits fetch.
+pub async fn start_service(cfg: &AiCfg, service: &str, pages: usize) -> Result<Charged, String> {
+    #[cfg(not(target_arch = "wasm32"))]
+    { begin_service(cfg, service, pages) }
+    #[cfg(target_arch = "wasm32")]
+    { begin_service_async(cfg, service, pages).await }
+}
+
+/// What a refusal from the D.A.D server means for the teacher, in their words. Other AIs' errors pass
+/// through unchanged (the Questions screen has its own sentences for those). Every sentence here starts
+/// with "D.A.D" or "Your D.A.D", which the screen shows as it is.
+pub fn account_message(cfg: &AiCfg, err: &str) -> String {
+    if cfg.provider != "account" { return err.to_string(); }
+    if err.starts_with("Sign in first") || err.starts_with("D.A.D") || err.starts_with("Your D.A.D") { return err.to_string(); }
+    let status = err.find(" answered ").and_then(|i| err[i + 10..].get(..3)).and_then(|s| s.parse::<u16>().ok());
+    let lower = err.to_ascii_lowercase();
+    match status {
+        Some(401) => "Your D.A.D sign-in has ended. Sign in again: Settings, then D.A.D account.".into(),
+        Some(403) => "Your D.A.D account can't use D.A.D AI yet. Open Settings, then D.A.D account, to see why.".into(),
+        Some(402) if lower.contains("session") => "D.A.D AI stopped partway through. Press Write again; it starts a fresh try.".into(),
+        Some(429) if lower.contains("today") => "D.A.D AI has reached today's limit for everyone. Try again tomorrow, or pick another AI in Settings, then AI.".into(),
+        Some(429) => "D.A.D AI is busy right now. Wait a minute and try again.".into(),
+        Some(503) => "The D.A.D server isn't ready to write questions right now. Try again later, or pick another AI in Settings, then AI.".into(),
+        Some(500..=599) => "D.A.D AI didn't answer this time. Wait a minute and try again.".into(),
+        // A refused service carries the server's own count, without an " answered " prefix (credit_message).
+        _ if lower.contains("credits") && lower.contains("you have") => "D.A.D AI is out of credits for this week. Free credits come back every Monday, or you can buy more in Settings, then D.A.D account.".into(),
+        _ if lower.starts_with("can't reach") => "Couldn't reach the D.A.D server. Check your internet connection and try again.".into(),
+        _ => err.to_string(),
+    }
 }
 
 /// The relay's sentence for a refused service ("This needs 2 credits and you have 0 left this week.").
@@ -2060,6 +2097,37 @@ mod tests {
         begin_service(&cfg, "import", 1).unwrap();
         openai_chat_once(&cfg, "p", "image/png", &[], 0.0).unwrap();
         assert!(!h.join().unwrap()[1].1.contains("session"));
+    }
+
+    #[test]
+    fn dad_ai_refusals_read_as_teacher_sentences() {
+        let dad = AiCfg { provider: "account".into(), base: "http://x/ai".into(), model: String::new(), think: None };
+        let m = |e: &str| account_message(&dad, e);
+        assert!(m("This needs 1 credits and you have 0 left this week and 0 purchased.").starts_with("D.A.D AI is out of credits for this week."));
+        assert!(m("http://x/ai/chat/completions answered 401: Sign in first, or use the relay key.").starts_with("Your D.A.D sign-in has ended."));
+        assert!(m("http://x/ai/chat/completions answered 402: This AI session has ended or used its calls.").contains("Press Write again"));
+        assert!(m("http://x/ai/service answered 429: The AI allowance for today is used up.").contains("today's limit"));
+        assert!(m("http://x/ai/chat/completions answered 503: This deployment has no OpenRouter key.").starts_with("The D.A.D server isn't ready"));
+        assert!(m("Can't reach http://x/ai/service: Connection refused").starts_with("Couldn't reach the D.A.D server"));
+        // Every one is shown as written, not replaced by the general "out of credit with your AI provider" line.
+        for e in ["This needs 1 credits and you have 0 left this week and 0 purchased.", "x answered 401: no", "x answered 503: no", "Can't reach x: y"] {
+            assert_eq!(crate::mom::form::plain_error(&m(e)), m(e));
+        }
+        // Another AI's errors are not touched here.
+        let other = AiCfg { provider: "openrouter".into(), ..dad.clone() };
+        assert_eq!(account_message(&other, "x answered 401: bad key"), "x answered 401: bad key");
+    }
+
+    #[test]
+    fn relay_chat_asks_for_text_when_it_wants_text_and_carries_the_session() {
+        let dad = AiCfg { provider: "account".into(), base: "http://x/ai".into(), model: String::new(), think: None };
+        let turns = [Turn::new("user", "hi".to_string())];
+        let text = chat_request(&dad, &turns, 0.2, false, None).unwrap();
+        assert_eq!(text.body["response_format"], json!({"type": "text"}));
+        let json_req = chat_request(&dad, &turns, 0.2, true, None).unwrap();
+        assert_eq!(json_req.body["response_format"], json!({"type": "json_object"}));
+        let other = AiCfg { provider: "openrouter".into(), ..dad };
+        assert!(chat_request(&other, &turns, 0.2, false, None).unwrap().body.get("response_format").is_none());
     }
 
     #[test]
