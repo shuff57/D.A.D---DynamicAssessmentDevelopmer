@@ -234,7 +234,7 @@ fn number(t: &str) -> Option<f64> { t.trim().replace('\u{2212}', "-").parse().ok
 #[test]
 #[cfg_attr(not(feature = "slow-tests"), ignore = "slow: cargo test --profile figtest --lib --features slow-tests")]
 fn riemann_flat_edge_and_end_level_strips_match_independent_widths() {
-    let (mut renders, mut worst) = (0, (std::time::Duration::ZERO, None));
+    let (mut renders, mut worst) = (0, (std::time::Duration::ZERO, None::<Params>));
     let mut failures = vec![];
     for c in cases() {
         let t = Truth::new(&c);
@@ -265,9 +265,8 @@ fn riemann_flat_edge_and_end_level_strips_match_independent_widths() {
             if let Some(e) = &sum.ex { if (e.approx() - total).abs() > slack { failures.push(format!("{ctx}: exact sum ≈ {} not {total}", e.approx())); } }
             // what is written, at 4 places: the key's sum and the sum line's last value
             p.set_s("values", "Decimals"); p.set_i("dec", 4);
-            let start = std::time::Instant::now();
-            let svg = render(&p);
-            if start.elapsed() > worst.0 { worst = (start.elapsed(), Some(p.clone())); }
+            let (svg, took) = crate::cpu::time(|| render(&p));
+            if took > worst.0 { worst = (took, Some(p.clone())); }
             renders += 1;
             let lines = line_texts(&svg);
             let Some(key) = lines.iter().find(|l| l.starts_with("Key: ")) else { failures.push(format!("{ctx}: no key line in {lines:?}")); continue };
@@ -288,8 +287,8 @@ fn riemann_flat_edge_and_end_level_strips_match_independent_widths() {
             }
         } } }
     }
-    // (the slowest render timed again alone, so the time is the figure's and not the load of other tests)
-    let alone = worst.1.as_ref().map(|p| { let t = std::time::Instant::now(); let _ = render(p); t.elapsed() }).unwrap_or_default();
+    // (the slowest render timed again, in the thread's CPU time, so the time is the figure's and not the load of other tests)
+    let alone = worst.1.as_ref().map(|p| crate::cpu::time(|| render(p)).1).unwrap_or_default();
     let worst = alone;
     eprintln!("flat-edge sweep: {} cases, {renders} renders, slowest (timed again alone) {worst:?}", cases().len());
     assert!(failures.is_empty(), "{} failures:\n{}", failures.len(), failures.iter().take(60).cloned().collect::<Vec<_>>().join("\n"));

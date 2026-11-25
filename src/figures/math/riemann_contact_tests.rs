@@ -71,9 +71,8 @@ fn riemann_wide_contacts_settle_or_refuse() {
     let mut bad = vec![];
     for (f, g, x0, x1, want) in &cases {
         let ctx = format!("{f} vs {g} on [{x0}, {x1}]");
-        let t0 = std::time::Instant::now();
-        let got = model(&p(f, g, *x0, *x1));
-        let el = t0.elapsed();
+        // (CPU time of this thread, not wall time: the rest of the suite runs alongside)
+        let (got, el) = crate::cpu::time(|| model(&p(f, g, *x0, *x1)));
         if crate::TIMED && el.as_secs_f64() > 0.5 { bad.push(format!("{ctx}: {el:?}")); }
         let refused = |e: &str| REFUSED.iter().any(|r| e.contains(r));
         match (want, got) {
