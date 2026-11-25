@@ -263,7 +263,7 @@ test("42-6: the mail is a fixed text (MAIL_MODE log): a fixed subject, (round 46
   const mailsLogged = out.split("[dev mail]").slice(1);
   assert.equal(mailsLogged.length, 3, "the bad address and the bad code are never mailed");
   const [first, second, third] = mailsLogged as [string, string, string];
-  assert.match(first, /^ to=zed@mail\.example subject=verSHion: you are invited to a circle\n/);
+  assert.match(first, /^ to=zed@mail\.example subject=D.A.D: you are invited to a circle\n/);
   assert.doesNotMatch(first, /Algebra/, "round 46: no circle name, whatever the notice carries");
   assert.match(first, /as an editor/);
   assert.match(first, new RegExp(`\\n${code}\\n`));
@@ -272,7 +272,7 @@ test("42-6: the mail is a fixed text (MAIL_MODE log): a fixed subject, (round 46
   assert.doesNotMatch(first, /Olga|Teacher/);
   assert.ok(first.length < 1200, "short");
   assert.doesNotMatch(second, /Evil|Bcc|victim/, "no name");
-  assert.match(second, /a circle on verSHion/);
+  assert.match(second, /a circle on D.A.D/);
   assert.doesNotMatch(third, /x{81}/);
   assert.ok(!out.includes("victim@else.example\n") && !/to=[^\n]*victim/.test(out));
   // Production mode: the provider gets one recipient and the fixed subject.
@@ -287,7 +287,7 @@ test("42-6: the mail is a fixed text (MAIL_MODE log): a fixed subject, (round 46
   } finally {
     globalThis.fetch = origFetch;
   }
-  assert.deepEqual(sent.map((x) => [x.to, x.subject]), [[["zed@mail.example"], "verSHion: you are invited to a circle"]]);
+  assert.deepEqual(sent.map((x) => [x.to, x.subject]), [[["zed@mail.example"], "D.A.D: you are invited to a circle"]]);
   assert.match(sent[0]!.text, /https:\/\/app\.example\.org\/circles\/join#code=/);
 });
 

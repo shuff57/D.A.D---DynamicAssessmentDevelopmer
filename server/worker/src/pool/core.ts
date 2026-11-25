@@ -129,7 +129,7 @@ export const CORE_MESSAGES: Record<string, string> = {
   key_in_stem: "The question text (or a left item) gives the answer away (an answer line, GIFT or Cloze answer syntax, a True/False value, or a left item naming its right item). Remove it from the question.",
   key_in_formatting: "The correct choice looks different from the others (spacing, decoration, capitals or a note), which would give the answer away. Make the choices look alike.",
   hash_key_required: "The server is not configured to accept publishes yet.",
-  v2_field_in_v1: "This file uses fields of a newer format. Update verSHion and export it again.",
+  v2_field_in_v1: "This file uses fields of a newer format. Update D.A.D and export it again.",
   // Round 16 (critic21c c14): the source now shares this question without its key.
   keyless_needs_hide_key: "This copy came from a version shared without its key. Publish it with the key hidden, or set the correct answers yourself before publishing it with the key shown.",
 };
