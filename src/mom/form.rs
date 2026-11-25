@@ -501,6 +501,11 @@ pub fn plain_progress(line: &str, max_tries: usize) -> Option<String> {
 /// An error as a teacher should see it.
 pub fn plain_error(e: &str) -> String {
     let l = e.to_ascii_lowercase();
+    // A subscription AI (Codex, Claude on this computer) out of its allowance: it comes back by
+    // itself, and buying credit is not the only way out.
+    if l.contains("usage limit") {
+        return "Your AI has reached its usage limit for now. Try again later, or pick another AI in Settings.".into();
+    }
     if l.contains("api key") || l.contains("401") || l.contains("unauthorized") {
         return "The AI isn't set up yet. Open Settings, then AI, and add your key.".into();
     }
@@ -650,5 +655,9 @@ mod tests {
         assert_eq!(plain_progress("try 2: \"x\" passes at seeds 4242, 7, 99", 4).as_deref(), Some("It works with every set of numbers."));
         assert_eq!(plain_progress("    Caught error while evaluating", 4), None);
         assert!(plain_error("The AI did not answer: OpenRouter needs an API key").contains("Settings"));
+        // Codex's own words, 2026-11-24: a usage limit, not a missing sign-in or a credit top-up.
+        let codex = "The AI did not answer: The AI tool has reached its usage limit. (ERROR: You've hit your usage limit. Visit https://chatgpt.com/settings/usage to purchase more credits or try again at Nov 27th, 2026 8:28 AM.)";
+        assert_eq!(plain_error(codex), "Your AI has reached its usage limit for now. Try again later, or pick another AI in Settings.");
+        assert!(plain_error("OpenRouter answered 402: insufficient credits").contains("out of credit"));
     }
 }
