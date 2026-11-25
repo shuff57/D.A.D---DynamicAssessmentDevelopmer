@@ -196,7 +196,7 @@ async fn chat<T: Transport + Send + Sync + 'static>(State(st): State<Arc<AiState
     let max_tokens = request::clamp_max_tokens(body.get("max_tokens"), st.limits.max_out_tokens);
     let temperature = request::clamp_temperature(body.get("temperature"));
 
-    let out = upstream::call_model(&st.transport, or, &messages, max_tokens, temperature).await;
+    let out = upstream::call_model_as(&st.transport, or, &messages, max_tokens, temperature, request::wants_json(&body)).await;
     let reply = match out {
         ModelOut::Ok(r) => r,
         ModelOut::Failed => return err(502, "model_failed", "The model call failed. Try again."),
@@ -388,6 +388,21 @@ mod tests {
         let sent = w.st.transport.seen.lock().unwrap()[0].clone();
         assert_eq!(sent["response_format"], json!({ "type": "json_object" }));
         assert_eq!(w.st.store(|s| s.cost_since(0).unwrap()), 0.00011, "the relay key's call is booked");
+    }
+
+    #[tokio::test]
+    async fn a_client_may_ask_for_a_plain_text_reply_and_nothing_else_about_the_format() {
+        let w = world(vec![], |_| {});
+        let mut b = say();
+        b["response_format"] = json!({ "type": "text" });
+        assert_eq!(w.chat(b, KEY).await.0, 200);
+        let mut b = say();
+        b["response_format"] = json!({ "type": "json_schema", "json_schema": { "name": "x" } });
+        assert_eq!(w.chat(b, KEY).await.0, 200);
+        let seen = w.st.transport.seen.lock().unwrap();
+        assert!(seen[0].get("response_format").is_none(), "text: no JSON mode upstream");
+        assert_eq!(seen[1]["response_format"], json!({ "type": "json_object" }), "anything else stays JSON");
+        assert_eq!(seen[0]["model"], seen[1]["model"]);
     }
 
     #[tokio::test]
