@@ -6,7 +6,7 @@
 //! answers is off; the axes, their numbers and the givens stay, so the student can sketch the curve and mark the two
 //! constants themselves.
 use super::super::circle::num;
-use super::super::chart::{fmt, nice_step, ticks, Frame};
+use super::super::chart::{nice_step, ticks, Frame};
 use super::*;
 use crate::figures::interact::Handle;
 

@@ -14,8 +14,6 @@ const INK_PRINT: &str = "#111111";
 const TONE_PRINT: &str = "#555555";
 const BLANK: &str = "_____";
 const W: f64 = 480.0;
-const H: f64 = 320.0;
-const ROWS_Y0: f64 = 286.0;
 const ROW_H: f64 = 18.0;
 const ROW_FS: f64 = 15.0;
 /// One unit cube, in pixels.

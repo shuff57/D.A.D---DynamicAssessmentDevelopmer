@@ -5063,7 +5063,7 @@ mod tests {
     /// (and never opens the bank); Escape closes the list.
     #[test]
     fn plus_more_reveals_the_folded_types_and_never_opens_the_bank() {
-        use egui_kittest::kittest::{NodeT, Queryable};
+        use egui_kittest::kittest::Queryable;
         let tmp = std::env::temp_dir().join(format!("vs-more-test-{}", std::process::id()));
         crate::store::init(Box::new(crate::store::FsBackend::new(tmp)));
         let new_app = || {

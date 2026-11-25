@@ -896,7 +896,6 @@ fn translate(d: &mut Doc, x: f64, y: f64, body: &str) { d.raw(&format!(r#"<g tra
 fn draw_panel(d: &mut Doc, p: &Params, c: &Cfg, pal: &Pal, sl: &Slot, g: &Geo, ox: f64, oy: f64, first: bool, tri: bool) {
     let m = &sl.m;
     let scene = m.scene;
-    let unit = m.unit;
     // particles
     let seed = c.seed.wrapping_mul(1000).wrapping_add(if sl.letter.is_some() { sl.letter.unwrap() as u64 } else { 0 });
     let start_geo_in = geo(m, Kind::Start, pal);

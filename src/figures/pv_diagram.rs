@@ -3,7 +3,7 @@
 //!
 //! The work and the two pressures are the answers, so they blank while Show answers is off — and so do the shaded
 //! area and the y-axis numbers that would give them away; the axes, the path and the given values stay.
-use super::chart::{fmt, nice_step, ticks, Frame};
+use super::chart::{nice_step, ticks, Frame};
 use super::circle::num;
 use super::svg::{self, Doc};
 use super::*;
@@ -22,7 +22,6 @@ const BLANK: &str = "_____";
 /// The gas constant.
 const R: f64 = 8.314;
 const W: f64 = 470.0;
-const H: f64 = 360.0;
 const PLOT_W: f64 = 350.0;
 const PLOT_H: f64 = 210.0;
 const L: f64 = 70.0;
@@ -131,7 +130,7 @@ pub fn build(p: &Params) -> (String, Report) {
     let rows_y0 = ROWS_Y0 + (lab - 1.0) * 30.0;
     // the window: a little past the two volumes and the higher pressure
     let (vlo, vhi) = (v1.min(v2), v1.max(v2));
-    let (plo, phi) = (p1.min(p2), p1.max(p2));
+    let phi = p1.max(p2);
     // the left margin is what the y tick labels and the rotated title need, measured rather than guessed: a
     // pressure high enough to print seven digits at Large label size crosses the title if the margin only grows
     // with the label size

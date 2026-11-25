@@ -42,7 +42,6 @@ mod tests {
         p
     }
     fn s(v: &str) -> Value { Value::S(v.into()) }
-    fn b(v: bool) -> Value { Value::B(v) }
 
     /// The band rectangles drawn (34 wide), as (centre x, top y).
     fn bands(svg: &str) -> Vec<(f64, f64)> {

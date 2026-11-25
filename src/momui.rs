@@ -757,14 +757,14 @@ pub fn leave() {
     });
 }
 
-/// What a running job is called, for the dock while the teacher is on another screen. None when
-/// nothing runs, or while the Questions page itself is drawing (it shows the job in full).
 thread_local! {
     /// The label as of the Questions page's last frame, for the dock while that page holds the
     /// state (Import and Share are drawn by it).
     static JOB_LABEL: std::cell::Cell<Option<(usize, &'static str)>> = const { std::cell::Cell::new(None) };
 }
 
+/// What a running job is called, for the dock while the teacher is on another screen. None when
+/// nothing runs, or while the Questions page itself is drawing (it shows the job in full).
 /// The dock item (0 Questions, 1 Convert) and what to call it while a job runs elsewhere.
 pub fn job_label() -> Option<(usize, &'static str)> {
     ST.with(|state| {
@@ -1993,6 +1993,7 @@ fn receipt_for(id: &str) -> Option<crate::mom::poster::Publication> {
 }
 
 /// The next worksheet draft not yet in MyOpenMath, after the one on screen.
+#[cfg(not(target_arch = "wasm32"))]
 fn next_worksheet_draft(st: &State) -> Option<Saved> {
     let id = st.current.as_ref()?.saved_id.as_deref()?;
     let batch = st.library.questions.iter().find(|s| s.id == id)?.worksheet_origin.as_ref()?.batch.clone();
@@ -2002,6 +2003,7 @@ fn next_worksheet_draft(st: &State) -> Option<Saved> {
 }
 
 /// After a question is in MyOpenMath: the one next action, by what the teacher is working through.
+#[cfg(not(target_arch = "wasm32"))]
 fn finish_actions(ui: &mut Ui, st: &mut State) {
     if let Some(next) = next_worksheet_draft(st) {
         if pageshell::primary(ui, "Next Worksheet Draft").clicked() {
@@ -2022,6 +2024,7 @@ fn finish_actions(ui: &mut Ui, st: &mut State) {
     }
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 fn from_worksheet(st: &State) -> bool {
     let Some(id) = st.current.as_ref().and_then(|c| c.saved_id.as_deref()) else { return false };
     st.library.questions.iter().find(|s| s.id == id).is_some_and(|s| s.worksheet_origin.is_some())

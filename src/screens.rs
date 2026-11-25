@@ -3542,6 +3542,7 @@ pub(crate) fn mime_of(ext: &str) -> &'static str {
 }
 
 /// Rasterizes every page of a PDF (up to `MAX_PDF_PAGES`) to PNG with `pdftoppm`.
+#[cfg(not(target_arch = "wasm32"))]
 pub(crate) fn pdf_pages_png(data: &[u8]) -> Result<Vec<Vec<u8>>, String> {
     use std::process::{Command, Stdio};
     const MAX_PDF_PAGES: usize = 30;

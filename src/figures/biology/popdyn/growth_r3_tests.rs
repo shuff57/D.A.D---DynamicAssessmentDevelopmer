@@ -37,7 +37,7 @@ fn checker_cases() -> Vec<Case> {
 pub(super) fn sweep(seed: u64, modes: &[&'static str]) -> Vec<Case> {
     let mut g = Rng(seed);
     let mut out = vec![];
-    let mut dress = |c: &mut Case, g: &mut Rng, tspan: f64| {
+    let dress = |c: &mut Case, g: &mut Rng, tspan: f64| {
         c.extend([
             ("graph", s(if g.next(3) == 0 { "Population size over time" } else { g.pick(&VIEWS) })),
             ("label_size", s(g.pick(&["Small", "Medium", "Large"]))),

@@ -40,17 +40,6 @@ fn strip_as(ctx: &egui::Context, m: &mut CirclesModel, banks: &mut [QuestionBank
     })
 }
 
-/// Waits until the scripted server was asked for a path ending in `suffix` (a job on its own thread).
-fn wait_path(s: &Arc<Script>, suffix: &str) {
-    for _ in 0..500 {
-        if s.paths().iter().any(|p| p.ends_with(suffix)) {
-            return;
-        }
-        std::thread::sleep(std::time::Duration::from_millis(10));
-    }
-    panic!("never reached {suffix}: {:?}", s.paths());
-}
-
 /// Waits until the scripted server was asked for more than `n` requests (a job on its own thread reached it; a held
 /// one waits there).
 fn wait_more(s: &Arc<Script>, n: usize) {

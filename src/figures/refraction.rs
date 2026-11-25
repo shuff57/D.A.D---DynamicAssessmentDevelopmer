@@ -20,7 +20,6 @@ const BLANK: &str = "_____";
 /// The speed of light in vacuum, as printed in the working.
 const C: f64 = 3.0e8;
 const W: f64 = 470.0;
-const H: f64 = 340.0;
 const OX: f64 = 235.0;
 const OY: f64 = 150.0;
 const LEN: f64 = 110.0;

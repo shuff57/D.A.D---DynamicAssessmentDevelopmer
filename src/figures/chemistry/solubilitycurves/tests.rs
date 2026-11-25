@@ -369,7 +369,7 @@ fn audit(svg: &str, g: &mut Glyphs, lab: f64) -> Vec<String> {
             let own_c: Vec<Pt> = gm.marks.iter().filter(|m| m.0 == *own && !ring(&m.1)).map(|m| mark_centre(&m.2)).collect();
             let rival = gm.marks.iter().filter(|m| (m.0.starts_with("pt") || m.0.starts_with("rd")) && !(m.0 == *own && !ring(&m.1)) && !own_c.iter().any(|c| (c.0 - mark_centre(&m.2).0).hypot(c.1 - mark_centre(&m.2).1) <= 7.0)).map(|m| pt_box(mark_centre(&m.2), *bx)).fold(f64::MAX, f64::min);
             if d_own + 0.25 > rival {
-                let which: Vec<String> = gm.marks.iter().filter(|m| (m.0.starts_with("pt") || m.0.starts_with("rd"))).map(|m| format!("{}:{}@{:.0},{:.0}", m.0, m.1, mark_centre(&m.2).0, mark_centre(&m.2).1)).collect();
+                let which: Vec<String> = gm.marks.iter().filter(|m| m.0.starts_with("pt") || m.0.starts_with("rd")).map(|m| format!("{}:{}@{:.0},{:.0}", m.0, m.1, mark_centre(&m.2).0, mark_centre(&m.2).1)).collect();
                 bad.push(format!("{name:?} is {d_own:.1} px from its dot but {rival:.1} px from another mark, with no leader line: it is nearer another mark {which:?} label {:.0?}", bx));
             }
         }

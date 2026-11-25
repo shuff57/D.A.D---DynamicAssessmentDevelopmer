@@ -51,7 +51,6 @@ impl Rat {
     pub fn int(n: i128) -> Rat { Rat { n, d: 1 } }
     pub fn add(self, o: Rat) -> Option<Rat> { Rat::new(self.n.checked_mul(o.d)?.checked_add(o.n.checked_mul(self.d)?)?, self.d.checked_mul(o.d)?) }
     pub fn neg(self) -> Rat { Rat { n: -self.n, d: self.d } }
-    pub fn sub(self, o: Rat) -> Option<Rat> { self.add(o.neg()) }
     pub fn mul(self, o: Rat) -> Option<Rat> { Rat::new(self.n.checked_mul(o.n)?, self.d.checked_mul(o.d)?) }
     pub fn div(self, o: Rat) -> Option<Rat> { if o.n == 0 { None } else { Rat::new(self.n.checked_mul(o.d)?, self.d.checked_mul(o.n)?) } }
     pub fn f(self) -> f64 { self.n as f64 / self.d as f64 }
@@ -382,7 +381,7 @@ pub fn standard(c: &Conic, exact: bool, dec: i64) -> String {
 }
 
 /// The general form Ax^2 + Cy^2 + Dx + Ey + F = 0, in whole numbers with no common factor when the values are rational.
-pub fn general(c: &Conic, exact: bool, dec: i64) -> String {
+pub fn general(c: &Conic, exact: bool, _dec: i64) -> String {
     let g = c.general();
     let rats: Option<Vec<Rat>> = if exact { g.iter().map(|n| n.rat()).collect() } else { None };
     let coefs: Vec<String> = match rats {
@@ -1472,6 +1471,7 @@ pub fn render(p: &Params) -> String { build(p, &mut vec![]) }
 #[derive(Clone, Debug, Default)]
 pub struct Drawn { pub labels: Vec<(String, Vec<(Pt, Pt)>)>, pub things: Vec<(Pt, Pt)>, pub dropped: usize, pub shortened: usize, pub placed: Vec<(String, char, bool, u8)>, pub dropped_kinds: Vec<char>, pub keyed: usize, pub keyed_ids: Vec<String> }
 thread_local! { static LAST: std::cell::RefCell<Drawn> = std::cell::RefCell::new(Drawn::default()); }
+#[cfg(test)]
 pub fn last_drawn() -> Drawn { LAST.with(|l| l.borrow().clone()) }
 
 pub fn warnings(p: &Params) -> Vec<String> {
@@ -1728,7 +1728,6 @@ fn build(p0: &Params, notes: &mut Vec<String>) -> String {
                 let orders: [[char; 3]; 6] = [['V', 'F', 'C'], ['C', 'F', 'V'], ['F', 'C', 'V'], ['C', 'V', 'F'], ['F', 'V', 'C'], ['V', 'C', 'F']];
                 let base = board.clone();
                 let mut best: Option<(u64, Board, Vec<Option<Placed>>)> = None;
-                let mut stale = 0;
                 // `compact`: every point's label is its letter alone (tried only when a point would otherwise go unlabelled)
                 // pass 0: as asked; pass 1: the points left unlabelled as their letters; pass 2: every point as its letter
                 for pass in 0..3 {
@@ -1737,7 +1736,7 @@ fn build(p0: &Params, notes: &mut Vec<String>) -> String {
                     if compact && unlabelled.is_empty() { break; }
                     let shorten = |r: &Req| r.kind != 'L' && (pass == 2 || unlabelled.contains(&r.id));
                     let rq: Vec<Req> = reqs.iter().map(|r| Req { id: r.id.clone(), text: if compact && shorten(r) { r.short.clone().unwrap_or(r.text.clone()) } else { r.text.clone() }, short: r.short.clone(), at: r.at, optional: r.optional, prio: r.prio, kind: r.kind, alts: r.alts.clone() }).collect();
-                    stale = 0;
+                    let mut stale = 0;
                     'orders: for minor_first in [false, true] { for flip in [false, true] {
                         for ord in &orders {
                             let mut idx: Vec<usize> = (0..rq.len()).collect();

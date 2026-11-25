@@ -267,7 +267,7 @@ fn note_list(p: &Params, head: &str, tail: &str) -> Vec<String> {
 }
 
 #[derive(Default)]
-struct Tally { figs: usize, labels: usize, by: BTreeMap<String, [usize; 5]>, issues: BTreeMap<String, usize>, leaders: usize, leaders_curve: usize, leaders_line: usize, unlabelled_figs: usize, far: f64, min_margin: f64 }
+struct Tally { figs: usize, labels: usize, by: BTreeMap<String, [usize; 5]>, issues: BTreeMap<String, usize>, leaders: usize, leaders_curve: usize, leaders_line: usize, far: f64, min_margin: f64 }
 impl Tally {
     fn add(&mut self, r: &Res, size: &str) {
         self.figs += 1; self.labels += r.labels; self.leaders += r.leaders; self.leaders_curve += r.leaders_curve; self.leaders_line += r.leaders_line;

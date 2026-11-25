@@ -1787,7 +1787,6 @@ pub(crate) fn build(p0: &Params) -> (String, Vec<String>) {
             // further from its strip than touching. If none of these fits every label, the set is left off with a note.
             let full = 14.0 * ls;
             let base_len = ob.boxes.len();
-            let dn = 14.0 * (ls - 1.0);
 
             // (the values all exact, or all rounded alike)
             let raw: Vec<Val> = m.strips.iter().map(|s| if lab_mode == "Areas" { s.area.clone() } else { s.h.clone() }).collect();

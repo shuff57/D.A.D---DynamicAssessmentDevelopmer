@@ -13,7 +13,6 @@ use std::f64::consts::PI;
 
 // ───────────────────────── exact helpers ─────────────────────────
 
-pub(crate) fn rat(p: i128, q: i128) -> Option<Ex> { Some(Ex::rat(R::new(p, q)?)) }
 pub(crate) fn pi_times(p: i128, q: i128) -> Option<Ex> {
     let r = R::new(p, q)?;
     let mut m = BTreeMap::new();

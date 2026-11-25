@@ -1418,6 +1418,7 @@ fn err_sizes(t: &Table, o: &Opts) -> Vec<Vec<Option<f64>>> {
 /// The drawing order of the categories (indices into `t.cats`). Equal bars keep their typed
 /// order: the comparison is an exact integer, and a tie falls back to the typed index, so no
 /// float sum and no sorting algorithm can swap two equal categories.
+#[cfg(test)]
 pub fn order(t: &Table, percent: bool, how: &str) -> Vec<usize> {
     order_by(t, percent, false, how)
 }

@@ -51,8 +51,6 @@ pub(super) struct InflRoom<'a> {
     /// y of the K line and the box of its label, when drawn.
     pub k_line: Option<f64>,
     pub k_label: Option<(f64, f64, f64, f64)>,
-    /// Minor gridlines per block.
-    pub minor: i64,
 }
 
 /// The inflection point's label: the words with their left end at `x` and baseline `y` (where they always went), or

@@ -14,7 +14,9 @@
 //!
 //! Every new control's default draws what the figure drew before it existed, so old saved figures
 //! and share links render byte for byte as they did (`tests::old_figures_render_byte_for_byte`).
-use super::super::chart::{self, AxesOpts, Frame, Tick, GRID, INK};
+use super::super::chart::{self, AxesOpts, Frame, Tick, INK};
+#[cfg(test)]
+use super::super::chart::GRID;
 use super::super::data;
 use super::super::svg::{self, esc, Doc, Fills};
 use super::super::{answers_param, ParamDef, Params, SHOW_ANSWERS};

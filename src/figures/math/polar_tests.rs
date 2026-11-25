@@ -217,7 +217,7 @@ fn tan_of(curves: &str, at: &str) -> (polar::Tan, String) {
 #[test]
 fn slopes_by_hand() {
     // r = 2 + 2cos θ at π/2: r = 2, r′ = −2; dx/dθ = −2·0 − 2·1 = −2, dy/dθ = −2·1 + 2·0 = −2: dy/dx = 1
-    let (t, l) = tan_of("r = 2 + 2cos(θ)", "pi/2");
+    let (_, l) = tan_of("r = 2 + 2cos(θ)", "pi/2");
     assert!(l.contains("dy/dx = 1") && l.contains(&format!("dx/d\u{3b8} = {M}2")), "{l}");
     // r = 3 sin 2θ at π/4: r = 3, r′ = 0: dx = −3√2/2, dy = 3√2/2: −1
     assert!(tan_of("r = 3sin(2θ)", "pi/4").1.contains(&format!("dy/dx = {M}1")));

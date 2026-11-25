@@ -295,7 +295,7 @@ impl Bx {
 }
 /// A new label above the line, placed: its text, centre x, box (y relative to the axis), its mark.
 #[derive(Clone, Debug)]
-pub(super) struct Placed { pub txt: Txt, pub size: f64, pub bx: Bx, pub mark: (f64, f64), pub row: usize }
+pub(super) struct Placed { pub txt: Txt, pub size: f64, pub bx: Bx, #[cfg_attr(not(test), allow(dead_code))] pub mark: (f64, f64) }
 
 /// Everything the drawing needs that is not a plain param: the range and step, how the rows read,
 /// the second row's height above the line, the new labels' places and the notes. Pure; shared by
@@ -414,7 +414,7 @@ pub(super) fn plan(p: &Params) -> Plan {
     let place = |pl: &mut Plan, band: usize, base: f64, obstacles: &[Bx]| {
         let mut done: Vec<Bx> = vec![];
         let mut labelled: Vec<f64> = vec![];
-        for (mx, txt, size, row) in wants[band].iter().cloned() {
+        for (mx, txt, size, _row) in wants[band].iter().cloned() {
             if labelled.iter().any(|l| (l - mx).abs() < 6.0) { pl.dropped += 1; continue; }
             let (lw, lh) = txt.dims(size, matches!(txt, Txt::Named(..)));
             let cx = mx.clamp(4.0 + lw / 2.0, w - 4.0 - lw / 2.0);
@@ -433,7 +433,7 @@ pub(super) fn plan(p: &Params) -> Plan {
                 if lowest - bottom > 66.0 { break; }
             }
             match ok {
-                Some(bx) => { done.push(bx); labelled.push(mx); pl.labels.push(Placed { txt, size, bx, mark: (mx, base), row }); }
+                Some(bx) => { done.push(bx); labelled.push(mx); pl.labels.push(Placed { txt, size, bx, mark: (mx, base) }); }
                 None => pl.dropped += 1,
             }
         }

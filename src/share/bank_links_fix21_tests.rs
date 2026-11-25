@@ -11,7 +11,6 @@ use super::bank_links_fix11_tests::{rated, rig, version_path};
 use super::bank_links_fix15_tests::phase_c;
 use super::bank_links_fix16_tests::{rebuilt, v3};
 use super::bank_links_fix19_tests::{dir_model, fresh_dir, pending, recording, recording_then_blocking, signed_out, unblock_links, Saved};
-use super::bank_links_fix4_tests::*;
 use super::bank_links_fix8_tests::*;
 use super::bank_links_fix9_tests::*;
 use super::bank_links_fix_tests::*;

@@ -18,9 +18,6 @@ fn f(v: f64) -> Value { Value::F(v) }
 fn i(v: i64) -> Value { Value::I(v) }
 fn svg(p: &Params) -> String { def().svg(p) }
 
-/// An old row the figure now reads as a sequence.
-pub(super) fn seq_row(t: &str) -> bool { matches!(read_row(&with(&[("inequality", s(t))]), 0), Row::Seq(_) | Row::Bad(_)) }
-
 // ───────────── reading the drawn SVG ─────────────
 
 fn attr(tag: &str, k: &str) -> Option<String> {

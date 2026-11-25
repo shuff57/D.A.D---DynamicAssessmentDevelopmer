@@ -695,7 +695,7 @@ struct Lab { keep_out: Option<(Pt, f64)>, kind: Option<K>, text: String, size: f
 
 
 #[derive(Clone, Debug)]
-pub struct Placed { pub id: usize, kind: Option<K>, pub text: String, pub rect: Rect, pub clean: bool, pub leader: bool, pub plate: bool, pub anchor: Pt, pub line: Option<(Pt, Pt)>, size: f64, bold: bool, c: Pt }
+pub struct Placed { pub id: usize, #[cfg_attr(not(test), allow(dead_code))] kind: Option<K>, pub text: String, pub rect: Rect, pub clean: bool, pub leader: bool, pub plate: bool, pub anchor: Pt, pub line: Option<(Pt, Pt)>, size: f64, bold: bool, c: Pt }
 
 fn dirs8(out: Pt) -> Vec<Pt> {
     let l = (out.0 * out.0 + out.1 * out.1).sqrt();
@@ -1423,7 +1423,6 @@ fn core(p: &Params, opt: &Opt) -> (String, Report, Vec<(usize, String, Option<K>
         let (x, y) = (f(cf.shown(k, true)?), f(cf.shown(k, false)?));
         Some((t, if tw(&x, 13.0, true) >= tw(&y, 13.0, true) { x } else { y }))
     };
-    let ident = |v: String| v;
     let named = |k: K, short: String| -> Box<dyn Fn(String) -> String + '_> { if p.b(kinfo(k).2) { Box::new(|v| v) } else { Box::new(move |v| format!("{short} = {v}")) } };
     // the central angle's value, inside the arc (outside with a leader for a small angle)
     if pt.central && !pt.deg {
@@ -2952,7 +2951,7 @@ mod tests {
     fn long_units_do_not_crowd_the_figure_labels() {
         let mut l = everything();
         l.extend([s("unit", "square kilometres"), f("radius", 10000.0), b(SHOW_ANSWERS, true)]);
-        let (svg, rep) = build(&with(&l));
+        let (svg, _) = build(&with(&l));
         // the readout keeps the unit whatever the figure labels do
         assert!(svg.contains("square kilometres"), "the readout keeps the unit");
         assert_fits("long unit", &with(&l));

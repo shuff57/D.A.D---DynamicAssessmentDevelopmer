@@ -1042,6 +1042,7 @@ fn tw(s: &str, size: f64) -> f64 { text_w(s, size) }
 
 struct Slot { side: i8, x: f64, y: f64 }
 
+#[cfg(test)]
 fn viol(a: &(P, P, P), b: &(P, P, P), disc: f64) -> u32 { viol4(a, a.0, b, b.0, disc) }
 
 /// `viol` where each label's pointed-at place may differ from where its leader starts (a ribosome's leader stops

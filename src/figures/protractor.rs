@@ -16,7 +16,6 @@ const RAY: &str = "#1f5fbf";
 const RAY_PRINT: &str = "#111111";
 const BLANK: &str = "_____";
 const W: f64 = 480.0;
-const H: f64 = 300.0;
 const CX: f64 = 240.0;
 const CY: f64 = 250.0;
 const R: f64 = 196.0;

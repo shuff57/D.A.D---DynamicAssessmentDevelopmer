@@ -131,6 +131,7 @@ fn params() -> Vec<ParamDef> {
 }
 
 /// One row of the plot: the stem as text, and the leaf digits left to right.
+#[cfg(test)]
 #[derive(Clone, Debug, PartialEq)]
 pub struct Row {
     pub stem: String,
@@ -216,6 +217,7 @@ pub fn parse_stem(text: &str) -> Option<i64> {
 /// The plot's rows from the lowest stem to the highest, with empty stems in between kept (a gap
 /// in the data is part of the picture). With `split`, each stem is two rows (leaves 0-4, 5-9).
 /// None when there would be more than [`MAX_ROWS`] rows.
+#[cfg(test)]
 pub fn rows(values: &[f64], unit: f64, split: bool, ordered: bool) -> Option<Vec<Row>> {
     let o = Opts { unit, parts: if split { 2 } else { 1 }, ordered, cut: false, first: None, last: None };
     let rows = plot_rows(&[values], &o)?;
@@ -300,6 +302,7 @@ pub const MAX_ROWS: usize = 40;
 const MAX_LEAVES: usize = 60;
 
 /// "Key: 6 | 3 means 63" from the first row that has a leaf, with the unit when it is not 1.
+#[cfg(test)]
 fn key_text(rows: &[Row], unit: f64) -> Option<String> {
     let (stem, leaf, value) = first_leaf(rows.iter().map(|r| (r.stem.as_str(), r.leaves.as_slice())), unit)?;
     Some(format!("Key: {stem} | {leaf} means {value}{}", leaf_unit_note(unit)))

@@ -249,7 +249,6 @@ pub(crate) struct Curve {
     pub dg: Option<Node>,
     pub lo: Val,
     pub hi: Val,
-    pub own_range: bool,
     pub dec_ok: bool,
 }
 fn finite(v: f64) -> Option<f64> { (v.is_finite() && v.abs() < 1e9).then_some(v) }
@@ -748,7 +747,7 @@ fn read_curve(raw: &str, row: usize, p: &Params, what: &str) -> Result<Curve, St
     };
     let df = ex::deriv(&f);
     let dg = g.as_ref().map(ex::deriv);
-    Ok(Curve { row, polar, shown, range_text, f, g, df, dg, lo, hi, own_range: own, dec_ok })
+    Ok(Curve { row, polar, shown, range_text, f, g, df, dg, lo, hi, dec_ok })
 }
 
 // ───────────────────────── points ─────────────────────────
@@ -1159,11 +1158,6 @@ impl Scene {
             // (first, clear of the gridlines too: a label is not set along a gridline where it need not be)
             && !(self.strict && self.soft.any_hits(b, 0.5))
     }
-    fn cost(&self, b: Bx) -> f64 {
-        let out = (self.bounds.0 - b.0).max(0.0) + (b.2 - self.bounds.2).max(0.0) + (self.bounds.1 - b.1).max(0.0) + (b.3 - self.bounds.3).max(0.0);
-        out * 100.0 + self.segs.near(b, 1.0).iter().filter(|(a, c)| seg_hits(*a, *c, b, 1.0)).count() as f64 * 3.0 + self.boxes.iter().filter(|o| overlap(b, **o, 0.0)).count() as f64 * 8.0
-            + self.dots.iter().filter(|(d, r)| d.0 > b.0 - r && d.0 < b.2 + r && d.1 > b.1 - r && d.1 < b.3 + r).count() as f64 * 8.0
-    }
 }
 pub(crate) fn text_w(s: &str, size: f64) -> f64 { super::flat_b9::glyph_w(s, size) }
 /// math_tspans' output with its italic tspans dropped (marked \u{2} for a superscript's opening, \u{1} for every closing):
@@ -1344,10 +1338,14 @@ pub(crate) struct Out {
     pub tracer_px: Option<Pt>,
     pub curves: Vec<Curve>,
     pub points: Vec<Pp>,
+    #[cfg_attr(not(test), allow(dead_code))]
     pub region: Option<Region>,
+    #[cfg_attr(not(test), allow(dead_code))]
     pub tan: Option<Tan>,
+    #[cfg_attr(not(test), allow(dead_code))]
     pub to_panel: Vec<String>,
     /// Labels with no room on the figure even for their letter (written in the panel only).
+    #[cfg_attr(not(test), allow(dead_code))]
     pub bare: Vec<String>,
 }
 

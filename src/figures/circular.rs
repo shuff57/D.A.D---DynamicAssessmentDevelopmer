@@ -17,7 +17,6 @@ const VEL_PRINT: &str = "#333333";
 const ACC_PRINT: &str = "#555555";
 const BLANK: &str = "_____";
 const W: f64 = 470.0;
-const H: f64 = 360.0;
 const CX: f64 = 235.0;
 const CY: f64 = 150.0;
 const R: f64 = 105.0;

@@ -309,9 +309,6 @@ fn texts(t: &str) -> Vec<(usize, usize)> {
     t.match_indices("<text ").map(|(i, _)| (i, i + t[i..].find("</text>").unwrap() + 7)).collect()
 }
 
-/// Lines and polylines' segments, with their stroke colour.
-fn segments(t: &str) -> Vec<((f64, f64), (f64, f64), String)> { segments_w(t).into_iter().map(|x| (x.0, x.1, x.2)).collect() }
-
 /// The drawn strokes: lines and every polygon's edges, with colour (teal = the contact pair) and half width.
 fn segments_w(t: &str) -> Vec<((f64, f64), (f64, f64), String, f64)> {
     let sw = |h: &str| h.split("stroke-width=\"").nth(1).and_then(|x| x.split('"').next()).and_then(|x| x.parse::<f64>().ok()).unwrap_or(1.0) / 2.0;
@@ -339,13 +336,6 @@ fn plain(e: &str) -> String {
         match c { '<' => tag = true, '>' => tag = false, c if !tag && c.is_alphanumeric() => out.push(c), _ => {} }
     }
     out
-}
-
-fn seg_dist(p: (f64, f64), a: (f64, f64), b: (f64, f64)) -> f64 {
-    let (dx, dy) = (b.0 - a.0, b.1 - a.1);
-    let l = (dx * dx + dy * dy).max(1e-9);
-    let t = (((p.0 - a.0) * dx + (p.1 - a.1) * dy) / l).clamp(0.0, 1.0);
-    ((p.0 - a.0 - t * dx).powi(2) + (p.1 - a.1 - t * dy).powi(2)).sqrt()
 }
 
 /// Where text element `t[i0..i1]` touches other ink (2 px at 2x) or leaves the page, if it does.

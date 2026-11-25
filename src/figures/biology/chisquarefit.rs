@@ -18,10 +18,6 @@ const HEAD_Y: f64 = 46.0;
 const ROW_H: f64 = 26.0;
 const FS: f64 = 14.0;
 const MAX_CATS: usize = 6;
-/// Column right edges: the three number columns.
-const COL_O: f64 = 330.0;
-const COL_E: f64 = 450.0;
-const COL_T: f64 = 612.0;
 const ROW_FS: f64 = 15.0;
 
 pub fn defs() -> Vec<FigureDef> {
@@ -240,7 +236,7 @@ pub fn warnings(p: &Params) -> Vec<String> {
     let ratio = numbers(p.s("ratio"));
     // tokens that are not numbers are dropped silently by the parser; say so, or "100, x, 50" quietly becomes a
     // two-category test on 100 and 50
-    for (what, text, parsed) in [("observed counts", p.s("obs"), obs.len()), ("ratio parts", p.s("ratio"), ratio.len())] {
+    for (what, text) in [("observed counts", p.s("obs")), ("ratio parts", p.s("ratio"))] {
         let tokens: Vec<String> = split_list(&text).iter().map(|t| t.trim().to_string()).filter(|t| !t.is_empty()).collect();
         let bad: Vec<&String> = tokens.iter().filter(|t| t.parse::<f64>().map(|v| !(v.is_finite() && v >= 0.0)).unwrap_or(true)).collect();
         if !bad.is_empty() {

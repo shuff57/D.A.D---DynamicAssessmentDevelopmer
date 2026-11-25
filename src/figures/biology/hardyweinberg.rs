@@ -355,7 +355,6 @@ pub struct Report {
 pub fn build(p: &Params) -> (String, Report) {
     let (p0, n, gens, sel, show_counts) = given(p);
     let g = generations(p);
-    let dec = p.i("dec").clamp(1, 3);
     let print = p.s("style") == "Print";
     let ans = p.b(SHOW_ANSWERS);
     let f = svg::label_factor(p.s("label_size"));

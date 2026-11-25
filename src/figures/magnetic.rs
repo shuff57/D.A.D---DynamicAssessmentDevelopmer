@@ -20,7 +20,6 @@ const BLANK: &str = "_____";
 /// The permeability of free space.
 const MU0: f64 = 4.0e-7 * std::f64::consts::PI;
 const W: f64 = 470.0;
-const H: f64 = 350.0;
 const CX: f64 = 235.0;
 const CY: f64 = 145.0;
 const RMAX: f64 = 108.0;

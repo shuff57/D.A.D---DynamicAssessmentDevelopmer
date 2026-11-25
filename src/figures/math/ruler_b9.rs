@@ -3,7 +3,9 @@
 //! (`ruler_values`): the nearest mark when "Read to" is the nearest mark, else one estimated digit
 //! (hundredths of a centimetre on a millimetre ruler, tenths on a 5 mm or centimetre one,
 //! hundredths of an inch), with the object wholly on the ruler.
-use super::{ruler_read_dec, ruler_step, ruler_values};
+use super::{ruler_read_dec, ruler_step};
+#[cfg(test)]
+use super::ruler_values;
 use crate::figures::Params;
 
 /// The grid a reading lands on: the smallest mark, or one estimated digit past it.

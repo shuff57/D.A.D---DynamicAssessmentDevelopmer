@@ -1865,7 +1865,7 @@ fn d2p_a_known_no_figure_record_allows_a_restore_that_lands_on_the_base() {
     // true`). The person added a figure locally. Version 6's question is the base's exactly: no figure, same (no) picture,
     // same words. Restoring lands the copy on the base -- yet round 9 refused it as "not countable", because `None` also
     // meant "not recorded".
-    let (mut bank, mut link) = linked();
+    let (mut bank, link) = linked();
     let a = local_of(&link, QA);
     let base = link.base.iter().find(|b| b.local_id == a).unwrap();
     assert!(base.figure.is_none() && base.figure_recorded, "the base is a record that has no figure");

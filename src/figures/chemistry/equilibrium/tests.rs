@@ -738,7 +738,7 @@ fn k_from_equilibrium_data_and_q_are_exact_to_the_printed_digits() {
         let x = ceq.sub(&c0[i0]).div_small(st.rx.coef[i0], 90);
         let x = if Rxn::sg(i0) < 0.0 { x.neg() } else { x };
         let (lo, hi) = st.rx.bounds(&st.c0);
-        let inside = lo.is_none_or(|a| (parse_num(&sf(m.sol.x, 9)) > a)) && hi.is_none_or(|b| parse_num(&sf(m.sol.x, 9)) < b);
+        let inside = lo.is_none_or(|a| parse_num(&sf(m.sol.x, 9)) > a) && hi.is_none_or(|b| parse_num(&sf(m.sol.x, 9)) < b);
         if !inside || m.k <= K_LO * 1.0001 || m.k >= K_HI * 0.9999 { continue; }
         // skip starts where a cancellation of f64 would leave less than 6 good digits
         let cc = st.rx.conc(&st.c0, m.sol.x);

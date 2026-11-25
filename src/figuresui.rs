@@ -216,7 +216,15 @@ fn view_box_padded(content: Option<[f64; 4]>, (cw, ch): (f64, f64), fixed: Optio
 /// the reference's pixels per unit of ours (so a phone, where the reference never enlarges a figure
 /// past its natural size, can show the same size).
 #[derive(Clone, Copy)]
-struct PhysRef { fx: f64, fy: f64, fl: f64, ft: f64, u: f64 }
+struct PhysRef {
+    fx: f64,
+    fy: f64,
+    fl: f64,
+    ft: f64,
+    /// Measured for each figure but not read yet: nothing scales a phone's figure by it.
+    #[allow(dead_code)]
+    u: f64,
+}
 
 /// Figures whose phone svg box keeps the canvas aspect (it shrinks in height with its width); the
 /// rest keep their natural height while the width shrinks.

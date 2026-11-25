@@ -86,7 +86,7 @@ fn mid(k: usize) -> String {
 }
 
 /// The condensed formula of a chain.
-fn condensed(p: &Params, c: usize, h: usize, o: usize) -> String {
+fn condensed(p: &Params, c: usize, _h: usize, _o: usize) -> String {
     let n = c.max(1);
     match p.s("skeleton") {
         "Benzene ring" => "C₆H₆".into(),
