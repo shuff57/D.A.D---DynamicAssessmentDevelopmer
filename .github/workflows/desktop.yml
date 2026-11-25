@@ -28,6 +28,14 @@ on:
 permissions:
   contents: write
 
+# The D.A.D server these packages talk to (D.A.D AI credits, sharing) and where its legal pages
+# live, from the repository's Actions variables (Settings > Secrets and variables > Actions >
+# Variables). Unset or empty, the packages are built without a server, as before; build.rs refuses
+# an address that isn't https.
+env:
+  VERSHION_POOL_URL: ${{ vars.VERSHION_POOL_URL }}
+  VERSHION_LEGAL_URL: ${{ vars.VERSHION_LEGAL_URL }}
+
 # A newer push to the same branch cancels the older run. Tags each get their own group.
 concurrency:
   group: desktop-${{ github.ref }}

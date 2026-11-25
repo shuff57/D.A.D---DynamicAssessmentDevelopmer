@@ -117,10 +117,14 @@ fn open_input(
 
 /// Ask for a single image reference for the question author.
 pub(crate) fn pick_question_image() -> Result<Option<PickedFile>, String> {
-    let extensions = &["png", "jpg", "jpeg", "webp"];
+    // iPhone photos are offered so choosing one says how to fix it (D.A.D can't read them yet).
+    let extensions = &["png", "jpg", "jpeg", "webp", "heic", "heif"];
     #[cfg(not(target_arch = "wasm32"))]
     {
         let Some(path) = pick_file("Question reference image", extensions) else { return Ok(None) };
+        if let Some(help) = crate::mom::worksheet::iphone_photo_help(&path.file_name().unwrap_or_default().to_string_lossy()) {
+            return Err(help);
+        }
         let bytes = read(&path).map_err(|error| format!("Could not open the picture. {error}"))?;
         let name = path.file_name().unwrap_or_default().to_string_lossy().into_owned();
         Ok(Some(PickedFile { name, bytes }))

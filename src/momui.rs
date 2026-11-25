@@ -1739,9 +1739,11 @@ fn worksheet_form(ui: &mut Ui, ctx: &egui::Context, st: &mut State, cfg: &crate:
             r
         }).inner.clicked();
         if choose {
-            if let Some(paths) = crate::platform::pick_files("Math or science worksheets", worksheet::EXTENSIONS) {
+            let offered: Vec<&str> = worksheet::EXTENSIONS.iter().chain(worksheet::IPHONE_PHOTOS).copied().collect();
+            if let Some(paths) = crate::platform::pick_files("Math or science worksheets", &offered) {
                 for path in paths {
                     let name = path.file_name().unwrap_or_default().to_string_lossy().into_owned();
+                    if let Some(help) = worksheet::iphone_photo_help(&name) { st.error = Some(help); continue; }
                     match crate::platform::read(&path) {
                         Ok(bytes) => st.worksheet_files.push(PickedFile { name, bytes }),
                         Err(error) => st.error = Some(format!("Could not open {name}: {error}")),
@@ -2037,17 +2039,18 @@ fn saved_status(saved: &Saved) -> &'static str {
 /// (provider, plain name, what it needs, the model a pick starts on). Settings holds the model menus.
 pub(crate) fn plain_ais(local: &[&str]) -> Vec<(&'static str, &'static str, &'static str, &'static str)> {
     let mut list = Vec::new();
-    if local.contains(&"claude-cli") { list.push(("claude-cli", "Claude on this computer", "Uses your Claude subscription. No key needed.", "sonnet")); }
-    if local.contains(&"codex-cli") { list.push(("codex-cli", "Codex on this computer", "Uses your ChatGPT subscription. No key needed.", "")); }
-    list.push(("cloud", "Ollama Cloud", "Needs a free Ollama key.", ""));
-    list.push(("openrouter", "OpenRouter", "Needs an OpenRouter key and a few dollars of credit.", "deepseek/deepseek-v4.1-flash"));
-    // D.A.D AI runs on a school server's credits: a choice once that account is signed in, or when
-    // this build has its server built in (then signing in is all it asks). Offered otherwise, it led
-    // teachers to a server address they do not have.
+    // D.A.D AI first wherever it is offered (signed in, or a release with the D.A.D server built
+    // in): no key, no install, one sign-in.
     if dad_ai_offered() {
         let need = if crate::ai::account_ai_ready() { "No setup. Uses credits from your account." } else { "No key or install. Sign in once; it uses credits." };
         list.push(("account", "D.A.D AI", need, ""));
     }
+    if local.contains(&"claude-cli") { list.push(("claude-cli", "Claude on this computer", "Uses your Claude subscription. No key needed.", "sonnet")); }
+    if local.contains(&"codex-cli") { list.push(("codex-cli", "Codex on this computer", "Uses your ChatGPT subscription. No key needed.", "")); }
+    list.push(("cloud", "Ollama Cloud", "Needs a free Ollama key.", ""));
+    list.push(("openrouter", "OpenRouter", "Needs an OpenRouter key and a few dollars of credit.", "deepseek/deepseek-v4.1-flash"));
+    // (D.A.D AI is offered only signed in or with the server built in; offered otherwise, it led
+    // teachers to a server address they do not have.)
     list
 }
 
@@ -2466,7 +2469,9 @@ fn describe(ui: &mut Ui, ctx: &egui::Context, st: &mut State, cfg: &crate::ai::A
             }
             write
         }).inner;
-        if let Some(image) = picked {
+        if let Some(help) = picked.as_ref().and_then(|image| worksheet::iphone_photo_help(&image.name)) {
+            st.topic_image_error = Some(help);
+        } else if let Some(image) = picked {
             match worksheet::image_as_png(&image.bytes) {
                 Ok(bytes) => {
                     st.topic_image = Some(PickedFile { name: image.name, bytes });
@@ -3785,6 +3790,12 @@ mod tests {
         assert!(q.control.contains("rand(2,9)") && q.qtext.contains("$answerbox") && !q.control.contains("Common Control"), "{q:?}");
         // Two blocks that are not the two boxes: the first one only.
         assert_eq!(unwrap_reply("V1:\n```\n$a = 1\n```\nV2:\n```\n$a = 2\n```"), "$a = 1");
+    }
+
+    #[test]
+    fn an_iphone_photo_gets_the_way_to_fix_it() {
+        assert!(worksheet::iphone_photo_help("IMG_0042.HEIC").is_some_and(|m| m.contains("JPEG")));
+        assert!(worksheet::iphone_photo_help("page.jpg").is_none());
     }
 
     #[test]
