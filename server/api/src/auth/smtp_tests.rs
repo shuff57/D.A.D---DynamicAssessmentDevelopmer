@@ -49,7 +49,7 @@ fn log_mode_refuses_anything_but_a_local_app() {
 fn links_carry_the_token_in_the_fragment_and_each_kind_has_its_text() {
     let e = env_of(&[("APP_URL", "https://app.example")]).unwrap();
     let (s, t) = render(&e, &MailMessage::new(MailKind::Verify, "a@b.org").with_token("TOK", 1));
-    assert_eq!(s, "Confirm your verSHion address");
+    assert_eq!(s, "Confirm your D.A.D address");
     assert!(t.contains("https://app.example/account/verify#token=TOK") && t.contains("expires in 24 hours"));
     let (_, t) = render(&e, &MailMessage::new(MailKind::Reset, "a@b.org").with_token("R", 1));
     assert!(t.contains("/account/reset#token=R") && t.contains("expires in 1 hour"));

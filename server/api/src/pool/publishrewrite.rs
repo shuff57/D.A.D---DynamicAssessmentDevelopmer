@@ -170,7 +170,7 @@ pub fn rewrite(x: &PoolCtx, store: &BlobStore, core: &Core, me: &str, land: &Lan
     // A republish must be schema v2: v1 cannot carry `published`, so its questions would lose their identity (and the hidden-change and provenance rules
     // with it).
     if !is_new && raw["schema_version"].as_f64().unwrap_or(0.0) < 2.0 {
-        return Err(PoolError::new(422, "schema_upgrade_required").with("message", json!("Republishing needs schema version 2 (update verSHion).")).into());
+        return Err(PoolError::new(422, "schema_upgrade_required").with("message", json!("Republishing needs schema version 2 (update D.A.D).")).into());
     }
     if land.item_kind.as_deref().is_some_and(|k| k != kind) {
         return Err(PoolError::new(422, "kind_mismatch").into());

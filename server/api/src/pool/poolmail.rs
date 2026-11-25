@@ -5,7 +5,7 @@ use super::ctx::PoolNotice;
 use crate::auth::smtp::{MailEnv, send_raw, send_to};
 use rusqlite::{Connection, OptionalExtension};
 
-pub const CIRCLE_INVITE_SUBJECT: &str = "verSHion: you are invited to a circle";
+pub const CIRCLE_INVITE_SUBJECT: &str = "D.A.D: you are invited to a circle";
 
 #[derive(Debug, PartialEq)]
 pub enum To {
@@ -58,9 +58,9 @@ pub fn circle_invite_text(app_url: &str, role: &str, code: &str, expires_at: i64
     let as_ = if role == "editor" { "an editor" } else { "a viewer" };
     let link = if app_url.is_empty() { String::new() } else { format!("\nOr open this link:\n{}/circles/join#code={code}\n", app_url.trim_end_matches('/')) };
     format!(
-        "You are invited to join a circle on verSHion as {as_}. A circle is a small private group of teachers who share question banks. The app shows you the circle's name and its owner before you join.\n\n\
-         To join, you need a verSHion account that an administrator has approved and that has redeemed an invite code for the shared pool. If you do not have one, this code cannot be used yet.\n\n\
-         In verSHion, open Shared, then Circles, then \"Join a circle with a code\", and enter this code:\n\n{code}\n{link}\n\
+        "You are invited to join a circle on D.A.D as {as_}. A circle is a small private group of teachers who share question banks. The app shows you the circle's name and its owner before you join.\n\n\
+         To join, you need a D.A.D account that an administrator has approved and that has redeemed an invite code for the shared pool. If you do not have one, this code cannot be used yet.\n\n\
+         In D.A.D, open Shared, then Circles, then \"Join a circle with a code\", and enter this code:\n\n{code}\n{link}\n\
          The code works once and expires on {} UTC. If you did not expect this invitation, ignore this mail: nothing happens unless the code is used.",
         utc_minute(expires_at)
     )
@@ -117,7 +117,7 @@ pub fn render(n: &PoolNotice, app_url: &str) -> Option<Mail> {
         D1Size { percent, bytes } => admin(format!("verSHion: pool database at {percent}% of its size limit"), format!("The pool database is {bytes} bytes, {percent}% of its size limit. Nothing has failed yet; plan room now. See the pool flags (d1_size).")),
         CopyHeld { item_id, author_id, cause } => {
             let why = if cause == "student_data" { "an admin confirmed that a question it shares with another item contains student data" } else { "a copyright takedown covers questions it shares with the item taken down" };
-            Some(Mail { to: To::Author(author_id.clone()), subject: "verSHion: one of your shared items is on hold".into(), text: format!("Your shared item {item_id} is on hold: {why}. See \"My shared items\" in the app to remove those questions and republish, or to appeal.") })
+            Some(Mail { to: To::Author(author_id.clone()), subject: "D.A.D: one of your shared items is on hold".into(), text: format!("Your shared item {item_id} is on hold: {why}. See \"My shared items\" in the app to remove those questions and republish, or to appeal.") })
         }
         KeyLeakReport { item_id, author_id } => Some(Mail {
             to: To::Author(author_id.clone()),

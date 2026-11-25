@@ -7,7 +7,7 @@ use lettre::transport::smtp::authentication::{Credentials, Mechanism};
 use lettre::{Message, SmtpTransport, Transport};
 use std::time::Duration;
 
-pub const FROM_NAME_DEFAULT: &str = "verSHion";
+pub const FROM_NAME_DEFAULT: &str = "D.A.D";
 const TIMEOUT: Duration = Duration::from_secs(20);
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -135,47 +135,47 @@ pub fn render(env: &MailEnv, m: &MailMessage) -> (String, String) {
     let reason = m.reason.as_deref().unwrap_or("");
     let (s, t): (&str, String) = match m.kind {
         MailKind::Verify => (
-            "Confirm your verSHion address",
+            "Confirm your D.A.D address",
             format!("Confirm this address to finish signing up:\n\n{}\n\nThe link works once and expires in 24 hours. If you do not see this after a few minutes, look in your spam or junk folder. If you did not sign up, ignore this mail.", env.link("/account/verify", token)),
         ),
         MailKind::Reset => (
-            "Reset your verSHion password",
+            "Reset your D.A.D password",
             format!("Set a new password:\n\n{}\n\nThe link works once and expires in 1 hour. Using it signs you out everywhere. If you did not ask for this, ignore this mail.", env.link("/account/reset", token)),
         ),
         MailKind::SignupExisting => (
             "Someone tried to sign up with your address",
             if m.account_verified == Some(true) {
-                "Someone tried to create a verSHion account with this address, which already has one. If it was you, sign in or reset your password. Nothing has changed.".into()
+                "Someone tried to create a D.A.D account with this address, which already has one. If it was you, sign in or reset your password. Nothing has changed.".into()
             } else {
-                "Someone tried to create a verSHion account with this address. An account for it already exists but was never confirmed. If you did not create it, reset the password to take it over; that confirms the address as yours.".into()
+                "Someone tried to create a D.A.D account with this address. An account for it already exists but was never confirmed. If you did not create it, reset the password to take it over; that confirms the address as yours.".into()
             },
         ),
         MailKind::PasswordChanged => (
-            "Your verSHion password was changed",
+            "Your D.A.D password was changed",
             "Your password was just reset and every session was signed out. If this was not you, reset it again now and contact the site owner.".into(),
         ),
         MailKind::ApplicationApproved => (
-            "Your verSHion account was approved",
+            "Your D.A.D account was approved",
             "We checked the staff page you gave us, and your account is approved.\n\nYou can now publish your banks to the shared pool and browse what other teachers have shared. If you did not ask for this, reply to this mail.".into(),
         ),
         MailKind::ApplicationRejected => (
-            "Your verSHion application",
-            format!("We could not approve your account.\n\n{reason}\n\nYou can update your details and apply again from the account screen after the waiting period."),
+            "Your D.A.D application",
+            format!("We could not approve your account.\n\n{reason}\n\nYou can update your details and apply again from Settings, then D.A.D account after the waiting period."),
         ),
         MailKind::ApprovalRevoked => (
-            "Your verSHion approval was withdrawn",
-            format!("Your account's approval was withdrawn and you were signed out.\n\n{reason}\n\nYou can apply again from the account screen after the waiting period."),
+            "Your D.A.D approval was withdrawn",
+            format!("Your account's approval was withdrawn and you were signed out.\n\n{reason}\n\nYou can apply again from Settings, then D.A.D account after the waiting period."),
         ),
         MailKind::AccountSuspended => (
-            "Your verSHion account is suspended",
+            "Your D.A.D account is suspended",
             format!("Your account has been suspended and signed out everywhere.\n\n{reason}\n\nReply to this mail to contact the site owner."),
         ),
-        MailKind::AccountRestored => ("Your verSHion account is restored", "Your account's suspension has ended. You can sign in again.".into()),
+        MailKind::AccountRestored => ("Your D.A.D account is restored", "Your account's suspension has ended. You can sign in again.".into()),
         // Handled by the router (they need the database and go to the admins), never rendered for a person.
         MailKind::NewApplication | MailKind::AdminAlert => ("", String::new()),
         MailKind::DeviceEnrol => (
-            "Add the verSHion app on your other devices",
-            format!("To sign in to the verSHion app on another device (even while sign-ins are being blocked because of failed attempts), open this link on that device within 15 minutes and enter your password:\n\n{}\n\nThe link works once. If you did not just reset your password or confirm your address, ignore this mail.", env.link("/account/enrol", token)),
+            "Add the D.A.D app on your other devices",
+            format!("To sign in to the D.A.D app on another device (even while sign-ins are being blocked because of failed attempts), open this link on that device within 15 minutes and enter your password:\n\n{}\n\nThe link works once. If you did not just reset your password or confirm your address, ignore this mail.", env.link("/account/enrol", token)),
         ),
     };
     (s.to_string(), t)
