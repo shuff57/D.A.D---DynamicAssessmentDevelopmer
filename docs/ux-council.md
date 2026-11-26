@@ -165,7 +165,7 @@ Each piece runs in its own thread and branch. The coordinating thread merges fin
 | 6 | Say D.A.D, not verSHion, in what teachers read (`src/share/`, server emails) | `dad/rename-dad` | merged 2026-11-25 (`e2197a2e`); legal and contact pages still say verSHion |
 | 7 | Older screens: wordmark, the bank importer's two names, "Make an Exam", zero counts, "Shared" | `dad/legacy-names` | merged 2026-11-25 (`9178e8d5`) |
 | 8 | Tell a revision of a published question from its original in My Questions | `dad/revision-titles` | merged 2026-11-25 (`36f536f0`) |
-| 9 | Slow tier: 4 timing tests that fail only under parallel load | `dad/test-timing` | started 2026-11-25 |
+| 9 | Slow tier: 4 timing tests that fail only under parallel load | `dad/test-timing` | merged 2026-11-26 (`4769ff12`); the four are timed in instructions (`src/cpu.rs`), full slow tier passed twice (5730 passed) |
 
 After all four merges, `dad/engine` passes `cargo test --lib` (5,490 passed, 0 failed, 288 ignored, about 2 minutes), and the desktop build and the wasm check have no warnings.
 
