@@ -182,7 +182,7 @@ Open:
 - **Stop adding is hard to hit.** With a saved login an add takes 1–2 s, so most presses landed after Save. **Owner decision (2026-11-25): pause just before Save so Stop can land.** Built on `dad/stop-adding`: a publish waits `poster::SAVE_HOLD` (2.5 s) after it has found Save, counting down in the panel beside "Stop adding" ("Adding it to MyOpenMath in 2… Press Stop adding to cancel."). A press in that window saves nothing and shows the muted "Stopped before saving. Nothing was added to MyOpenMath." The finish after a publish is unchanged, 2.5 s later. The editor takes 3.6–4.5 s to open and fill first, so a whole publish is about 6–7 s; `SAVE_HOLD` is the one constant to change.
 - ~~A revision has the same name as its original, so My Questions shows two identical titles told apart only by their chips.~~ Fixed on `dad/revision-titles`, see below.
 - In a worktree the checker files (`engine/browser/dist`) are missing; point `DAD_ENGINE_FILES` at the installed copy.
-- Test leftovers for the owner to delete: questions 1992176, 1992209 and 1992297 (from the Stop adding proof, 2026-11-25) in "D.A.D test", and three test rows in My Questions.
+- ~~Test leftovers: questions 1992176, 1992209 and 1992297 in "D.A.D test", and three test rows in My Questions.~~ Deleted 2026-11-26 at the owner's request: the three questions on MyOpenMath (each ID searched again and gone) and the three rows and their publication records in the local My Questions store.
 
 ### Revision titles (`dad/revision-titles`): owner decision (2026-11-25) and what changed
 
