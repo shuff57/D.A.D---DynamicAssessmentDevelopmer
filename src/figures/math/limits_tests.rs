@@ -1189,7 +1189,7 @@ fn graphs_with_thousands_of_poles_draw_quickly_and_say_so() {
         let p = with(json!({"pieces": pieces, "dots": "", "xmin": x0, "xmax": x1, "ask_disc": true, "kind_labels": true}));
         // (the fastest of three fresh builds, each with its own title so none comes from the cache: the whole suite runs
         // alongside and slows any one measurement)
-        let ms = (0..3).map(|i| { let q = with(json!({"pieces": pieces, "dots": "", "xmin": x0, "xmax": x1, "ask_disc": true, "kind_labels": true, "title": format!("timing {i}")})); let t0 = thread_cpu(); let _ = svg(&q); ((thread_cpu() - t0) * 1000.0) as u128 }).min().unwrap();
+        let ms = (0..3).map(|i| { let q = with(json!({"pieces": pieces, "dots": "", "xmin": x0, "xmax": x1, "ask_disc": true, "kind_labels": true, "title": format!("timing {i}")})); crate::cpu::time(|| svg(&q)).1.as_millis() }).min().unwrap();
         let _ = svg(&p);
         assert!(ms < 500, "{pieces} on {x0}..{x1} took {ms} ms");
         let w = warnings(&p);
@@ -1559,6 +1559,7 @@ fn adversarial_compositions_finish_quickly() {
     ];
     assert_eq!(fns.len(), 60);
     let mut fails = vec![];
+    let mut worst = (0.0f64, String::new());
     for f in fns {
         for (x0, x1) in [(-6.0, 10.0), (-100.0, 100.0), (-10.0, 10.0)] {
             let p = with(json!({"pieces": format!("y = {f}"), "dots": "", "ask_disc": true, "kind_labels": true, "xmin": x0, "xmax": x1}));
@@ -1567,19 +1568,21 @@ fn adversarial_compositions_finish_quickly() {
                 let mut p = p;
                 static N: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
                 p.0.insert("title".into(), crate::figures::Value::S(format!("t{}", N.fetch_add(1, std::sync::atomic::Ordering::Relaxed))));
-                let (tx, rx) = std::sync::mpsc::channel();
-                // (the render thread's own CPU time: the rest of the suite runs alongside)
-                std::thread::spawn(move || { let t = thread_cpu(); let _ = svg(&p); let _ = tx.send(thread_cpu() - t); });
-                rx.recv_timeout(std::time::Duration::from_secs(5)).ok()
+                // (the render thread's own CPU time, and a 5-second CPU limit rather than a wall-clock one: the rest of the
+                // suite runs alongside, and a render waiting for a core has not used any)
+                crate::cpu::run_within(std::time::Duration::from_secs(5), move || { let _ = svg(&p); }).map(|(_, took)| took.as_secs_f64())
             };
-            match time(p.clone()) {
-                None => fails.push(format!("{f} on {x0}..{x1}: still running after 5 s")),
+            let first = time(p.clone());
+            if let Some(t) = first { if t > worst.0 { worst = (t, format!("{f} on {x0}..{x1}")); } }
+            match first {
+                None => fails.push(format!("{f} on {x0}..{x1}: still running after 5 s of CPU")),
                 // (the fastest of three: the whole suite runs alongside)
                 Some(t) if t >= 0.5 => if (0..2).all(|_| time(p.clone()).is_none_or(|t2| t2 >= 0.5)) { fails.push(format!("{f} on {x0}..{x1}: {t:.2} s")); },
                 _ => {}
             }
         }
     }
+    eprintln!("adversarial compositions: slowest first render {:.3} s of CPU ({})", worst.0, worst.1);
     assert!(fails.is_empty(), "{} slow:\n{}", fails.len(), fails.join("\n"));
 }
 
@@ -1654,21 +1657,6 @@ fn small_things_of_the_fifth_check() {
     let md = model_of(&with(json!({"pieces": "y = sin(x)/ln(x)", "dots": ""})));
     if md.at_inf(1.0) == Some(Lim::Dne) { fails.push("sin(x)/ln(x) at ∞: does not exist".into()); }
     assert!(fails.is_empty(), "{}", fails.join("\n"));
-}
-
-/// Seconds of CPU this thread has used (from /proc on Linux, in 10 ms ticks): what a render costs, whatever else the
-/// machine is running; elsewhere, wall time.
-fn thread_cpu() -> f64 {
-    #[cfg(target_os = "linux")]
-    if let Ok(st) = std::fs::read_to_string("/proc/thread-self/stat") {
-        // (fields after the command's closing bracket: utime and stime are the 12th and 13th)
-        if let Some(rest) = st.rsplit_once(')').map(|r| r.1) {
-            let f: Vec<&str> = rest.split_whitespace().collect();
-            if let (Some(u), Some(k)) = (f.get(11).and_then(|v| v.parse::<f64>().ok()), f.get(12).and_then(|v| v.parse::<f64>().ok())) { return (u + k) / 100.0; }
-        }
-    }
-    static START: std::sync::OnceLock<std::time::Instant> = std::sync::OnceLock::new();
-    START.get_or_init(std::time::Instant::now).elapsed().as_secs_f64()
 }
 
 #[test]

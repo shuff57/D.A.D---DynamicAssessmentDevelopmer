@@ -17,6 +17,10 @@ pub fn env_var(name: &str) -> Result<String, std::env::VarError> {
 #[cfg(test)]
 pub(crate) const TIMED: bool = cfg!(feature = "slow-tests");
 
+/// Tests only: the meter the time limits are checked on (`cpu::time`), which a busy machine cannot stretch.
+#[cfg(test)]
+pub(crate) mod cpu;
+
 pub fn env_var_os(name: &str) -> Option<std::ffi::OsString> {
     std::env::var_os(name)
         .or_else(|| std::env::var_os(name.replacen("VERSHION_", "QUESHION_", 1)))

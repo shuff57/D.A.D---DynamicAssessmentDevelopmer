@@ -203,7 +203,8 @@ pub(super) fn check(c: &Case, strips: &str, rule: &str, n: usize, area: f64, dec
 }
 
 /// Every state checked on all cores; then the 12 slowest timed again one at a time (render alone), so
-/// the time is the figure's, not the machine's load. (states, failures, slowest render alone)
+/// the time is the figure's, not the machine's load. Times are the thread's CPU time (`crate::cpu`), so a busy
+/// machine does not lengthen them. (states, failures, slowest render alone)
 fn sweep(sets: Vec<(i64, Vec<Case>)>, rules_n: &[(&'static str, &'static str, usize)]) -> (usize, Vec<String>, std::time::Duration) {
     let jobs: Vec<(usize, usize, usize)> = sets.iter().enumerate().flat_map(|(si, (_, cs))| (0..cs.len()).flat_map(move |ci| (0..rules_n.len()).map(move |ri| (si, ci, ri)))).collect();
     let areas: Vec<Vec<f64>> = sets.iter().map(|(_, cs)| cs.iter().map(area).collect()).collect();
@@ -216,9 +217,8 @@ fn sweep(sets: Vec<(i64, Vec<Case>)>, rules_n: &[(&'static str, &'static str, us
             sc.spawn(move || {
                 for &(si, ci, ri) in jobs.iter().skip(t).step_by(threads) {
                     let (strips, rule, n) = rules_n[ri];
-                    let start = std::time::Instant::now();
-                    let b = check(&sets[si].1[ci], strips, rule, n, areas[si][ci], &[4]);
-                    slow.lock().unwrap().push((start.elapsed(), si, ci, ri));
+                    let (b, took) = crate::cpu::time(|| check(&sets[si].1[ci], strips, rule, n, areas[si][ci], &[4]));
+                    slow.lock().unwrap().push((took, si, ci, ri));
                     if !b.is_empty() { fails.lock().unwrap().extend(b); }
                 }
             });
@@ -232,8 +232,8 @@ fn sweep(sets: Vec<(i64, Vec<Case>)>, rules_n: &[(&'static str, &'static str, us
         let c = &sets[si].1[ci];
         let mut p = params_for(c, strips, rule, n as i64);
         p.set_s("values", "Decimals"); p.set_i("dec", 4);
-        let t = std::time::Instant::now(); let _ = render(&p); let el = t.elapsed();
-        eprintln!("timed alone: {} {strips} {rule} n{n}: {el:?}", c.name);
+        let el = crate::cpu::time(|| render(&p)).1;
+        eprintln!("timed alone: {} {strips} {rule} n{n}: {el:?} of CPU", c.name);
         worst = worst.max(el);
     }
     (jobs.len(), fails.into_inner().unwrap(), worst)
