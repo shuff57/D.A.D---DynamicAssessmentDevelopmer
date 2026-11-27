@@ -279,7 +279,14 @@ fn caps_text(text: &str, size: f32) -> RichText {
 /// A status that is a label, not a control: a coloured dot and the word, no fill or button shape.
 /// For rows where a filled chip the height of the row's buttons drew the eye away from them.
 pub fn status_tag(ui: &mut Ui, label: &str, color: Color32) -> egui::Response {
+    status_tag_w(ui, label, color, 0.0)
+}
+
+/// [`status_tag`] in a slot at least `min_w` wide, so the buttons after it start on one edge
+/// whatever the word.
+pub fn status_tag_w(ui: &mut Ui, label: &str, color: Color32, min_w: f32) -> egui::Response {
     ui.horizontal(|ui| {
+        ui.set_min_width(min_w);
         ui.spacing_mut().item_spacing.x = 6.0;
         let (dot, _) = ui.allocate_exact_size(egui::vec2(8.0, 8.0), egui::Sense::hover());
         ui.painter().circle_filled(dot.center(), 4.0, color);

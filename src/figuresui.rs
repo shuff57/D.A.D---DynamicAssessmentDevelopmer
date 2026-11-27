@@ -1158,7 +1158,12 @@ impl Workspace {
                     ui.label(theme::muted("No figures match.").size(13.0));
                     return;
                 }
-                let avail = ui.available_width() - 18.0; // vertical scrollbar allowance
+                // The scroll area's own width already leaves room for a bar that needs it; taking
+                // 18 more ended the cards short of the search row and the wordmark (Stage A: one
+                // shared right edge).
+                // A row of cards comes out 8 px wider than the widths given (each card's frame draws
+                // outside its width), so 8 is held back to land on the shared edge (measured).
+                let avail = ui.available_width() - 8.0;
                 let cols = ((avail + 12.0) / (CARD_W + 12.0)).floor().max(1.0) as usize;
                 let mut budget = 10u8;
                 // Cards flex to fill the row (no blank strip at wide sizes).
@@ -1179,7 +1184,7 @@ impl Workspace {
                 }
             });
         if cue && out.state.offset.y + out.inner_rect.height() < out.content_size.y - 4.0 {
-            let (bar, _) = ui.allocate_exact_size(Vec2::new(out.inner_rect.width() - 18.0, CUE_H), Sense::hover());
+            let (bar, _) = ui.allocate_exact_size(Vec2::new(out.inner_rect.width(), CUE_H), Sense::hover());
             crate::kit::more_below(ui, bar, "More figures below");
         }
         if let Some(i) = picked {

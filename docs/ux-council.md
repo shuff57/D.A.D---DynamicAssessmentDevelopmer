@@ -191,6 +191,32 @@ The run went 7.4 → 7.3 → 7.85 → 7.45. The owner kept all three rounds. Mar
 - **A busy AI on step 1** is a calm gate line, not red: "The AI is busy right now. Wait a minute and press Write My Question again, or use a different AI." It has a "Use a Different AI" button that opens the Your AI card, and Show details. There's no second retry button (Write My Question is the retry). `form::plain_error` says "Wait a minute and press it again, or use a different AI." [Peak-End]
 - **The finish** quotes the short name and has no New Question in the step row, so Write Another Question is its one next step. Step 3's connect card says "Last added to <place>." in strong text (`Poster::last_place`). [Peak-End; Goal-Gradient]
 
+## Phase A, run 3: locked (2026-11-28, `dad/council3-a`)
+
+Push-to-8.5 run with Opus 5.5 and GPT-6.2 Sol, both at high. Phase A went 7.4 → 7.4 → 7.6, reaching 7.6 from both members, and the owner locked it.
+
+- **One disabled look:** a disabled filled or outlined button uses `pageshell::unavailable_colors`, and so does a paused Delete. [Aesthetic-Usability: a disabled look only on disabled controls]
+- **My Questions rows:**
+  - The status sits in a 112 px slot, so every Open starts on one edge.
+  - A hairline separates the rows.
+  - Delete is a painted 32 × 32 trash button named "Delete", matched to Open and well apart from it. It still asks first.
+  - During a job the status stays at full strength; only Open and Delete pause.
+  [Fitts; Proximity]
+- **Scrolling:**
+  - Scrolled columns fade into the page at the top.
+  - Import and Share use `column()`, with the quiet bar and the clickable More below cue.
+  - The quiet bar is 3 px, light and 9 px in.
+  - Figures' grid and its cue end on the search row's edge: no 18 px allowance, 8 px held back for card frames, measured.
+  [Stage A: one shared right edge]
+- **Page frame:**
+  - New Question meets the column edge, with Ctrl+N to its left.
+  - Show key sits on the key field's label row.
+  - Choose question files is filled while nothing is pasted or chosen.
+  - Share's Download follows its question.
+  - More options is a 32 px row.
+  - The step pills keep their look during a job (presses are ignored).
+  - "or drop a photo" shows only when the AI is ready.
+
 ## Choices already decided (don't reopen as new findings)
 
 - **D.A.D AI is gated** on `dad_ai_offered()`. Without a server it led to a dead-end server form. DeepSeek wanted it as the first chip whenever it's offered; it isn't first yet.
