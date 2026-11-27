@@ -22,6 +22,7 @@ This file is the ledger for the `ux-council` skill (agent-evo): its Stage A–D 
 | 2026-11-27 | C, familiar patterns and forgiving input | 6.8 | 7.4 | 7.1 |
 | 2026-11-27 | D, time, progress and the end | 7.0 | 7.8 | 7.4 |
 | 2026-11-27, run 2 | A after rounds 1 and 2 | R1 7.2, R2 7.2 | R1 7.4, R2 6.7 | R1 7.3, R2 6.95: a plateau; the owner approved and locked it |
+| 2026-11-27, run 2 | B after rounds 2 and 3 (round 1 void: a missed scripted tap) | R2 7.2, R3 7.6 | R2 7.7, R3 7.8 | R2 7.45, R3 7.7: three rounds; the owner approved and locked it |
 
 **These numbers do not compare with the stage scores above.** The stages graded each stage's own scenes, one stage at a time. This grade covers 29 scenes across the whole app, graded against all four phases together. The scenes include the older screens, a narrow window, no AI set up, pasted input, a write in progress and an error. Use this table as the starting point for the next run.
 
@@ -93,6 +94,37 @@ Push-to-8 run, same panel. It stopped at a plateau (6.7, then 7.3, then 6.95) an
   - A found key shows "✔ Key found" plus a Test button.
   - The "Account optional" note appears on the account section only.
 - **Words:** "D.A.D AI", "Sign In to D.A.D", and "D.A.D account". Error text points to "Settings, then D.A.D account".
+
+## Phase B, run 2: locked (2026-11-27, `dad/council-b`)
+
+The run went 6.7 → void → 7.45 → 7.7, and the owner approved it. Marked images: `~/.cache/dad-ux-council/2026-11-27/phase-b/`. Still open for B:
+- The picture button's reason shows only on hover.
+- The rate-limit error offers no retry and no other AI.
+- My Questions repeats beside Convert, Import and Share.
+- The course list can run past the window with no cue.
+- Settings' AI chips don't show which AIs are ready.
+
+- **First open with no AI ready and none chosen** shows "Pick how D.A.D writes your questions" with the plain list, not a key form for an AI the app picked (owner decision 2026-11-27). The recommended choice is the filled button: D.A.D AI where it's offered, otherwise Ollama Cloud, marked "Recommended". Write's gate says "Pick an AI in the Your AI card first." An AI that's ready is still picked on its own (`auto_ai`). [Tesler: the app carries the setup]
+- **My Questions order:** to fix, then to review, then ready to add, then in MyOpenMath. Saved order holds within each group. Each row shows MyOpenMath's name before " - " as its title, and the description as a quiet line under it. The question on screen shows "On screen" instead of Open. During a job, a line says why Open and Delete wait. [Serial position; Miller]
+- **Your AI card:**
+  - An OpenRouter key in the Ollama box gets one line ("This is an OpenRouter key, not an Ollama key."). Its one action is the filled "Use This Key With OpenRouter", which switches the AI and keeps the key; Save Key and Enter are withheld for it.
+  - "Get a free key on ollama.com" (or openrouter.ai) comes before the video, in the card and in Settings.
+  - While the AI isn't ready, the other AIs are one-press buttons with their needs.
+  - "Models and other AIs: Settings, then AI" shows only once the AI works.
+  [Tesler; one action]
+- **Plain words:**
+  - Settings › My Questions: "Your questions and worksheet drafts are kept on this computer…". The path is in Open data folder's hover.
+  - Claude's model sits under "Model: … · Change".
+  - Convert's card says "PDF, Word, text or photos.", with which AI reads, Word with equations and the local copy under "How D.A.D reads worksheets". Claude's red warning still shows.
+  - Help says "Something wrong? Press Report in the dock, on any page, or contact us." Contact us is the filled button.
+  [Cognitive load]
+- **Smaller changes:**
+  - The writing card quotes what was asked (or "Change: …").
+  - Share rows show the status dot and a small Download.
+  - The course list has "Integrated Math" and "Traditional courses" headings; the order and indexes are unchanged.
+  - Disabled Rewrite It says "Pick a change above, or type one below, then press Rewrite It."
+  - Step 3 opens with "✔ Approved and saved. Last step: choose where it goes.", with the short name on its own line.
+  - The disabled picture button explains itself in its hover text.
 
 ## Choices already decided (don't reopen as new findings)
 
