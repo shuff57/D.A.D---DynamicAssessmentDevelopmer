@@ -443,12 +443,15 @@ pub fn primary_on(ui: &mut Ui, text: &str, on: bool) -> egui::Response {
     // at half strength on a cream card is what the critics called "barely visible as a control". A
     // green tint went too far the other way (read as live, against the reason beside it). So: the
     // neutral off look at full strength, a clear outline, and it only answers hover.
+    // The same neutral grey as every other button that is not available yet (`unavailable_colors`),
+    // so the app has one disabled look, not a tan one beside a grey one.
+    let (fill, fg, edge) = unavailable_colors();
     ui.add(
         egui::Button::new(
-            RichText::new(text).family(theme::bold_family()).size(15.2).color(theme::muted_col()),
+            RichText::new(text).family(theme::bold_family()).size(15.2).color(fg),
         )
-        .fill(theme::field())
-        .stroke(Stroke::new(1.0, theme::muted_col().gamma_multiply(0.55)))
+        .fill(fill)
+        .stroke(Stroke::new(1.0, edge))
         .corner_radius(CornerRadius::same(12))
         .min_size(Vec2::new(0.0, 40.0))
         .sense(Sense::hover()),

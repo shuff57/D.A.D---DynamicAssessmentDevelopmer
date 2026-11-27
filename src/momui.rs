@@ -1770,8 +1770,9 @@ fn steps(ui: &mut Ui, st: &mut State, narrow: bool) {
             // A step behind the teacher shows a tick, so the row says how far along they are.
             let done = match step { Step::Describe => has_q, Step::Try => reviewed, Step::Copy => in_mom };
             let label = if done && (st.step != step || step == Step::Copy) { format!("✔ {}   {name}", i + 1) } else { format!("{}   {name}", i + 1) };
-            let r = ui.add_enabled_ui(open && !busy(st), |ui| step_pill(ui, &label, st.step == step)).inner;
-            if r.clicked() { st.step = step; }
+            // During a job the pills keep their look (the page isn't frozen); they just don't move.
+            let r = ui.add_enabled_ui(open, |ui| step_pill(ui, &label, st.step == step)).inner;
+            if r.clicked() && !busy(st) { st.step = step; }
         }
         // Commands, not steps: they sit apart from the progress pills, at the row's far end.
         let jump = narrow && !st.library.questions.is_empty();
@@ -2754,7 +2755,7 @@ fn describe(ui: &mut Ui, ctx: &egui::Context, st: &mut State, cfg: &crate::ai::A
                     Err(error) => st.topic_image_error = Some(error),
                 }
             }
-            if st.topic_image.is_none() && !picture_blocked && !working {
+            if st.topic_image.is_none() && !picture_blocked && !working && ai_ready(cfg) {
                 // As Convert and Import say: a photo can be dropped here too.
                 ui.label(theme::muted("or drop a photo on this window").size(12.0));
             }
@@ -3942,7 +3943,11 @@ fn side(ui: &mut Ui, ctx: &egui::Context, st: &mut State) {
                     if st.confirm_delete.as_deref() == Some(s.id.as_str()) {
                         if crate::kit::secondary(ui, "Keep it", 32.0).clicked() { st.confirm_delete = None; }
                         if crate::kit::danger_text_button(ui, "Yes, delete").clicked() { delete = Some(s.id.clone()); }
-                    } else if ui.add(egui::Button::new(RichText::new("Delete").color(theme::muted_col())).frame(false).min_size(egui::vec2(0.0, 32.0))).clicked() {
+                    // A real 32 px target with its icon, quiet and at the far end from Open; it still asks
+                    // before anything is removed.
+                    } else if ui.add(egui::Button::new(RichText::new(format!("{}  Delete", egui_phosphor::regular::TRASH)).color(theme::muted_col()).size(12.5))
+                        .fill(egui::Color32::TRANSPARENT).stroke(egui::Stroke::new(1.0, theme::border())).corner_radius(egui::CornerRadius::same(10))
+                        .min_size(egui::vec2(0.0, 32.0))).on_hover_text("Delete this question (D.A.D asks first)").clicked() {
                         st.confirm_delete = Some(s.id.clone());
                     }
                 });
