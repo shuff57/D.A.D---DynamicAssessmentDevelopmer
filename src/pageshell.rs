@@ -499,6 +499,18 @@ pub fn unavailable(ui: &mut Ui, text: &str, h: f32, why: &str) -> egui::Response
 
 /// The outlined action.
 pub fn outline(ui: &mut Ui, text: &str) -> egui::Response {
+    // Disabled (inside a disabled `Ui`), it takes the one unavailable look, not a faded outline.
+    if !ui.is_enabled() {
+        let (fill, fg, edge) = unavailable_colors();
+        return ui.add(
+            egui::Button::new(RichText::new(text).family(theme::bold_family()).size(15.2).color(fg))
+                .fill(fill)
+                .stroke(Stroke::new(1.0, edge))
+                .corner_radius(CornerRadius::same(12))
+                .min_size(Vec2::new(0.0, 40.0))
+                .sense(Sense::hover()),
+        );
+    }
     button(ui, text, theme::card(), theme::hover_bg(), theme::accent_faded(), Stroke::new(1.0, theme::edge()), theme::ink())
 }
 

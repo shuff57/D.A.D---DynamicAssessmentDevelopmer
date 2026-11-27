@@ -259,7 +259,8 @@ fn import_questions(ui: &mut Ui, st: &mut State) {
         request_destination(ui.ctx(), Destination::Convert);
     }
     ui.add_space(12.0);
-    egui::ScrollArea::vertical().show(ui, |ui| {
+    // The quiet bar (inside the cards' padding, shown on hover), not egui's dark bar on the card edge.
+    crate::kit::quiet_scroll_area(ui, egui::ScrollArea::vertical(), |ui| {
         pageshell::card(ui, |ui| {
             // Inputs look like inputs: the same 3:1 edges as the Questions form.
             control_edges(ui);
@@ -599,7 +600,8 @@ fn share_questions(ui: &mut Ui, st: &mut State) {
         "Download a D.A.D package another teacher can import with Import.");
     ui.add_space(12.0);
     let mut export = None;
-    egui::ScrollArea::vertical().show(ui, |ui| {
+    // The quiet bar (inside the cards' padding, shown on hover), not egui's dark bar on the card edge.
+    crate::kit::quiet_scroll_area(ui, egui::ScrollArea::vertical(), |ui| {
         pageshell::card(ui, |ui| {
             if st.library.questions.is_empty() {
                 ui.label(theme::muted("Create, convert, or import a question to share it here."));
@@ -2362,17 +2364,7 @@ fn ai_card(ui: &mut Ui, st: &mut State, cfg: &crate::ai::AiCfg, chosen: bool) {
             // Stacked: the side column is narrow, and a key row side by side ran past its edge.
             let r = ui.add(egui::TextEdit::singleline(&mut st.ai_card_key).password(!st.ai_key_shown).margin(egui::Margin::symmetric(10, 8))
                 .desired_width(ui.available_width()).hint_text("paste a key"));
-            // A key is pasted once, not typed from memory: let the teacher see what went in.
-            if !st.ai_card_key.is_empty() && crate::kit::link(ui, if st.ai_key_shown { "Hide key" } else { "Show key" }, false).clicked() {
-                st.ai_key_shown = !st.ai_key_shown;
-            }
             r.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::TextEdit, true, "AI key"));
-            // The key is masked, so say what cleaning did: a label, quotes or spaces pasted with it
-            // are dropped on save, not stored as part of the key.
-            let cleaned = crate::ai::clean_key(&st.ai_card_key);
-            if !cleaned.is_empty() && cleaned != st.ai_card_key.trim() {
-                ui.add(egui::Label::new(theme::muted("D.A.D drops the label and spaces that came with the key when it saves.").size(12.0)).wrap());
-            }
             // Whatever came with the paste (a "Key:" label, quotes, a line break) is dropped on save;
             // a key from another site is named before it is saved, not when writing fails.
             // Named once there is enough to judge, not after the first character.
@@ -2399,6 +2391,15 @@ fn ai_card(ui: &mut Ui, st: &mut State, cfg: &crate::ai::AiCfg, chosen: bool) {
                     // Said where the key was pasted, so the press (or Enter) visibly did something.
                     st.key_check_msg = Some(("openrouter".into(), "✔ Now using OpenRouter with the key you pasted (its label and spaces removed).".into(), false));
                 }
+            }
+            // After the cause (which sits right under the field): showing the key, and what cleaning did
+            // (a label, quotes or spaces pasted with it are dropped on save, not stored as the key).
+            if !st.ai_card_key.is_empty() && crate::kit::link(ui, if st.ai_key_shown { "Hide key" } else { "Show key" }, false).clicked() {
+                st.ai_key_shown = !st.ai_key_shown;
+            }
+            let cleaned = crate::ai::clean_key(&st.ai_card_key);
+            if !cleaned.is_empty() && cleaned != st.ai_card_key.trim() {
+                ui.add(egui::Label::new(theme::muted("D.A.D drops the label and spaces that came with the key when it saves.").size(12.0)).wrap());
             }
             let ok = !crate::ai::clean_key(&st.ai_card_key).is_empty();
             let enter = r.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter));
@@ -2440,10 +2441,11 @@ fn ai_card(ui: &mut Ui, st: &mut State, cfg: &crate::ai::AiCfg, chosen: bool) {
                 "openrouter" => Some(("Get a key on openrouter.ai", "https://openrouter.ai/settings/keys")),
                 _ => None,
             };
-            if let Some((label, url)) = key_page && crate::kit::link(ui, label, true).clicked() {
+            // An OpenRouter key in this box needs no help getting an Ollama key: the switch is the way.
+            if let Some((label, url)) = key_page && !switch_to_openrouter && crate::kit::link(ui, label, true).clicked() {
                 crate::platform::open_url(url);
             }
-            if crate::platform::help_clip_name(&cfg.provider).is_some() && crate::kit::link(ui, "Watch how to get a key", false).clicked() {
+            if !switch_to_openrouter && crate::platform::help_clip_name(&cfg.provider).is_some() && crate::kit::link(ui, "Watch how to get a key", false).clicked() {
                 crate::platform::open_help_video(&cfg.provider);
             }
             ui.add_space(8.0);
@@ -3096,9 +3098,18 @@ fn writing(ui: &mut Ui, st: &State) -> bool {
         ui.label(theme::muted(format!("{stage} of {} stages done", names.len())).size(12.5));
         for (i, name) in names.iter().enumerate() {
             ui.horizontal(|ui| {
-                if i < stage { ui.label(RichText::new("✔").color(theme::green())); ui.label(theme::muted(*name).size(14.0)); }
-                else if i == stage { ui.spinner(); ui.label(theme::strong(*name).size(15.0)); }
-                else { ui.label(theme::muted("○").size(13.0)); ui.label(theme::muted(*name).size(14.0)); }
+                // One 18 px slot for the mark, so the three names share a left edge.
+                let (slot, _) = ui.allocate_exact_size(egui::vec2(18.0, 18.0), egui::Sense::hover());
+                if i < stage {
+                    ui.painter().text(slot.center(), egui::Align2::CENTER_CENTER, "✔", egui::FontId::proportional(14.0), theme::green());
+                    ui.label(theme::muted(*name).size(14.0));
+                } else if i == stage {
+                    egui::Spinner::new().size(14.0).paint_at(ui, slot.shrink(2.0));
+                    ui.label(theme::strong(*name).size(15.0));
+                } else {
+                    ui.painter().circle_stroke(slot.center(), 4.5, egui::Stroke::new(1.2, theme::muted_col()));
+                    ui.label(theme::muted(*name).size(14.0));
+                }
             });
         }
         // What is happening inside the current stage, when it says more than the stage's name.
@@ -3901,8 +3912,12 @@ fn side(ui: &mut Ui, ctx: &egui::Context, st: &mut State) {
             // MyOpenMath's "Name - Description": the name is what tells rows apart, so it leads and
             // the description follows, quieter, on its own line.
             let (title, about) = name.split_once(" - ").map_or((name.as_str(), ""), |(t, a)| (t.trim(), a.trim()));
-            // Entries apart from each other by clearly more than an entry's own lines are.
-            ui.add_space(14.0);
+            // Entries apart from each other by clearly more than an entry's own lines are, with a
+            // hairline between them, so each row reads as one unit.
+            ui.add_space(10.0);
+            let (line, _) = ui.allocate_exact_size(egui::vec2(ui.available_width(), 1.0), egui::Sense::hover());
+            ui.painter().hline(line.x_range(), line.center().y, egui::Stroke::new(1.0, theme::border()));
+            ui.add_space(10.0);
             ui.add(egui::Label::new(theme::strong(title).size(14.0)).wrap());
             if !about.is_empty() {
                 ui.add(egui::Label::new(theme::muted(about).size(12.0)).wrap());
@@ -3932,7 +3947,8 @@ fn side(ui: &mut Ui, ctx: &egui::Context, st: &mut State) {
                 } else {
                     (saved_status(s), theme::on_attention())
                 };
-                crate::kit::status_tag(ui, status, fg);
+                // One slot for the word, so every row's Open starts on the same edge.
+                crate::kit::status_tag_w(ui, status, fg, 112.0);
                 ui.add_space(8.0);
                 // The question already on screen says so, instead of offering to open it again.
                 if on_screen.as_deref() == Some(s.id.as_str()) {
@@ -3945,9 +3961,15 @@ fn side(ui: &mut Ui, ctx: &egui::Context, st: &mut State) {
                         if crate::kit::danger_text_button(ui, "Yes, delete").clicked() { delete = Some(s.id.clone()); }
                     // A real 32 px target with its icon, quiet and at the far end from Open; it still asks
                     // before anything is removed.
-                    } else if ui.add(egui::Button::new(RichText::new(format!("{}  Delete", egui_phosphor::regular::TRASH)).color(theme::muted_col()).size(12.5))
-                        .fill(egui::Color32::TRANSPARENT).stroke(egui::Stroke::new(1.0, theme::border())).corner_radius(egui::CornerRadius::same(10))
-                        .min_size(egui::vec2(0.0, 32.0))).on_hover_text("Delete this question (D.A.D asks first)").clicked() {
+                    } else if {
+                        // A 32 px icon button: a full target, kept small so it sits well apart from Open
+                        // in the narrow column. Named "Delete" for screen readers and on hover.
+                        let del = ui.add(egui::Button::new(RichText::new(egui_phosphor::regular::TRASH).font(theme::icon_font(16.0)).color(theme::ink()))
+                            .fill(theme::card()).stroke(egui::Stroke::new(1.0, theme::edge())).corner_radius(egui::CornerRadius::same(10))
+                            .min_size(egui::vec2(32.0, 32.0)));
+                        del.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::Button, true, "Delete"));
+                        del.on_hover_text("Delete this question (D.A.D asks first)").clicked()
+                    } {
                         st.confirm_delete = Some(s.id.clone());
                     }
                 });
