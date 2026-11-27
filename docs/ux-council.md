@@ -21,6 +21,7 @@ This file is the ledger for the `ux-council` skill (agent-evo): its Stage A–D 
 | 2026-11-27 | B, decisions and memory | 7.1 | 6.3 | 6.7 |
 | 2026-11-27 | C, familiar patterns and forgiving input | 6.8 | 7.4 | 7.1 |
 | 2026-11-27 | D, time, progress and the end | 7.0 | 7.8 | 7.4 |
+| 2026-11-27, run 2 | A after rounds 1 and 2 | R1 7.2, R2 7.2 | R1 7.4, R2 6.7 | R1 7.3, R2 6.95: a plateau; the owner approved and locked it |
 
 **These numbers do not compare with the stage scores above.** The stages graded each stage's own scenes, one stage at a time. This grade covers 29 scenes across the whole app, graded against all four phases together. The scenes include the older screens, a narrow window, no AI set up, pasted input, a write in progress and an error. Use this table as the starting point for the next run.
 
@@ -47,6 +48,19 @@ Captures, stores and scripts: `~/.cache/dad-ux-council/2026-11-27/`. `scenes.py 
 - **Report lives in the dock at every width.** No floating pill.
 - **Header and dock state.** Each page header is the title on the left and the wordmark right-aligned to the content edge. Import and Share light up their dock items on the older pages. Home hides counts that are zero.
 - Grade hides its floating action button until an exam exists.
+
+## Phase A, run 2: locked (2026-11-27, `dad/council-a`)
+
+Push-to-8 run, same panel. It stopped at a plateau (6.7, then 7.3, then 6.95) and the owner approved it. Marked images: `~/.cache/dad-ux-council/2026-11-27/phase-a/`. Still open for A: the Figures grid's three right edges, the solid gold active dock item, two different disabled looks (Looks Good's tan fill and Rewrite It's outline), a top fade when a column is scrolled, and Delete as a text link.
+
+- **My Questions status is a coloured dot and the word** (`kit::status_tag`), not a filled chip. The words and colours are the Stage D ones; Needs review uses `theme::on_attention`. [Von Restorff: Open is the action; the status is read]
+- **Hover and open states keep the card fill and get a 1.5 px accent edge.** The light theme's `hover_bg` is a green tint (`#ecf2e6`). [Stage A: tan marks disabled controls only]
+- **`momui::dropdown` caps its list to the room below the field** (or above, when there's more room there), at most 520 px, and scrolls. [the list stays attached to the field it changes]
+- **Narrow window (under 900 px):** "↓ My Questions" sits on the step row beside New Question; the stray label is gone. When the AI isn't ready, the Your AI card comes above the form. [Proximity: the fix is on screen]
+- **Your AI card key field:** a key that's turned down and looks like another site's key gets one message under the field, with that cause first. Save Key is the filled button once the box has a key. [one filled button per state; one message]
+- **Import:** the paste boxes have `control_edges` and a 12×8 inset, like the Questions description. [inputs look like inputs]
+- **Settings, My Questions:** Back Up and Open data folder share one row. Try it's gate says "Try it as a student first, with either button above."
+- **The quiet scrollbar** is 3 px, a lighter handle, and 9 px in from the column edge. [the card's edge stays whole]
 
 ## Stage B: locked decisions (`648f9c57`)
 
@@ -84,6 +98,7 @@ Captures, stores and scripts: `~/.cache/dad-ux-council/2026-11-27/`. `scenes.py 
 
 - **D.A.D AI is gated** on `dad_ai_offered()`. Without a server it led to a dead-end server form. DeepSeek wanted it as the first chip whenever it's offered; it isn't first yet.
 - **"Try with text controls" stays as a quiet link.** DeepSeek wanted it removed from the happy path.
+- **Report joins the dock once the first-run notice is closed.** The notice has its own "Report an issue" link (2026-11-27).
 - **Settings opens on AI,** the thing most teachers come for.
 
 ## Still open, not done (carry forward; may resurface)

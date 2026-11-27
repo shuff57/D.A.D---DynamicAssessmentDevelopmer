@@ -261,6 +261,8 @@ fn import_questions(ui: &mut Ui, st: &mut State) {
     ui.add_space(12.0);
     egui::ScrollArea::vertical().show(ui, |ui| {
         pageshell::card(ui, |ui| {
+            // Inputs look like inputs: the same 3:1 edges as the Questions form.
+            control_edges(ui);
             if ui.horizontal_wrapped(|ui| {
                     let r = pageshell::outline(ui, "Choose question files");
                     drop_hint(ui);
@@ -287,6 +289,7 @@ fn import_questions(ui: &mut Ui, st: &mut State) {
             if let Some(i) = remove { st.question_files.remove(i); }
             let caption = ui.label(theme::strong("Or paste question code"));
             let paste = ui.add(egui::TextEdit::multiline(&mut st.import_source).desired_width(f32::INFINITY).desired_rows(5)
+                .margin(egui::Margin::symmetric(12, 8))
                 .hint_text("MyOpenMath code, a reply from an AI chat, or a problem in your own words"))
                 .labelled_by(caption.id);
             if paste.changed() { st.import_hint = None; }
@@ -341,7 +344,8 @@ fn import_questions(ui: &mut Ui, st: &mut State) {
                     };
                     let caption = ui.label(theme::strong(title));
                     ui.add(egui::Label::new(theme::muted(why).size(13.0)).wrap());
-                    let other = ui.add(egui::TextEdit::multiline(&mut st.import_qtext).desired_width(f32::INFINITY).desired_rows(3))
+                    let other = ui.add(egui::TextEdit::multiline(&mut st.import_qtext).desired_width(f32::INFINITY).desired_rows(3)
+                        .margin(egui::Margin::symmetric(12, 8)))
                         .labelled_by(caption.id);
                     let ok = !busy(st) && !st.import_qtext.trim().is_empty();
                     let send = other.has_focus() && ui.input_mut(|i| i.consume_key(egui::Modifiers::COMMAND, egui::Key::Enter));
@@ -1544,8 +1548,17 @@ fn field_label(ui: &mut Ui, text: &str) {
 fn dropdown(ui: &mut Ui, id: &str, labels: &[&str], cur: &mut usize, width: f32) -> bool {
     let before = *cur;
     let shown = labels.get(*cur).copied().unwrap_or("");
-    // Tall enough that a course's whole topic list (and "Other" at its end) shows without scrolling.
-    egui::ComboBox::from_id_salt(id).selected_text(shown).width(width).height(520.0).show_ui(ui, |ui| {
+    // Up to 520 tall, so a course's whole topic list (and "Other" at its end) shows without
+    // scrolling where there is room. A list taller than the room below its field was moved beside
+    // the field, over the page title, so it is capped to the room below (or above, when that is
+    // all there is) and scrolls: it stays attached to the field it changes.
+    let screen = ui.ctx().content_rect();
+    let field_top = ui.cursor().min.y;
+    let below = screen.max.y - (field_top + 36.0) - 16.0;
+    let above = field_top - screen.min.y - 16.0;
+    let room = if below >= 200.0 || below >= above { below } else { above };
+    let height = room.clamp(120.0, 520.0);
+    egui::ComboBox::from_id_salt(id).selected_text(shown).width(width).height(height).show_ui(ui, |ui| {
         for (i, l) in labels.iter().enumerate() {
             ui.selectable_value(cur, i, *l);
         }
@@ -1567,12 +1580,11 @@ fn questions_header(ui: &mut Ui, worksheet: bool) {
 fn page(ui: &mut Ui, ctx: &egui::Context, st: &mut State, cfg: &crate::ai::AiCfg, chosen: bool) {
     questions_header(ui, st.worksheet_mode && st.step == Step::Describe);
     ui.add_space(12.0);
-    steps(ui, st);
-    ui.add_space(12.0);
     let wide = ui.available_width() >= 900.0;
-    if !wide && ui.link("My Questions").clicked() {
-        st.jump_library = true;
-    }
+    // Narrow, My Questions sits under the form: the way down to it is a command on the step row,
+    // beside New Question, not a stray label above the form.
+    steps(ui, st, !wide);
+    ui.add_space(12.0);
     if wide {
         let side_w = 320.0;
         ui.horizontal_top(|ui| {
@@ -1592,10 +1604,18 @@ fn page(ui: &mut Ui, ctx: &egui::Context, st: &mut State, cfg: &crate::ai::AiCfg
             });
         });
     } else {
+        // An AI that isn't ready blocks Write, and the form says to finish it in the Your AI card:
+        // stacked, that card comes first so the fix is on screen. A ready AI stays under the form.
+        let fix_first = st.step == Step::Describe && !busy(st) && !ai_ready(cfg)
+            && !(!st.worksheet_mode && st.form.line_variant.as_ref().is_some_and(|line| line.enabled));
         column(ui, "mom_stack", |ui| {
+            if fix_first {
+                ai_card(ui, st, cfg, chosen);
+                ui.add_space(12.0);
+            }
             main(ui, ctx, st, cfg);
             ui.add_space(12.0);
-            side_column(ui, ctx, st, cfg, chosen);
+            if fix_first { side(ui, ctx, st) } else { side_column(ui, ctx, st, cfg, chosen) }
         });
     }
 }
@@ -1653,7 +1673,7 @@ fn column(ui: &mut Ui, salt: &str, add: impl FnOnce(&mut Ui)) {
 }
 
 /// The three steps across the top; a step opens once the one before it is done.
-fn steps(ui: &mut Ui, st: &mut State) {
+fn steps(ui: &mut Ui, st: &mut State, narrow: bool) {
     let has_q = st.current.is_some();
     // The last step closes out once a receipt says this question is in MyOpenMath.
     if st.published.is_none() { st.published = Some(published_ids()); }
@@ -1668,13 +1688,22 @@ fn steps(ui: &mut Ui, st: &mut State) {
             let r = ui.add_enabled_ui(open && !busy(st), |ui| step_pill(ui, &label, st.step == step)).inner;
             if r.clicked() { st.step = step; }
         }
-        // A command, not a step: it sits apart from the progress pills, at the row's far end.
-        if has_q && !busy(st) && ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-            let shortcut = ui.ctx().format_shortcut(&egui::KeyboardShortcut::new(egui::Modifiers::COMMAND, egui::Key::N));
-            crate::kit::tertiary(ui, egui_phosphor::regular::PLUS, "New Question", 36.0)
-                .on_hover_text(format!("Start a new question ({shortcut}). Your course and question options stay picked"))
-        }).inner.clicked() {
-            start_new_question(st);
+        // Commands, not steps: they sit apart from the progress pills, at the row's far end.
+        let jump = narrow && !st.library.questions.is_empty();
+        if (has_q && !busy(st)) || jump {
+            let (new, down) = ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                let new = (has_q && !busy(st)).then(|| {
+                    let shortcut = ui.ctx().format_shortcut(&egui::KeyboardShortcut::new(egui::Modifiers::COMMAND, egui::Key::N));
+                    crate::kit::tertiary(ui, egui_phosphor::regular::PLUS, "New Question", 36.0)
+                        .on_hover_text(format!("Start a new question ({shortcut}). Your course and question options stay picked"))
+                        .clicked()
+                });
+                let down = jump.then(|| crate::kit::tertiary(ui, egui_phosphor::regular::ARROW_DOWN, "My Questions", 36.0)
+                    .on_hover_text("Go down to your saved questions").clicked());
+                (new.unwrap_or(false), down.unwrap_or(false))
+            }).inner;
+            if new { start_new_question(st); }
+            if down { st.jump_library = true; }
         }
     });
 }
@@ -2176,9 +2205,16 @@ fn ai_card(ui: &mut Ui, st: &mut State, cfg: &crate::ai::AiCfg, chosen: bool) {
                 st.ai_open = true;
             }
         });
+        // A key turned down that also looks like another site's key is said once, under the key
+        // field, with that cause first; the top line would only repeat it in other words.
+        let shape_problem = (crate::ai::clean_key(&st.ai_card_key).len() >= 8)
+            .then(|| crate::ai::key_shape_problem(&cfg.provider, &st.ai_card_key)).flatten();
+        let turned_down = st.key_check_msg.as_ref().is_some_and(|(_, _, bad)| *bad);
         if st.key_check.as_ref().is_some_and(|(p, _, _)| *p == cfg.provider) {
             ui.label(theme::muted("Checking the key…").size(12.0));
-        } else if let Some((_, msg, bad)) = &st.key_check_msg {
+        } else if let Some((_, msg, bad)) = &st.key_check_msg
+            && !(*bad && shape_problem.is_some())
+        {
             let color = if *bad { theme::red() } else { theme::green() };
             ui.add(egui::Label::new(RichText::new(msg).color(color).size(12.0)).wrap());
         }
@@ -2206,12 +2242,17 @@ fn ai_card(ui: &mut Ui, st: &mut State, cfg: &crate::ai::AiCfg, chosen: bool) {
             // Whatever came with the paste (a "Key:" label, quotes, a line break) is dropped on save;
             // a key from another site is named before it is saved, not when writing fails.
             // Named once there is enough to judge, not after the first character.
-            if crate::ai::clean_key(&st.ai_card_key).len() >= 8 && let Some(problem) = crate::ai::key_shape_problem(&cfg.provider, &st.ai_card_key) {
-                ui.add(egui::Label::new(RichText::new(problem).color(theme::red()).size(12.0)).wrap());
+            if let Some(problem) = &shape_problem {
+                let name = ai_name(cfg);
+                let text = if turned_down { format!("{name} turned this key down. {problem}") } else { problem.clone() };
+                ui.add(egui::Label::new(RichText::new(text).color(theme::red()).size(12.0)).wrap());
             }
             let ok = !crate::ai::clean_key(&st.ai_card_key).is_empty();
             let enter = r.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter));
-            if (ui.add_enabled_ui(ok, |ui| crate::kit::secondary(ui, "Save Key", 36.0)).inner.clicked() || enter) && ok {
+            // With a key in the box, saving it is the next step (Write waits on it), so Save Key is
+            // the page's one filled button; empty, it is the quiet disabled one.
+            let save = if ok { pageshell::primary(ui, "Save Key") } else { ui.add_enabled_ui(false, |ui| crate::kit::secondary(ui, "Save Key", 36.0)).inner };
+            if (save.clicked() || enter) && ok {
                 match crate::ai::set_key(&cfg.provider, Some(&st.ai_card_key)) {
                     Ok(()) => {
                         let sent = crate::ai::clean_key(&st.ai_card_key);
@@ -2584,7 +2625,8 @@ fn more_options_set(f: &Form) -> usize {
 pub(crate) fn control_edges(ui: &mut Ui) {
     let w = &mut ui.visuals_mut().widgets;
     w.inactive.bg_stroke = egui::Stroke::new(1.0, theme::edge());
-    w.hovered.bg_stroke = egui::Stroke::new(1.0, theme::edge());
+    // Hover reads as "this one", by its edge (the theme keeps the card fill under the pointer).
+    w.hovered.bg_stroke = egui::Stroke::new(1.5, theme::accent_col());
 }
 
 /// Checkboxes in this `ui` draw square: the theme's radius 12 turns a 13 px box into a circle that
@@ -2983,7 +3025,9 @@ fn try_it(ui: &mut Ui, ctx: &egui::Context, st: &mut State, cfg: &crate::ai::AiC
                 if let Some(c) = st.current.as_mut() { c.preview_confirmed = true; }
                 approve(st);
             }
-            if !seen { crate::kit::gated_reason(ui, "Open the student preview first."); }
+            // Names the section above (either of its buttons counts), so the reason points at
+            // something on screen.
+            if !seen { crate::kit::gated_reason(ui, "Try it as a student first, with either button above."); }
         }
 
         error_box(ui, st);
@@ -3564,7 +3608,8 @@ fn side(ui: &mut Ui, ctx: &egui::Context, st: &mut State) {
         for s in &st.library.questions {
             let q = MomQuestion::parse(&s.src);
             let name = if q.name.is_empty() { "Untitled question".to_string() } else { q.name.clone() };
-            ui.add_space(6.0);
+            // Entries apart from each other by clearly more than an entry's own lines are.
+            ui.add_space(14.0);
             ui.add(egui::Label::new(theme::text(&name).size(14.0)).wrap());
             if let Some(revision) = &s.revised_from {
                 ui.add(egui::Label::new(theme::muted(revision.line(timestamp())).size(12.0)).wrap());
@@ -3574,17 +3619,19 @@ fn side(ui: &mut Ui, ctx: &egui::Context, st: &mut State) {
             }
             ui.add_enabled_ui(!busy(st), |ui| ui.horizontal(|ui| {
                 // Finished work reads as finished: a question already in MyOpenMath says so.
-                let (status, fill, fg) = if published.contains(&s.id) {
-                    ("In MyOpenMath", theme::accent_faded(), theme::green())
+                // A dot and a word, not a filled chip: the status is read, Open is pressed, and a
+                // chip as tall as Open drew the eye from it.
+                let (status, fg) = if published.contains(&s.id) {
+                    ("In MyOpenMath", theme::green())
                 } else if !s.passed && !s.needs_check {
-                    (saved_status(s), theme::error_wash(), theme::red())
+                    (saved_status(s), theme::red())
                 } else if s.reviewed {
-                    ("Ready to add", theme::accent_faded(), theme::accent_col())
+                    ("Ready to add", theme::accent_col())
                 } else {
-                    (saved_status(s), theme::highlighter(), theme::on_highlighter())
+                    (saved_status(s), theme::on_attention())
                 };
-                crate::kit::pill(ui, status, fill, fg);
-                ui.add_space(4.0);
+                crate::kit::status_tag(ui, status, fg);
+                ui.add_space(8.0);
                 if crate::kit::secondary(ui, "Open", 32.0).clicked() { open = Some(s.clone()); }
                 // Delete sits at the far end of the row, away from Open.
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {

@@ -83,7 +83,9 @@ pub const fn light_palette() -> Palette {
         accent_faded: Color32::from_rgb(0xdf, 0xe9, 0xd4),
         on_accent: DAD_CREAM,
         highlighter: DAD_GOLD,
-        hover_bg: Color32::from_rgb(0xef, 0xe8, 0xdb),
+        // A light green tint: the old tan was a shade from `field`, which disabled buttons wear,
+        // so whatever was under the pointer looked switched off.
+        hover_bg: Color32::from_rgb(0xec, 0xf2, 0xe6),
         green: DAD_FOREST,
         red: Color32::from_rgb(0xa3, 0x3b, 0x2e),
         table: Color32::from_rgb(0xe8, 0xdf, 0xce),
@@ -489,6 +491,15 @@ pub fn red() -> Color32 { pal().red }
 pub fn bad() -> Color32 { pal().red }
 /// Text painted directly on an accent-filled shape.
 pub fn on_accent_col() -> Color32 { pal().on_accent }
+/// Soft gold wash for a status that waits on the teacher ("Needs review"): a tint, so it doesn't
+/// match the dock's solid gold or pull the eye from the page's one filled button.
+pub fn attention_wash() -> Color32 {
+    if is_dark() { Color32::from_rgb(0x4a, 0x3a, 0x1c) } else { Color32::from_rgb(0xf6, 0xe6, 0xc4) }
+}
+/// Text on [`attention_wash`] (about 6:1 in both themes).
+pub fn on_attention() -> Color32 {
+    if is_dark() { Color32::from_rgb(0xf0, 0xd0, 0x8a) } else { Color32::from_rgb(0x7a, 0x54, 0x10) }
+}
 /// Soft red wash behind error toasts.
 pub fn error_wash() -> Color32 {
     if is_dark() {
@@ -723,20 +734,24 @@ fn apply_style(style: &mut egui::Style) {
         v.widgets.inactive.weak_bg_fill = p.card;
         v.widgets.inactive.bg_fill = p.card;
         v.widgets.inactive.bg_stroke = Stroke::new(1.0, p.border);
-        v.widgets.hovered.weak_bg_fill = p.hover_bg;
-        v.widgets.hovered.bg_fill = p.hover_bg;
+        // Hover keeps the card fill and darkens the edge to the accent: the old hover fill was
+        // within a shade of the tan disabled buttons wear, so the button under the pointer looked
+        // switched off (Stage A: tan marks disabled controls only).
+        v.widgets.hovered.weak_bg_fill = p.card;
+        v.widgets.hovered.bg_fill = p.card;
         v.widgets.hovered.fg_stroke = Stroke::new(1.0, p.ink);
-        v.widgets.hovered.bg_stroke = Stroke::new(1.0, p.border);
+        v.widgets.hovered.bg_stroke = Stroke::new(1.5, p.accent);
         v.widgets.hovered.corner_radius = CornerRadius::same(12);
         v.widgets.active.weak_bg_fill = p.accent_faded;
         v.widgets.active.bg_fill = p.accent_faded;
         v.widgets.active.fg_stroke = Stroke::new(1.0, p.ink);
         v.widgets.active.bg_stroke = Stroke::new(1.0, p.accent);
         v.widgets.active.corner_radius = CornerRadius::same(12);
-        v.widgets.open.weak_bg_fill = p.hover_bg;
-        v.widgets.open.bg_fill = p.hover_bg;
+        // An open dropdown is in use, not disabled: card fill, accent edge.
+        v.widgets.open.weak_bg_fill = p.card;
+        v.widgets.open.bg_fill = p.card;
         v.widgets.open.fg_stroke = Stroke::new(1.0, p.ink);
-        v.widgets.open.bg_stroke = Stroke::new(1.0, p.border);
+        v.widgets.open.bg_stroke = Stroke::new(1.5, p.accent);
         v.widgets.open.corner_radius = CornerRadius::same(12);
 
         style.text_styles.clear();

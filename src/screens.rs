@@ -2464,15 +2464,18 @@ impl crate::App {
                     ui.add(egui::Label::new(theme::muted(store::backend_label()).monospace()).wrap());
                     // A backup keeps approvals, requests and worksheet sources; Share's download is
                     // only the questions, for another teacher.
-                    if pageshell::outline(ui, "Back Up My Questions").on_hover_text("Saves every question with its approval and history, to restore on another computer").clicked()
-                        && let Err(error) = crate::momui::export_my_questions()
-                    {
-                        app.toast_err(format!("Could not back up My Questions: {error}"));
-                    }
-                    #[cfg(not(target_arch = "wasm32"))]
-                    if pageshell::outline(ui, "Open data folder").clicked() {
-                        crate::platform::open_path(&store::store_dir());
-                    }
+                    // One row, as Help & community's buttons are.
+                    ui.horizontal_wrapped(|ui| {
+                        if pageshell::outline(ui, "Back Up My Questions").on_hover_text("Saves every question with its approval and history, to restore on another computer").clicked()
+                            && let Err(error) = crate::momui::export_my_questions()
+                        {
+                            app.toast_err(format!("Could not back up My Questions: {error}"));
+                        }
+                        #[cfg(not(target_arch = "wasm32"))]
+                        if pageshell::outline(ui, "Open data folder").clicked() {
+                            crate::platform::open_path(&store::store_dir());
+                        }
+                    });
                     ui.add_space(8.0);
                     crate::momui::advanced_setting(ui);
                 });
