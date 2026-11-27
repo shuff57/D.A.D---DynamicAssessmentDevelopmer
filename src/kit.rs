@@ -117,10 +117,12 @@ pub fn quiet_scroll_area<R>(ui: &mut Ui, area: egui::ScrollArea, add: impl FnOnc
         let s = &mut ui.spacing_mut().scroll;
         *s = egui::style::ScrollStyle::floating();
         s.bar_width = 6.0;
-        s.floating_width = 4.0;
+        s.floating_width = 3.0;
         s.bar_inner_margin = 3.0;
         s.foreground_color = false;
-        s.bar_outer_margin = 5.0;
+        // Inside the cards' own padding, not on their right border: at 5 px the handle sat on the
+        // border line and the card's edge looked doubled.
+        s.bar_outer_margin = 9.0;
         // hidden at rest and while the pointer merely crosses the region: it shows on the bar's
         // own strip and while dragged
         s.dormant_handle_opacity = 0.0;
@@ -130,9 +132,10 @@ pub fn quiet_scroll_area<R>(ui: &mut Ui, area: egui::ScrollArea, add: impl FnOnc
         s.interact_background_opacity = 0.0;
         let v = ui.visuals_mut();
         v.extreme_bg_color = Color32::TRANSPARENT;
-        let handle = theme::muted_col().gamma_multiply(0.7);
+        // A light handle: it says "this scrolls" without reading as a dark stripe in the card.
+        let handle = theme::muted_col().gamma_multiply(0.4);
         v.widgets.inactive.bg_fill = handle;
-        v.widgets.hovered.bg_fill = theme::muted_col();
+        v.widgets.hovered.bg_fill = theme::muted_col().gamma_multiply(0.7);
         v.widgets.active.bg_fill = theme::muted_col();
         for w in [&mut v.widgets.inactive, &mut v.widgets.hovered, &mut v.widgets.active] {
             w.corner_radius = CornerRadius::same(3);
@@ -273,6 +276,18 @@ fn caps_text(text: &str, size: f32) -> RichText {
 }
 
 /// Filled chip: pill with a wash fill and bold small label.
+/// A status that is a label, not a control: a coloured dot and the word, no fill or button shape.
+/// For rows where a filled chip the height of the row's buttons drew the eye away from them.
+pub fn status_tag(ui: &mut Ui, label: &str, color: Color32) -> egui::Response {
+    ui.horizontal(|ui| {
+        ui.spacing_mut().item_spacing.x = 6.0;
+        let (dot, _) = ui.allocate_exact_size(egui::vec2(8.0, 8.0), egui::Sense::hover());
+        ui.painter().circle_filled(dot.center(), 4.0, color);
+        ui.label(RichText::new(label).family(theme::semibold()).size(12.5).color(color));
+    })
+    .response
+}
+
 pub fn pill(ui: &mut Ui, label: &str, fill: Color32, fg: Color32) -> egui::Response {
     pill_with(ui, label, fill, fg, egui::TextWrapMode::Wrap)
 }
