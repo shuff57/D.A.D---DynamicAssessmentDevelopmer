@@ -1775,6 +1775,10 @@ fn steps(ui: &mut Ui, st: &mut State, narrow: bool) {
         }
         // Commands, not steps: they sit apart from the progress pills, at the row's far end.
         let jump = narrow && !st.library.questions.is_empty();
+        // On the finish, Write Another Question is the one next step; a second "new" in the corner
+        // would compete with it.
+        let finish = st.step == Step::Copy && in_mom && !st.add_elsewhere;
+        let has_q = has_q && !finish;
         if (has_q && !busy(st)) || jump {
             let (new, down) = ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                 let new = (has_q && !busy(st)).then(|| {
@@ -2790,7 +2794,23 @@ fn describe(ui: &mut Ui, ctx: &egui::Context, st: &mut State, cfg: &crate::ai::A
             write_question(st, ctx, cfg, request, None, Some(setup));
         }
         if let Some(why) = missing { crate::kit::gated_reason(ui, why); }
-        error_box(ui, st);
+        // A busy AI is a wait, not a failure: said calmly, with the retry and the way round it.
+        if st.error.as_deref().is_some_and(|e| form::plain_error(e).starts_with("The AI is busy")) {
+            let raw = st.error.clone().unwrap_or_default();
+            ui.add_space(8.0);
+            // Write My Question above is the retry (one button for it, not two), named here; the way
+            // round a busy AI is the other choice, as a button.
+            crate::kit::gated_reason(ui, "The AI is busy right now. Wait a minute and press Write My Question again, or use a different AI.");
+            if crate::kit::secondary(ui, "Use a Different AI", 32.0).clicked() {
+                st.error = None;
+                st.ai_open = true;
+            }
+            egui::CollapsingHeader::new(theme::muted("Show details").size(12.0)).id_salt("mom_busy_details").show(ui, |ui| {
+                ui.add(egui::Label::new(theme::muted(&raw).size(12.0)).wrap());
+            });
+        } else {
+            error_box(ui, st);
+        }
 
         ui.add_space(12.0);
         let set = more_options_set(&st.form);
@@ -3036,6 +3056,14 @@ fn error_box(ui: &mut Ui, st: &State) {
     }
 }
 
+/// How far a write has got, from its log: 0 writing, 1 testing (or fixing), 2 passed.
+fn write_stage(st: &State) -> usize {
+    let said: Vec<String> = st.log.iter().filter_map(|line| form::plain_progress(line, MAX_TRIES)).collect();
+    if said.iter().any(|p| p.starts_with("It works")) { 2 }
+    else if said.iter().any(|p| p.starts_with("Testing") || p.starts_with("Found a problem")) { 1 }
+    else { 0 }
+}
+
 /// True when the teacher pressed Stop.
 fn writing(ui: &mut Ui, st: &State) -> bool {
     let mut stop = false;
@@ -3057,14 +3085,26 @@ fn writing(ui: &mut Ui, st: &State) -> bool {
                 if said.last() != Some(&p) { said.push(p); }
             }
         }
-        if said.is_empty() { said.push("Writing your question…".into()); }
-        if revising && said[0] == "Writing your question…" { said[0] = "Rewriting your question…".into(); }
-        let last = said.len() - 1;
-        for (i, p) in said.iter().enumerate().skip(said.len().saturating_sub(5)) {
+        // Every stage from the start, the done ones ticked and the next ones still to come, so the
+        // teacher sees how far along it is and what is left, not one line that changes.
+        let stage = write_stage(st);
+        let names = [if revising { "Rewrite it" } else { "Write it" }, "Test it with 3 sets of random numbers", "Ready to try"];
+        // A bar for how much is done (not "Step 1 of 3", which the page's own steps already say).
+        ui.add(egui::ProgressBar::new(stage as f32 / names.len() as f32).desired_width(260.0).desired_height(6.0)
+            .fill(theme::accent_col()).corner_radius(3.0));
+        ui.label(theme::muted(format!("{stage} of {} stages done", names.len())).size(12.5));
+        for (i, name) in names.iter().enumerate() {
             ui.horizontal(|ui| {
-                if i == last { ui.spinner(); ui.label(theme::strong(p).size(15.0)); }
-                else { ui.label(RichText::new("✔").color(theme::green())); ui.label(theme::muted(p).size(14.0)); }
+                if i < stage { ui.label(RichText::new("✔").color(theme::green())); ui.label(theme::muted(*name).size(14.0)); }
+                else if i == stage { ui.spinner(); ui.label(theme::strong(*name).size(15.0)); }
+                else { ui.label(theme::muted("○").size(13.0)); ui.label(theme::muted(*name).size(14.0)); }
             });
+        }
+        // What is happening inside the current stage, when it says more than the stage's name.
+        if let Some(detail) = said.last()
+            && !detail.starts_with("Writing your question") && !detail.starts_with("Testing it with")
+        {
+            ui.add(egui::Label::new(theme::muted(detail).size(13.0)).wrap());
         }
         ui.add_space(8.0);
         // Past the usual minute, the line says so with the time, instead of repeating the estimate.
@@ -3633,7 +3673,8 @@ fn copy_step(ui: &mut Ui, ctx: &egui::Context, st: &mut State) {
     #[cfg(not(target_arch = "wasm32"))]
     if in_mom && !st.add_elsewhere {
         let receipt = c.saved_id.as_deref().and_then(receipt_for);
-        let name = c.q.name.trim().to_string();
+        // The short name: the full "Name - Description" pushed the place to the end of two lines.
+        let name = c.q.name.trim().split_once(" - ").map_or(c.q.name.trim(), |(t, _)| t.trim()).to_string();
         let revision = c.revised_from;
         st.poster.load();
         pageshell::card(ui, |ui| {
@@ -3815,14 +3856,37 @@ fn side(ui: &mut Ui, ctx: &egui::Context, st: &mut State) {
             else { review += 1 }
         }
         // Finished on its own line, then what is left, so neither breaks mid-phrase.
-        if done > 0 { ui.label(RichText::new(format!("✔ {done} in MyOpenMath")).color(theme::green()).size(12.5)); }
+        // Counted against the whole list, so the progress has an end in sight.
+        let total = st.library.questions.len();
+        if done > 0 { ui.label(RichText::new(format!("✔ {done} of {total} in MyOpenMath")).color(theme::green()).size(12.5)); }
         let parts: Vec<String> = [(ready, "ready to add"), (review, "to review"), (fix, "to fix")]
             .into_iter().filter(|(n, _)| *n > 0).map(|(n, what)| format!("{n} {what}")).collect();
         if !parts.is_empty() && st.library.questions.len() > 1 { ui.label(theme::muted(parts.join(" · ")).size(12.5)); }
+        // A question being written is unfinished work too: it heads the list, with the way back to it.
+        let writing_now = st.job.lock().map(|j| j.busy && matches!(j.what, "Writing" | "Revising")).unwrap_or(false);
+        if writing_now {
+            ui.add_space(10.0);
+            let asked = st.form.topic_text.trim();
+            let title: String = if asked.is_empty() { "Your new question".into() } else { asked.chars().take(60).collect::<String>() + if asked.chars().count() > 60 { "…" } else { "" } };
+            ui.add(egui::Label::new(theme::strong(title).size(14.0)).wrap());
+            ui.horizontal(|ui| {
+                // Where it has got and for how long, so from another page it doesn't look frozen.
+                let stage = ["writing", "testing it", "ready"][write_stage(st).min(2)];
+                let secs = (ui.input(|i| i.time) - st.write_started).max(0.0) as u64;
+                ui.ctx().request_repaint_after(std::time::Duration::from_secs(1));
+                crate::kit::status_tag(ui, &format!("Being written · {stage} · {}:{:02}", secs / 60, secs % 60), theme::accent_col());
+                ui.add_space(8.0);
+                if crate::kit::secondary(ui, "Show", 32.0).on_hover_text("Go to its progress, with Stop").clicked() {
+                    request_destination(ui.ctx(), Destination::Questions);
+                }
+            });
+        }
         // The rows below grey out during a job: say why, so they don't look broken.
         if busy(st) && !st.library.questions.is_empty() {
             ui.add_space(4.0);
-            ui.add(egui::Label::new(theme::muted("Open and Delete wait until D.A.D finishes the job it is doing.").size(12.0)).wrap());
+            let what = st.job.lock().map(|j| j.what).unwrap_or("");
+            let job = match what { "Writing" => "the question being written is done", "Revising" => "the rewrite is done", "MyOpenMath" => "the add to MyOpenMath is done", _ => "the worksheet job is done" };
+            ui.add(egui::Label::new(theme::muted(format!("Open and Delete wait until {job}, or until you press Stop.")).size(12.0)).wrap());
         }
         // What needs the teacher comes first (to fix, to review, ready to add), finished work last:
         // the question most in need of a look is never the one under the fold. Saved order within each.
@@ -3847,6 +3911,12 @@ fn side(ui: &mut Ui, ctx: &egui::Context, st: &mut State) {
             }
             if let Some(source) = &s.worksheet_source {
                 ui.add(egui::Label::new(theme::muted(source).size(12.0)).wrap());
+            }
+            // What failed, on the row, so the teacher can choose which to take on without opening each.
+            if !s.passed && !s.needs_check && let Some(problem) = s.problems.first() {
+                let short: String = problem.chars().take(110).collect();
+                let text = if short.len() < problem.len() { format!("{}…", short.trim_end()) } else { short };
+                ui.add(egui::Label::new(RichText::new(text).color(theme::red()).size(12.0)).wrap());
             }
             ui.add_enabled_ui(!busy(st), |ui| ui.horizontal(|ui| {
                 // Finished work reads as finished: a question already in MyOpenMath says so.
@@ -4495,6 +4565,11 @@ mod autoadd {
         }
 
         /// "Course · Assessment" by name, when D.A.D has read that course's assessments.
+        /// The place last published to, by name (remembered across restarts).
+        pub(super) fn last_place(&self) -> Option<String> {
+            self.prefs.place.as_ref().map(|(_, _, name)| name.clone())
+        }
+
         pub(super) fn place_name(&self, cid: u64, aid: u64) -> Option<String> {
             let live = (|| {
                 let course = self.courses.iter().find(|course| course.id == cid)?;
@@ -4661,6 +4736,10 @@ mod autoadd {
             ui.add_space(4.0);
             if st.poster.courses.is_empty() {
                 ui.add(egui::Label::new(theme::muted("Connect to MyOpenMath in D.A.D. Pick a course and assessment to preview or publish the question.").size(13.0)).wrap());
+                // Where the last one went, so the last step looks as short as it is.
+                if let Some(place) = st.poster.last_place() {
+                    ui.add(egui::Label::new(theme::strong(format!("Last added to {place}.")).size(13.5)).wrap());
+                }
                 ui.add_space(8.0);
                 if ui.add_enabled_ui(!working, |ui| pageshell::primary(ui, "Connect to MyOpenMath")).inner.clicked() {
                     start_connect(st, ctx);
