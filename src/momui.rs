@@ -596,6 +596,10 @@ fn import_drafts(st: &mut State) {
 /// A check problem in a teacher's words: the checker's own terms ("seed", "IMathAS") are for the AI
 /// that repairs the question, not for the row a teacher reads.
 fn plain_problem(problem: &str) -> String {
+    // The checker's most common finding, said in one short line (the full sentence doubled the row).
+    if problem.starts_with("The answer the code computes is not right") {
+        return "The answer is wrong for every set of numbers tried.".into();
+    }
     problem
         .replace(", at every seed", " for every set of numbers it was tested with")
         .replace(" at every seed", " for every set of numbers it was tested with")
@@ -2356,6 +2360,12 @@ fn ai_card(ui: &mut Ui, st: &mut State, cfg: &crate::ai::AiCfg, chosen: bool) {
             let color = if *bad { theme::red() } else { theme::green() };
             ui.add(egui::Label::new(RichText::new(msg).color(color).size(12.0)).wrap());
         }
+        // On Convert, which AI reads the worksheet, said where the AI is named (Claude can't read
+        // pages as pictures, so Codex reads them when it is installed).
+        if st.worksheet_mode && st.step == Step::Describe && cfg.provider == "claude-cli" && ready {
+            let line = if local.contains(&"codex-cli") { "Worksheets are read by Codex on this computer." } else { "Claude can't read PDFs or photos: upload Word or text, or change AI." };
+            ui.add(egui::Label::new(theme::muted(line).size(12.5)).wrap());
+        }
         if !open { return; }
         ui.add_space(4.0);
         // Nothing ready and nothing chosen yet (a new computer): the teacher picks how D.A.D writes,
@@ -2390,10 +2400,23 @@ fn ai_card(ui: &mut Ui, st: &mut State, cfg: &crate::ai::AiCfg, chosen: bool) {
         } else if !ready && cfg.uses_key() {
             // The fix for the AI in use, right here: its key, not a trip to Settings.
             let rejected = st.key_check_msg.as_ref().is_some_and(|(_, _, bad)| *bad) && !st.ai_card_key.is_empty();
+            // First where to get a key (a teacher can't paste one they don't have yet), then the field.
+            // The page where the key is made is one press away; an OpenRouter key already pasted
+            // here needs no help getting an Ollama key (the switch is the way).
+            let key_page = match cfg.provider.as_str() {
+                "cloud" => Some(("Get a free key on ollama.com", "https://ollama.com/settings/keys")),
+                "openrouter" => Some(("Get a key on openrouter.ai", "https://openrouter.ai/settings/keys")),
+                _ => None,
+            };
+            let foreign = cfg.provider != "openrouter" && crate::ai::key_owner(&crate::ai::clean_key(&st.ai_card_key)) == Some("OpenRouter");
+            if let Some((label, url)) = key_page && !foreign {
+                ui.add_space(6.0);
+                if crate::kit::link(ui, label, true).clicked() { crate::platform::open_url(url); }
+            }
             // The label row carries Show key, right beside the field it reveals.
             ui.add_space(10.0);
             ui.horizontal(|ui| {
-                ui.label(theme::strong(if rejected { "Check the key" } else { "Paste its key" }).size(14.0));
+                ui.label(theme::strong(if rejected { "Check the key" } else if cfg.provider == "cloud" { "Paste your Ollama key here" } else if cfg.provider == "openrouter" { "Paste your OpenRouter key here" } else { "Paste its key" }).size(14.0));
                 if !st.ai_card_key.is_empty() {
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                         if crate::kit::link(ui, if st.ai_key_shown { "Hide key" } else { "Show key" }, false).clicked() {
@@ -2405,7 +2428,9 @@ fn ai_card(ui: &mut Ui, st: &mut State, cfg: &crate::ai::AiCfg, chosen: bool) {
             ui.add_space(2.0);
             let need_line = plain_ais(&local).into_iter().find(|a| a.0 == cfg.provider).map(|a| a.2);
             // Stacked: the side column is narrow, and a key row side by side ran past its edge.
-            let r = ui.add(egui::TextEdit::singleline(&mut st.ai_card_key).password(!st.ai_key_shown).margin(egui::Margin::symmetric(10, 8))
+            // A fixed id: Show key appears above the field once a key is in, and an id taken from the
+            // field's position would change then, dropping focus (and with it Enter) mid-paste.
+            let r = ui.add(egui::TextEdit::singleline(&mut st.ai_card_key).id_salt("mom_ai_card_key").password(!st.ai_key_shown).margin(egui::Margin::symmetric(10, 8))
                 .desired_width(ui.available_width()).hint_text("paste a key"));
             r.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::TextEdit, true, "AI key"));
             // What the key is, under the field while it is empty (the label sits right on the field
@@ -2482,17 +2507,6 @@ fn ai_card(ui: &mut Ui, st: &mut State, cfg: &crate::ai::AiCfg, chosen: bool) {
                     }
                     Err(error) => st.error = Some(format!("Could not save the key: {error}")),
                 }
-            }
-            // The page where the key is made, one press away, before the video about it: the app
-            // carries the way there, not the teacher's search.
-            let key_page = match cfg.provider.as_str() {
-                "cloud" => Some(("Get a free key on ollama.com", "https://ollama.com/settings/keys")),
-                "openrouter" => Some(("Get a key on openrouter.ai", "https://openrouter.ai/settings/keys")),
-                _ => None,
-            };
-            // An OpenRouter key in this box needs no help getting an Ollama key: the switch is the way.
-            if let Some((label, url)) = key_page && !switch_to_openrouter && crate::kit::link(ui, label, true).clicked() {
-                crate::platform::open_url(url);
             }
             if !switch_to_openrouter && crate::platform::help_clip_name(&cfg.provider).is_some() && crate::kit::link(ui, "Watch how to get a key", false).clicked() {
                 crate::platform::open_help_video(&cfg.provider);
@@ -2783,6 +2797,10 @@ fn describe(ui: &mut Ui, ctx: &egui::Context, st: &mut State, cfg: &crate::ai::A
         } else if !ai_ready(cfg) {
             // Nothing chosen yet, there is nothing to finish: the card asks for a pick.
             Some(if !st.ai_chosen { "Pick an AI in the Your AI card first." }
+                // The card already offers the way forward for an OpenRouter key: point at it.
+                else if cfg.provider != "openrouter" && crate::ai::key_owner(&crate::ai::clean_key(&st.ai_card_key)) == Some("OpenRouter") {
+                    "Use your pasted key with OpenRouter in the Your AI card to start writing."
+                }
                 else if cfg.provider == "account" { "Sign in to D.A.D in the Your AI card first." }
                 else if cfg.provider == "cloud" { "Paste your Ollama Cloud key in the Your AI card first." }
                 else if cfg.provider == "openrouter" { "Paste your OpenRouter key in the Your AI card first." }
@@ -3289,9 +3307,10 @@ fn try_it(ui: &mut Ui, ctx: &egui::Context, st: &mut State, cfg: &crate::ai::AiC
         let preview_help = if c.worksheet_source.is_some() {
             "Open the student preview, answer the question, and compare the wording, values, and worked solution with your worksheet."
         } else if c.q.detailed_solution_field().is_empty() {
-            "Answer the question and select Submit Question. Check any written help or attached video in the student preview."
+            // One short line before the one button (the preview itself shows the rest).
+            "Answer it as a student would."
         } else {
-            "Answer the question and select Submit Question. Open the Written Example to check the solution, or try a similar question."
+            "Answer it as a student would, then check the worked solution."
         };
         ui.add(egui::Label::new(theme::muted(preview_help).size(13.0)).wrap());
         ui.add_space(6.0);
@@ -3932,7 +3951,8 @@ fn side(ui: &mut Ui, ctx: &egui::Context, st: &mut State) {
         // Counted against the whole list, so the progress has an end in sight.
         let total = st.library.questions.len();
         if done > 0 { ui.label(RichText::new(format!("✔ {done} of {total} in MyOpenMath")).color(theme::green()).size(12.5)); }
-        let parts: Vec<String> = [(ready, "ready to add"), (review, "to review"), (fix, "to fix")]
+        // In the rows' own order (to fix, to review, ready), so the counts map straight onto them.
+        let parts: Vec<String> = [(fix, "to fix"), (review, "to review"), (ready, "ready to add")]
             .into_iter().filter(|(n, _)| *n > 0).map(|(n, what)| format!("{n} {what}")).collect();
         if !parts.is_empty() && st.library.questions.len() > 1 { ui.label(theme::muted(parts.join(" · ")).size(12.5)); }
         // A question being written is unfinished work too: it heads the list, with the way back to it.
