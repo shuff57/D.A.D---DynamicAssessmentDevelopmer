@@ -46,7 +46,16 @@ fn popup_modal(ctx: &egui::Context) -> Outcome {
         .frame(kit::card().inner_margin(Margin::same(22)))
         .show(ctx, |ui| {
             ui.set_width(440.0_f32.min(ctx.content_rect().width() - 80.0).max(240.0));
-            kit::small_caps(ui, "Alpha");
+            // The familiar corner ×, beside the label (Esc and a click outside close it too).
+            ui.horizontal(|ui| {
+                kit::small_caps(ui, "Alpha");
+                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                    let x = ui.add(egui::Button::new(egui::RichText::new(egui_phosphor::regular::X).font(theme::icon_font(16.0)).color(theme::muted_col()))
+                        .frame(false).min_size(egui::vec2(32.0, 32.0)));
+                    x.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::Button, true, "Close"));
+                    if x.on_hover_text("Close").clicked() { out = Outcome::Closed; }
+                });
+            });
             ui.add_space(2.0);
             ui.label(theme::serif("D.A.D is still being built").size(22.0));
             ui.add_space(8.0);

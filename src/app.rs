@@ -469,6 +469,10 @@ impl App {
         if self.qa_steps.is_empty() {
             return;
         }
+        // A scripted run is a window with the keyboard: under Xvfb with no window manager the
+        // window never gains OS focus, and egui's `has_focus()` (which needs it) then failed every
+        // Ctrl+Enter shortcut the script pressed.
+        raw.focused = true;
         ctx.request_repaint();
         self.qa_frame += 1;
         if self.qa_frame < 60 || self.qa_frame % 10 != 0 {

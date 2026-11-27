@@ -23,6 +23,7 @@ This file is the ledger for the `ux-council` skill (agent-evo): its Stage A–D 
 | 2026-11-27 | D, time, progress and the end | 7.0 | 7.8 | 7.4 |
 | 2026-11-27, run 2 | A after rounds 1 and 2 | R1 7.2, R2 7.2 | R1 7.4, R2 6.7 | R1 7.3, R2 6.95: a plateau; the owner approved and locked it |
 | 2026-11-27, run 2 | B after rounds 2 and 3 (round 1 void: a missed scripted tap) | R2 7.2, R3 7.6 | R2 7.7, R3 7.8 | R2 7.45, R3 7.7: three rounds; the owner approved and locked it |
+| 2026-11-27, run 2 | C after rounds 1 to 3 | R1 7.3, R2 8.2, R3 7.8 | R1 7.8, R2 7.6, R3 8.0 | R1 7.55, R2 7.9, R3 7.9: a plateau; the owner approved and locked it |
 
 **These numbers do not compare with the stage scores above.** The stages graded each stage's own scenes, one stage at a time. This grade covers 29 scenes across the whole app, graded against all four phases together. The scenes include the older screens, a narrow window, no AI set up, pasted input, a write in progress and an error. Use this table as the starting point for the next run.
 
@@ -125,6 +126,38 @@ The run went 6.7 → void → 7.45 → 7.7, and the owner approved it. Marked im
   - Disabled Rewrite It says "Pick a change above, or type one below, then press Rewrite It."
   - Step 3 opens with "✔ Approved and saved. Last step: choose where it goes.", with the short name on its own line.
   - The disabled picture button explains itself in its hover text.
+
+## Phase C, run 2: locked (2026-11-27, `dad/council-c`)
+
+The run went 7.1 → 7.55 → 7.9 → 7.9, and the owner approved it. Marked images: `~/.cache/dad-ux-council/2026-11-27/phase-c/`. Still open for C:
+- A pasted MyOpenMath link could open the question editor itself (the link has the question ID).
+- Figures and Home take drops without saying so.
+- The second Import box isn't focused after Ctrl+Enter.
+- A misread paste (words or a link) has no "import it as it is".
+- Import's dock icon now matches My Questions' storage icon.
+
+Capture tooling: the QA hook (`App::raw_input_hook`) reports the window as focused while `VERSHION_SCRIPT` runs. Under Xvfb the window never has OS focus, and egui's `has_focus()` then ignored every scripted Ctrl+Enter. Teachers aren't affected.
+
+- **A reply pasted from an AI chat (it has ``` fences)** is cleaned in the box to its code, with "Removed the AI chat's own words around the code: this is the code D.A.D will import. · Undo" (`import_original`). If the code has no question text, the hint is "Now paste the question's text" and suggests asking the chat for it. [Postel: what's imported is what's shown]
+- **Import:**
+  - The box is labelled "Or paste a question".
+  - A pasted link gets numbered steps ("…paste it in the box above, in place of the link"), and Open It in Your Browser empties the box.
+  - Code without question text gets "Now paste the question's text", naming MyOpenMath's box labelled Question Text.
+  [Postel]
+- **Shortcuts are shown where they work:**
+  - "Ctrl+Enter writes it" right-aligned under the description box.
+  - "or Ctrl+Enter" beside each Import into My Questions.
+  - "Ctrl+N" beside New Question.
+  [Jakob]
+- **Your AI card:**
+  - Enter on an OpenRouter key presses "Use This Key With OpenRouter", and the card then says "✔ Now using OpenRouter with the key you pasted (its label and spaces removed)."
+  - A pasted key that came with a label or spaces shows "D.A.D drops the label and spaces that came with the key when it saves."
+  [Postel]
+- **Familiar shapes:**
+  - The dock's Import uses `hand::DOWNLOAD` (the arrow points into the tray).
+  - The first-run notice has a corner × named "Close"; Esc and a click outside also close it.
+  - "or drop a photo on this window" sits beside Add a reference picture when that button can be used.
+  [Jakob]
 
 ## Choices already decided (don't reopen as new findings)
 

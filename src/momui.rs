@@ -287,12 +287,35 @@ fn import_questions(ui: &mut Ui, st: &mut State) {
                 });
             }
             if let Some(i) = remove { st.question_files.remove(i); }
-            let caption = ui.label(theme::strong("Or paste question code"));
+            // It takes more than code (a chat reply, a problem in words), so the label says "a question".
+            let caption = ui.label(theme::strong("Or paste a question"));
             let paste = ui.add(egui::TextEdit::multiline(&mut st.import_source).desired_width(f32::INFINITY).desired_rows(5)
                 .margin(egui::Margin::symmetric(12, 8))
                 .hint_text("MyOpenMath code, a reply from an AI chat, or a problem in your own words"))
                 .labelled_by(caption.id);
-            if paste.changed() { st.import_hint = None; }
+            if paste.changed() {
+                st.import_hint = None;
+                // A reply pasted from an AI chat is cleaned in the box itself, so what will be
+                // imported is what is shown; the reply as pasted stays one press away.
+                if st.import_source.contains("```") {
+                    let code = fenced_or_raw(&st.import_source);
+                    if !code.trim().is_empty() {
+                        st.import_original = Some(std::mem::replace(&mut st.import_source, code));
+                    }
+                } else {
+                    st.import_original = None;
+                }
+            }
+            let from_chat = st.import_original.is_some();
+            if from_chat {
+                let undo = ui.horizontal_wrapped(|ui| {
+                    ui.label(theme::muted("Removed the AI chat's own words around the code: this is the code D.A.D will import.").size(12.5));
+                    crate::kit::link(ui, "Undo", false).clicked()
+                }).inner;
+                if undo {
+                    if let Some(original) = st.import_original.take() { st.import_source = original; }
+                }
+            }
             // Esc backs out of a hint the last press raised; nothing typed is lost.
             if st.import_hint.is_some() && ui.input_mut(|i| i.consume_key(egui::Modifiers::NONE, egui::Key::Escape)) { st.import_hint = None; }
             let paste_send = paste.has_focus() && ui.input_mut(|i| i.consume_key(egui::Modifiers::COMMAND, egui::Key::Enter));
@@ -300,9 +323,15 @@ fn import_questions(ui: &mut Ui, st: &mut State) {
             // a question from words), that step's button is the one.
             let waiting = st.import_hint.is_some();
             let can_import = !busy(st) && (!st.question_files.is_empty() || !st.import_source.trim().is_empty());
-            if !waiting && (pageshell::primary_on(ui, "Import into My Questions", can_import).clicked() || paste_send && can_import)
-            {
-                import_drafts(st);
+            let shortcut = ui.ctx().format_shortcut(&egui::KeyboardShortcut::new(egui::Modifiers::COMMAND, egui::Key::Enter));
+            if !waiting {
+                // The shortcut other apps use to send, shown beside the button it presses.
+                let pressed = ui.horizontal(|ui| {
+                    let r = pageshell::primary_on(ui, "Import into My Questions", can_import).clicked();
+                    ui.label(theme::muted(format!("or {shortcut}")).size(12.0));
+                    r
+                }).inner;
+                if (pressed || paste_send) && can_import { import_drafts(st); }
             }
             match st.import_hint.clone() {
                 Some(NotAQuestion::Words(words)) => {
@@ -325,20 +354,31 @@ fn import_questions(ui: &mut Ui, st: &mut State) {
                 Some(NotAQuestion::Link(url)) => {
                     ui.add_space(8.0);
                     ui.add(egui::Label::new(theme::strong("That's a link. D.A.D can't read web pages.").size(14.0)).wrap());
-                    let how = if url.contains("myopenmath.com") {
-                        "Open the question in MyOpenMath's question editor, copy its Common Control box and paste it above, then copy its Question Text box into the second box that appears."
+                    // Steps, one per line, that stay on screen while the teacher is in the browser.
+                    let steps: &[&str] = if url.contains("myopenmath.com") {
+                        &["1. Open the question in MyOpenMath's question editor (the button below opens the link).",
+                          "2. Copy its Common Control box and paste it in the box above, in place of the link.",
+                          "3. D.A.D then shows a second box for its Question Text."]
                     } else {
-                        "If it's a worksheet, save or print it as a PDF and drop the PDF on Convert. If it's MyOpenMath question code, copy the code itself and paste it above."
+                        &["If it's a worksheet: save or print it as a PDF and drop the PDF on Convert.",
+                          "If it's MyOpenMath question code: copy the code itself and paste it above, in place of the link."]
                     };
-                    ui.add(egui::Label::new(theme::muted(how).size(13.0)).wrap());
+                    for step in steps { ui.add(egui::Label::new(theme::muted(*step).size(13.0)).wrap()); }
                     if pageshell::primary(ui, "Open It in Your Browser").clicked() {
                         ui.ctx().open_url(egui::OpenUrl::new_tab(url));
+                        // The link has done its job: empty the box so the code pasted next replaces it.
+                        st.import_source.clear();
                     }
                 }
                 Some(hint @ (NotAQuestion::ControlOnly(_) | NotAQuestion::QtextOnly(_))) => {
                     ui.add_space(8.0);
                     let (title, why) = if matches!(hint, NotAQuestion::ControlOnly(_)) {
-                        ("Now paste MyOpenMath's Question Text box", "The code above has no Question Text. In MyOpenMath's editor it is the box under Common Control.")
+                        // Where the missing half lives depends on where the code came from.
+                        if from_chat {
+                            ("Now paste the question's text", "The code above has no Question Text. Ask the AI chat for the question's text too and paste it here, or paste MyOpenMath's Question Text box.")
+                        } else {
+                            ("Now paste the question's text", "The code above has no Question Text. In MyOpenMath's question editor it is the box labelled Question Text, under Common Control.")
+                        }
                     } else {
                         ("Now paste MyOpenMath's Common Control box", "The text above is a Question Text box: it shows answer boxes but sets nothing. In MyOpenMath's editor, Common Control is the box above it.")
                     };
@@ -349,7 +389,12 @@ fn import_questions(ui: &mut Ui, st: &mut State) {
                         .labelled_by(caption.id);
                     let ok = !busy(st) && !st.import_qtext.trim().is_empty();
                     let send = other.has_focus() && ui.input_mut(|i| i.consume_key(egui::Modifiers::COMMAND, egui::Key::Enter));
-                    if (pageshell::primary_on(ui, "Import into My Questions", ok).clicked() || send) && ok {
+                    let pressed = ui.horizontal(|ui| {
+                        let r = pageshell::primary_on(ui, "Import into My Questions", ok).clicked();
+                        ui.label(theme::muted(format!("or {shortcut}")).size(12.0));
+                        r
+                    }).inner;
+                    if (pressed || send) && ok {
                         import_drafts(st);
                     }
                 }
@@ -794,6 +839,8 @@ struct State {
     ai_pick: Option<AiPick>,
     /// The teacher (or the first-open pick) has chosen an AI; read once a frame from `AI_PICKED`.
     ai_chosen: bool,
+    /// An AI-chat reply as it was pasted into Import, before the box was cleaned to its code (Undo).
+    import_original: Option<String>,
     /// "Keep my current AI" was pressed.
     ai_keep: bool,
     /// The first-open check that picks a working AI by itself has run.
@@ -1732,6 +1779,8 @@ fn steps(ui: &mut Ui, st: &mut State, narrow: bool) {
             let (new, down) = ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                 let new = (has_q && !busy(st)).then(|| {
                     let shortcut = ui.ctx().format_shortcut(&egui::KeyboardShortcut::new(egui::Modifiers::COMMAND, egui::Key::N));
+                    // The shortcut beside its button, as Ctrl+Enter is shown under each box.
+                    ui.label(theme::muted(&shortcut).size(11.5));
                     crate::kit::tertiary(ui, egui_phosphor::regular::PLUS, "New Question", 36.0)
                         .on_hover_text(format!("Start a new question ({shortcut}). Your course and question options stay picked"))
                         .clicked()
@@ -2313,6 +2362,12 @@ fn ai_card(ui: &mut Ui, st: &mut State, cfg: &crate::ai::AiCfg, chosen: bool) {
                 st.ai_key_shown = !st.ai_key_shown;
             }
             r.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::TextEdit, true, "AI key"));
+            // The key is masked, so say what cleaning did: a label, quotes or spaces pasted with it
+            // are dropped on save, not stored as part of the key.
+            let cleaned = crate::ai::clean_key(&st.ai_card_key);
+            if !cleaned.is_empty() && cleaned != st.ai_card_key.trim() {
+                ui.add(egui::Label::new(theme::muted("D.A.D drops the label and spaces that came with the key when it saves.").size(12.0)).wrap());
+            }
             // Whatever came with the paste (a "Key:" label, quotes, a line break) is dropped on save;
             // a key from another site is named before it is saved, not when writing fails.
             // Named once there is enough to judge, not after the first character.
@@ -2328,13 +2383,16 @@ fn ai_card(ui: &mut Ui, st: &mut State, cfg: &crate::ai::AiCfg, chosen: bool) {
                 // and keep the key, instead of a sentence that sends the teacher to find OpenRouter.
                 let key = crate::ai::clean_key(&st.ai_card_key);
                 // The switch is then the next step, so it is the filled button and Save Key steps back.
+                // Enter in the key box presses the one action on offer, as Enter does in a form.
+                let enter_here = r.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter));
                 if switch_to_openrouter
-                    && pageshell::primary(ui, "Use This Key With OpenRouter").clicked()
+                    && (pageshell::primary(ui, "Use This Key With OpenRouter").clicked() || enter_here)
                 {
                     let model = plain_ais(&local).into_iter().find(|a| a.0 == "openrouter").map_or("", |a| a.3);
                     st.ai_pick = Some(AiPick { provider: "openrouter", model: model.into(), key: Some(key) });
                     st.ai_card_key.clear();
-                    st.key_check_msg = None;
+                    // Said where the key was pasted, so the press (or Enter) visibly did something.
+                    st.key_check_msg = Some(("openrouter".into(), "✔ Now using OpenRouter with the key you pasted (its label and spaces removed).".into(), false));
                 }
             }
             let ok = !crate::ai::clean_key(&st.ai_card_key).is_empty();
@@ -2595,8 +2653,12 @@ fn describe(ui: &mut Ui, ctx: &egui::Context, st: &mut State, cfg: &crate::ai::A
             .desired_rows(3).hint_text("For example: Ask students to compare two linear graphs."));
         description.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::TextEdit, true, "Describe the question"));
         // Enter stays a new line (it is a paragraph box); Ctrl+Enter (⌘Enter on a Mac) sends it, as
-        // in chat and mail apps.
+        // in chat and mail apps, and says so under the box, where the hands already are.
         let send_key = description.has_focus() && ui.input_mut(|i| i.consume_key(egui::Modifiers::COMMAND, egui::Key::Enter));
+        let shortcut = ui.ctx().format_shortcut(&egui::KeyboardShortcut::new(egui::Modifiers::COMMAND, egui::Key::Enter));
+        ui.with_layout(egui::Layout::right_to_left(egui::Align::Min), |ui| {
+            ui.label(theme::muted(format!("{shortcut} writes it")).size(11.5));
+        });
         // Question code pasted here would go to the AI as a description; Import is where it belongs.
         if matches!(not_a_question(&f.topic_text), NotAQuestion::Link(_)) {
             ui.add(egui::Label::new(theme::muted("That's a link: the AI can't open web pages. Describe the question in words, or bring a MyOpenMath question in with Import.").size(12.0)).wrap());
@@ -2687,6 +2749,10 @@ fn describe(ui: &mut Ui, ctx: &egui::Context, st: &mut State, cfg: &crate::ai::A
                     Ok(file) => picked = file,
                     Err(error) => st.topic_image_error = Some(error),
                 }
+            }
+            if st.topic_image.is_none() && !picture_blocked && !working {
+                // As Convert and Import say: a photo can be dropped here too.
+                ui.label(theme::muted("or drop a photo on this window").size(12.0));
             }
             if let Some(image) = &st.topic_image {
                 ui.label(theme::muted(&image.name));
