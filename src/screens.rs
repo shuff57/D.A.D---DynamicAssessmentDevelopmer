@@ -2478,7 +2478,8 @@ impl crate::App {
                     // only the questions, for another teacher.
                     // One row, as Help & community's buttons are.
                     ui.horizontal_wrapped(|ui| {
-                        if pageshell::outline(ui, "Back Up My Questions").on_hover_text("Saves every question with its approval and history, to restore on another computer").clicked()
+                        // Backing up is what this section is for: the filled one; the folder is beside it.
+                        if pageshell::primary(ui, "Back Up My Questions").on_hover_text("Saves every question with its approval and history, to restore on another computer").clicked()
                             && let Err(error) = crate::momui::export_my_questions()
                         {
                             app.toast_err(format!("Could not back up My Questions: {error}"));
@@ -2522,19 +2523,6 @@ impl crate::App {
                             }
                         }
                     });
-                    let technical = technical_list.iter().any(|(v, _)| app.settings.ai_provider == *v);
-                    egui::CollapsingHeader::new(theme::muted("Other AIs (for IT or your own server)").size(12.5))
-                        .id_salt("settings_ai_technical")
-                        .default_open(technical)
-                        .show(ui, |ui| {
-                            ui.horizontal_wrapped(|ui| {
-                                for (val, label) in &technical_list {
-                                    if kit::chip_toggle(ui, label, app.settings.ai_provider == *val).clicked() {
-                                        app.settings.ai_provider = val.to_string();
-                                    }
-                                }
-                            });
-                        });
                     ui.add_space(6.0);
                     let cli = matches!(app.settings.ai_provider.as_str(), "claude-cli" | "codex-cli");
                     if app.settings.ai_provider == "custom" || app.settings.ai_provider == "workers" {
@@ -2626,6 +2614,21 @@ impl crate::App {
                             .id_salt("settings_ai_model")
                             .show(ui, |ui| app.draw_model_picker(ui, ctx));
                     }
+                    // The technical AIs last, so the chosen AI's own line sits right under its chip.
+                    ui.add_space(6.0);
+                    let technical = technical_list.iter().any(|(v, _)| app.settings.ai_provider == *v);
+                    egui::CollapsingHeader::new(theme::muted("Other AIs (for IT or your own server)").size(12.5))
+                        .id_salt("settings_ai_technical")
+                        .default_open(technical)
+                        .show(ui, |ui| {
+                            ui.horizontal_wrapped(|ui| {
+                                for (val, label) in &technical_list {
+                                    if kit::chip_toggle(ui, label, app.settings.ai_provider == *val).clicked() {
+                                        app.settings.ai_provider = val.to_string();
+                                    }
+                                }
+                            });
+                        });
                     if !cli {
                         ui.add_space(6.0);
                         // Where the key is looked for (environment variables, files) is for IT.

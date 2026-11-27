@@ -593,6 +593,16 @@ fn import_drafts(st: &mut State) {
     st.error = (!errors.is_empty()).then(|| errors.join("\n"));
 }
 
+/// A check problem in a teacher's words: the checker's own terms ("seed", "IMathAS") are for the AI
+/// that repairs the question, not for the row a teacher reads.
+fn plain_problem(problem: &str) -> String {
+    problem
+        .replace(", at every seed", " for every set of numbers it was tested with")
+        .replace(" at every seed", " for every set of numbers it was tested with")
+        .replace("at some seeds", "for some sets of numbers")
+        .replace("IMathAS", "MyOpenMath")
+}
+
 /// A saved question's state in words and colour, the same four as My Questions.
 fn share_status(s: &Saved, published: &std::collections::HashSet<String>) -> (&'static str, egui::Color32) {
     if published.contains(&s.id) { ("In MyOpenMath", theme::green()) }
@@ -1732,6 +1742,8 @@ pub fn advanced_setting(ui: &mut Ui) {
         if !st.inited { st.advanced = crate::store::load_json(ADVANCED).unwrap_or(false); }
         ui.scope(|ui| {
             square_checks(ui);
+            // The box's edge at 3:1, like every other control.
+            control_edges(ui);
             if ui.checkbox(&mut st.advanced, "Show advanced tools on the Questions page (question code, test log, checker)").changed() {
                 let _ = crate::store::save_json(ADVANCED, &st.advanced);
             }
@@ -2322,8 +2334,9 @@ fn ai_card(ui: &mut Ui, st: &mut State, cfg: &crate::ai::AiCfg, chosen: bool) {
             ui.label(theme::text(ai_name(cfg)).size(14.0));
             let change = chosen && ready && !open;
             if !ready {
+                // A setup step, not an error: the warning colour, as Write's gate line uses.
                 let need = if cfg.provider == "account" { "needs you to sign in" } else { "needs a key" };
-                ui.label(RichText::new(need).color(theme::red()).size(13.0));
+                ui.label(RichText::new(need).color(theme::on_attention()).size(13.0));
             }
             // A real button at the card's edge, not a small link: it changes every question written.
             if change && ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| crate::kit::secondary(ui, "Change", 32.0)).inner.clicked() {
@@ -2390,13 +2403,16 @@ fn ai_card(ui: &mut Ui, st: &mut State, cfg: &crate::ai::AiCfg, chosen: bool) {
                 }
             });
             ui.add_space(2.0);
-            if let Some(need) = plain_ais(&local).into_iter().find(|a| a.0 == cfg.provider).map(|a| a.2) {
-                ui.add(egui::Label::new(theme::muted(need).size(12.0)).wrap());
-            }
+            let need_line = plain_ais(&local).into_iter().find(|a| a.0 == cfg.provider).map(|a| a.2);
             // Stacked: the side column is narrow, and a key row side by side ran past its edge.
             let r = ui.add(egui::TextEdit::singleline(&mut st.ai_card_key).password(!st.ai_key_shown).margin(egui::Margin::symmetric(10, 8))
                 .desired_width(ui.available_width()).hint_text("paste a key"));
             r.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::TextEdit, true, "AI key"));
+            // What the key is, under the field while it is empty (the label sits right on the field
+            // it names; once a key is in, what matters is whether it fits).
+            if let Some(need) = need_line && st.ai_card_key.is_empty() {
+                ui.add(egui::Label::new(theme::muted(need).size(12.0)).wrap());
+            }
             // Whatever came with the paste (a "Key:" label, quotes, a line break) is dropped on save;
             // a key from another site is named before it is saved, not when writing fails.
             // Named once there is enough to judge, not after the first character.
@@ -2414,8 +2430,12 @@ fn ai_card(ui: &mut Ui, st: &mut State, cfg: &crate::ai::AiCfg, chosen: bool) {
                 // The switch is then the next step, so it is the filled button and Save Key steps back.
                 // Enter in the key box presses the one action on offer, as Enter does in a form.
                 let enter_here = r.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter));
-                if switch_to_openrouter
-                    && (pageshell::primary(ui, "Use This Key With OpenRouter").clicked() || enter_here)
+                let switch_pressed = switch_to_openrouter
+                    && (pageshell::primary(ui, "Use This Key With OpenRouter").clicked() || enter_here);
+                if switch_to_openrouter {
+                    ui.add(egui::Label::new(theme::muted("OpenRouter needs a few dollars of credit on the account.").size(12.0)).wrap());
+                }
+                if switch_pressed
                 {
                     let model = plain_ais(&local).into_iter().find(|a| a.0 == "openrouter").map_or("", |a| a.3);
                     st.ai_pick = Some(AiPick { provider: "openrouter", model: model.into(), key: Some(key) });
@@ -2762,7 +2782,11 @@ fn describe(ui: &mut Ui, ctx: &egui::Context, st: &mut State, cfg: &crate::ai::A
             Some("D.A.D is working on your worksheet. Write is free when it finishes; see Convert.")
         } else if !ai_ready(cfg) {
             // Nothing chosen yet, there is nothing to finish: the card asks for a pick.
-            Some(if st.ai_chosen { "Your AI isn't ready yet: finish it in the Your AI card." } else { "Pick an AI in the Your AI card first." })
+            Some(if !st.ai_chosen { "Pick an AI in the Your AI card first." }
+                else if cfg.provider == "account" { "Sign in to D.A.D in the Your AI card first." }
+                else if cfg.provider == "cloud" { "Paste your Ollama Cloud key in the Your AI card first." }
+                else if cfg.provider == "openrouter" { "Paste your OpenRouter key in the Your AI card first." }
+                else { "Your AI isn't ready yet: finish it in the Your AI card." })
         } else if st.topic_image.is_some() {
             picture_blocked.then_some("Choose an AI that can read uploaded pictures, or describe the topic in words.")
         } else {
@@ -3195,7 +3219,11 @@ fn try_it(ui: &mut Ui, ctx: &egui::Context, st: &mut State, cfg: &crate::ai::AiC
             ui.add(egui::Label::new(RichText::new(why).color(theme::red()).size(14.0)).wrap());
             ui.add_space(6.0);
         }
-        ui.add(egui::Label::new(theme::serif(if c.q.name.is_empty() { "Your question" } else { &c.q.name }).size(20.0)).wrap());
+        // The short name as the heading, the description as a quieter line: MyOpenMath's whole
+        // "Name - Description" made a two-line heading to read before anything else.
+        let (title, about) = c.q.name.split_once(" - ").map_or((c.q.name.as_str(), ""), |(t, a)| (t.trim(), a.trim()));
+        ui.add(egui::Label::new(theme::serif(if title.is_empty() { "Your question" } else { title }).size(20.0)).wrap());
+        if !about.is_empty() { ui.add(egui::Label::new(theme::muted(about).size(13.0)).wrap()); }
         ui.add_space(6.0);
         if let Some(location) = &c.worksheet_source {
             ui.add(egui::Label::new(theme::strong(format!("Worksheet transcription · {location}"))).wrap());
@@ -3963,9 +3991,12 @@ fn side(ui: &mut Ui, ctx: &egui::Context, st: &mut State) {
             }
             // What failed, on the row, so the teacher can choose which to take on without opening each.
             if !s.passed && !s.needs_check && let Some(problem) = s.problems.first() {
-                let short: String = problem.chars().take(110).collect();
+                let problem = plain_problem(problem);
+                let short: String = problem.chars().take(160).collect();
                 let text = if short.len() < problem.len() { format!("{}…", short.trim_end()) } else { short };
-                ui.add(egui::Label::new(RichText::new(text).color(theme::red()).size(12.0)).wrap());
+                // Quiet text: the red dot already marks the row; a red sentence pulled the eye from
+                // the page's own job (Convert, Import).
+                ui.add(egui::Label::new(theme::muted(text).size(12.0)).wrap());
             }
             let paused = busy(st);
             ui.horizontal(|ui| {
@@ -4812,7 +4843,9 @@ mod autoadd {
                 ui.add(egui::Label::new(theme::muted("Connect to MyOpenMath in D.A.D. Pick a course and assessment to preview or publish the question.").size(13.0)).wrap());
                 // Where the last one went, so the last step looks as short as it is.
                 if let Some(place) = st.poster.last_place() {
+                    // Connecting picks the same place again (the pickers start on the remembered one).
                     ui.add(egui::Label::new(theme::strong(format!("Last added to {place}.")).size(13.5)).wrap());
+                    ui.add(egui::Label::new(theme::muted("Connect, and D.A.D picks it again.").size(12.5)).wrap());
                 }
                 ui.add_space(8.0);
                 if ui.add_enabled_ui(!working, |ui| pageshell::primary(ui, "Connect to MyOpenMath")).inner.clicked() {
