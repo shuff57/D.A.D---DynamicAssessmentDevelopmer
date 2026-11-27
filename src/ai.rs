@@ -308,18 +308,41 @@ pub fn clean_key(raw: &str) -> String {
         .fold(String::new(), |best, t| if t.len() > best.len() { t } else { best })
 }
 
+/// Whose key this is, read from its start, for the services whose keys always start the same way.
+fn key_owner(key: &str) -> Option<&'static str> {
+    if key.starts_with("sk-or-") {
+        Some("OpenRouter")
+    } else if key.starts_with("sk-ant-") {
+        Some("Anthropic")
+    } else if key.starts_with("sk-") {
+        Some("OpenAI")
+    } else {
+        None
+    }
+}
+
 /// One sentence when a pasted key can't belong to this AI (most often: a key from another site).
 pub fn key_shape_problem(provider: &str, key: &str) -> Option<String> {
     let key = clean_key(key);
     if key.is_empty() { return None; }
+    let owner = key_owner(&key);
+    // Ollama keys have no fixed start, so only a key that plainly belongs to another site is named.
+    if provider == "cloud" {
+        let owner = owner?;
+        let switch = if owner == "OpenRouter" { " To use it, choose OpenRouter instead." } else { "" };
+        return Some(format!("This looks like an {owner} key, not an Ollama key. Copy a key from your Ollama account.{switch}"));
+    }
     let (name, prefix) = match provider {
         "openrouter" => ("OpenRouter", "sk-or-"),
         "anthropic" => ("Anthropic", "sk-ant-"),
         "openai" => ("OpenAI", "sk-"),
         _ => return None,
     };
-    (!key.starts_with(prefix))
-        .then(|| format!("This doesn't look like an {name} key: they start with {prefix}. Check that you copied the whole key."))
+    if key.starts_with(prefix) && owner == Some(name) { return None; }
+    Some(match owner {
+        Some(other) if other != name => format!("This looks like an {other} key, not an {name} key: {name} keys start with {prefix}."),
+        _ => format!("This doesn't look like an {name} key: they start with {prefix}. Check that you copied the whole key."),
+    })
 }
 
 /// Atomic write (temp + rename) of the whole map, mode 0600 on unix from creation.
@@ -431,13 +454,40 @@ fn list_url(cfg: &AiCfg, base: &str) -> String {
     }
 }
 
-/// What the key test asks for. OpenRouter's model list is public, so it answers any key (or none);
-/// its `/key` route answers only a real key.
-fn probe_url(cfg: &AiCfg, base: &str) -> String {
-    if cfg.provider == "openrouter" { format!("{base}/key") } else { list_url(cfg, base) }
+/// What the key test asks for: a URL, and a JSON body when it is a POST.
+///
+/// A model list that is public answers any key (or none), so it can't test one. OpenRouter's `/key`
+/// route answers only a real key. Ollama Cloud's lists are public and it has no such route, so its
+/// key is tried with the same chat request writing uses, capped at one token.
+fn probe(cfg: &AiCfg, base: &str) -> (String, Option<Value>) {
+    match cfg.provider.as_str() {
+        "openrouter" => (format!("{base}/key"), None),
+        "cloud" => (
+            format!("{base}/chat/completions"),
+            Some(json!({
+                "model": cfg.model,
+                "messages": [{"role": "user", "content": "Reply with OK."}],
+                "max_tokens": 1,
+                "stream": false,
+            })),
+        ),
+        _ => (list_url(cfg, base), None),
+    }
 }
 
-/// Cheap authenticated probe for the Settings "Test connection" button: GET {base}/models.
+/// What a key test's HTTP status means. `tried_model` is set when the test was a chat request.
+fn probe_result(status: u16, tried_model: Option<&str>) -> Result<(), String> {
+    match (status, tried_model) {
+        (200..=299, _) => Ok(()),
+        (401 | 403, _) => Err("Key rejected (401).".to_string()),
+        (404, Some(model)) => Err(format!("the server has no model called {model}")),
+        (404, None) => Err("Reached the server, but it has no /models endpoint (404). The key may still work.".to_string()),
+        (429, _) => Err("the AI is busy or at its usage limit right now".to_string()),
+        (n, _) => Err(format!("The server answered {n}.")),
+    }
+}
+
+/// Cheap authenticated probe for the key's AI (Settings "Test connection", and a key just saved).
 /// Blocking; call from a thread. The reply never contains the key.
 #[cfg(not(target_arch = "wasm32"))]
 pub fn test_connection(cfg: &AiCfg) -> Result<(), String> {
@@ -445,18 +495,23 @@ pub fn test_connection(cfg: &AiCfg) -> Result<(), String> {
     if base.is_empty() {
         return Err("Set a base URL first.".to_string());
     }
-    let url = probe_url(cfg, base);
-    let mut req = agent().get(&url);
-    if let Some(k) = request_key(cfg) {
-        req = req.header("Authorization", &format!("Bearer {k}"));
+    let (url, body) = probe(cfg, base);
+    let key = request_key(cfg);
+    let auth = key.map(|k| format!("Bearer {k}"));
+    let resp = match &body {
+        Some(body) => {
+            let mut req = agent().post(&url).header("Content-Type", "application/json");
+            if let Some(a) = &auth { req = req.header("Authorization", a); }
+            req.send(body.to_string())
+        }
+        None => {
+            let mut req = agent().get(&url);
+            if let Some(a) = &auth { req = req.header("Authorization", a); }
+            req.call()
+        }
     }
-    let resp = req.call().map_err(|_| format!("Can't reach {base}."))?;
-    match resp.status().as_u16() {
-        200..=299 => Ok(()),
-        401 | 403 => Err("Key rejected (401).".to_string()),
-        404 => Err("Reached the server, but it has no /models endpoint (404). The key may still work.".to_string()),
-        n => Err(format!("The server answered {n}.")),
-    }
+    .map_err(|_| format!("Can't reach {base}."))?;
+    probe_result(resp.status().as_u16(), body.as_ref().map(|_| cfg.model.as_str()))
 }
 
 /// Browser probe: the same GET, awaited through `fetch`.
@@ -466,16 +521,11 @@ pub async fn test_connection_async(cfg: &AiCfg) -> Result<(), String> {
     if base.is_empty() {
         return Err("Set a base URL first.".to_string());
     }
-    let url = probe_url(cfg, base);
-    let status = fetch_status_async(&url, request_key(cfg).as_deref())
+    let (url, body) = probe(cfg, base);
+    let status = fetch_status_async(&url, request_key(cfg).as_deref(), body.as_ref().map(Value::to_string).as_deref())
         .await
         .map_err(|e| cloud_error_hint(cfg, e))?;
-    match status {
-        200..=299 => Ok(()),
-        401 | 403 => Err("Key rejected (401).".to_string()),
-        404 => Err("Reached the server, but it has no /models endpoint (404). The key may still work.".to_string()),
-        n => Err(format!("The server answered {n}.")),
-    }
+    probe_result(status, body.as_ref().map(|_| cfg.model.as_str()))
 }
 
 /// Adds the relay instruction when a browser cannot reach Ollama Cloud.
@@ -492,7 +542,7 @@ fn cloud_error_hint(cfg: &AiCfg, err: String) -> String {
 }
 
 #[cfg(target_arch = "wasm32")]
-async fn fetch_status_async(url: &str, key: Option<&str>) -> Result<u16, String> {
+async fn fetch_status_async(url: &str, key: Option<&str>, body: Option<&str>) -> Result<u16, String> {
     use wasm_bindgen::JsCast as _;
     let js = |e: wasm_bindgen::JsValue| format!("{e:?}");
     let headers = web_sys::Headers::new().map_err(js)?;
@@ -500,7 +550,14 @@ async fn fetch_status_async(url: &str, key: Option<&str>) -> Result<u16, String>
         headers.set("Authorization", &format!("Bearer {k}")).map_err(js)?;
     }
     let init = web_sys::RequestInit::new();
-    init.set_method("GET");
+    match body {
+        Some(body) => {
+            headers.set("Content-Type", "application/json").map_err(js)?;
+            init.set_method("POST");
+            init.set_body(&wasm_bindgen::JsValue::from_str(body));
+        }
+        None => init.set_method("GET"),
+    }
     init.set_mode(web_sys::RequestMode::Cors);
     init.set_headers(&headers);
     let signal = web_sys::AbortSignal::timeout_with_u32(30_000);
@@ -2221,6 +2278,57 @@ mod tests {
         assert_eq!(key_shape_problem("openrouter", "Key: sk-or-v1-abc"), None);
         assert!(key_shape_problem("openrouter", "sk-ant-abc").unwrap().contains("sk-or-"));
         assert_eq!(key_shape_problem("cloud", "anything"), None);
+    }
+
+    #[test]
+    fn a_key_from_another_site_is_named_in_the_ollama_cloud_box_and_an_ollama_key_is_not() {
+        // The council's C06: an OpenRouter key, with a label and spaces, pasted into the Ollama Cloud box.
+        let msg = key_shape_problem("cloud", "  Key: sk-or-v1-0000demo00000000").unwrap();
+        assert!(msg.contains("OpenRouter key") && msg.contains("choose OpenRouter instead"), "{msg}");
+        let msg = key_shape_problem("cloud", "sk-ant-api03-abcdefgh").unwrap();
+        assert!(msg.contains("Anthropic key") && !msg.contains("instead"), "no switch offered to an AI D.A.D doesn't list: {msg}");
+        assert!(key_shape_problem("cloud", "sk-proj-abcdefgh").unwrap().contains("OpenAI key"));
+        // Ollama keys have no fixed start: anything else passes untouched.
+        for ok in ["0123456789abcdef0123456789abcdef.ABCdef0123456789", "ollama_abc123xyz", "abcDEF123=="] {
+            assert_eq!(key_shape_problem("cloud", ok), None, "{ok}");
+        }
+        // Another site's key in the OpenRouter box names that site.
+        assert!(key_shape_problem("openrouter", "sk-ant-abc").unwrap().contains("Anthropic key, not an OpenRouter key"));
+        assert!(key_shape_problem("openrouter", "abcdefgh").unwrap().contains("doesn't look like an OpenRouter key"));
+        assert_eq!(key_shape_problem("openai", "sk-proj-abc"), None);
+        assert!(key_shape_problem("openai", "sk-or-v1-abc").unwrap().contains("OpenRouter key, not an OpenAI key"));
+    }
+
+    #[test]
+    fn an_ollama_cloud_key_is_tried_with_a_one_token_chat_not_the_public_model_list() {
+        // Ollama Cloud's model list answers any key, so testing against it said "accepted" for every key.
+        let cfg = AiCfg { provider: "cloud".into(), base: OLLAMA_CLOUD_BASE.into(), model: "gpt-oss:20b".into(), think: None };
+        let (url, body) = probe(&cfg, OLLAMA_CLOUD_BASE);
+        assert_eq!(url, format!("{OLLAMA_CLOUD_BASE}/chat/completions"));
+        let body = body.expect("a POST with a body");
+        assert_eq!(body["max_tokens"], 1);
+        assert_eq!(body["model"], "gpt-oss:20b");
+        assert_eq!(body["stream"], false);
+        // The others are unchanged: OpenRouter's /key route, everyone else's model list, all GETs.
+        let or = AiCfg { provider: "openrouter".into(), base: "https://openrouter.ai/api/v1".into(), model: "m".into(), think: None };
+        assert_eq!(probe(&or, "https://openrouter.ai/api/v1"), ("https://openrouter.ai/api/v1/key".to_string(), None));
+        let custom = AiCfg { provider: "custom".into(), base: "http://x/v1".into(), model: "m".into(), think: None };
+        assert_eq!(probe(&custom, "http://x/v1"), ("http://x/v1/models".to_string(), None));
+    }
+
+    #[test]
+    fn a_key_test_status_becomes_the_right_outcome() {
+        assert_eq!(probe_result(200, Some("m")), Ok(()));
+        // "Key rejected" is what takes a bad key back off (momui's key check matches on it).
+        for status in [401, 403] {
+            assert!(probe_result(status, Some("m")).unwrap_err().starts_with("Key rejected"));
+            assert!(probe_result(status, None).unwrap_err().starts_with("Key rejected"));
+        }
+        // Not the key's fault: the key stays, and the reason is shown.
+        assert_eq!(probe_result(404, Some("gpt-oss:20b")), Err("the server has no model called gpt-oss:20b".into()));
+        assert!(probe_result(404, None).unwrap_err().contains("/models"));
+        assert!(probe_result(429, Some("m")).unwrap_err().contains("usage limit"));
+        assert_eq!(probe_result(500, None), Err("The server answered 500.".into()));
     }
 
     #[test]
