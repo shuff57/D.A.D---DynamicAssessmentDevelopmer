@@ -2086,14 +2086,15 @@ impl crate::App {
             ui.label(theme::serif("Help & community").size(18.0));
             ui.add_space(4.0);
             ui.label(theme::muted(
-                "Something wrong? Use Report in the dock, on any page. The contact form reaches us directly, known issues are listed on GitHub, and a coffee helps keep D.A.D free.",
+                "Something wrong? Press Report in the dock, on any page, or contact us.",
             ));
             ui.add_space(10.0);
             // What a teacher comes here for first (a question), the coffee last; the desktop
             // download only where it is news, in the browser. Reporting a problem is the dock's
             // Report item, on every page: a second button here opened the same dialog.
             ui.horizontal_wrapped(|ui| {
-                if crate::pageshell::outline(ui, &format!("{}  Contact us", egui_phosphor::regular::ENVELOPE_SIMPLE)).clicked() {
+                // The way to reach a person is the one filled button; the rest are quieter.
+                if crate::pageshell::primary(ui, &format!("{}  Contact us", egui_phosphor::regular::ENVELOPE_SIMPLE)).clicked() {
                     crate::platform::open_contact();
                 }
                 if crate::pageshell::outline(ui, &format!("{}  Known issues", egui_phosphor::regular::LIST_BULLETS)).clicked() {
@@ -2289,6 +2290,15 @@ impl crate::App {
             if crate::ai::clean_key(buf).len() >= 8 && let Some(problem) = crate::ai::key_shape_problem(&cfg.provider, buf) {
                 ui.label(egui::RichText::new(problem).color(crate::theme::red()).size(13.0));
             }
+            // The page where the key is made, as in the Your AI card.
+            let key_page = match cfg.provider.as_str() {
+                "cloud" => Some(("Get a free key on ollama.com", "https://ollama.com/settings/keys")),
+                "openrouter" => Some(("Get a key on openrouter.ai", "https://openrouter.ai/settings/keys")),
+                _ => None,
+            };
+            if let Some((label, url)) = key_page && crate::kit::link(ui, label, true).clicked() {
+                crate::platform::open_url(url);
+            }
             if crate::platform::help_clip_name(&cfg.provider).is_some() {
                 let label = format!("{}  Watch how to get a key", egui_phosphor::regular::PLAY_CIRCLE);
                 if crate::pageshell::outline(ui, &label).clicked() {
@@ -2460,8 +2470,9 @@ impl crate::App {
                 SETTINGS_STORAGE => {
                 pageshell::card(ui, |ui| {
                     pageshell::heading(ui, "My Questions storage");
-                    ui.add(egui::Label::new(theme::muted("Worksheet drafts and completed questions are stored in My Questions. The desktop app also keeps publication receipts so an interrupted attachment can resume.")).wrap());
-                    ui.add(egui::Label::new(theme::muted(store::backend_label()).monospace()).wrap());
+                    // What it is in a teacher's words; where it lives is behind Open data folder (and
+                    // its hover), not printed as a path.
+                    ui.add(egui::Label::new(theme::muted("Your questions and worksheet drafts are kept on this computer. Back them up to move them to another computer or keep a copy.")).wrap());
                     // A backup keeps approvals, requests and worksheet sources; Share's download is
                     // only the questions, for another teacher.
                     // One row, as Help & community's buttons are.
@@ -2472,7 +2483,7 @@ impl crate::App {
                             app.toast_err(format!("Could not back up My Questions: {error}"));
                         }
                         #[cfg(not(target_arch = "wasm32"))]
-                        if pageshell::outline(ui, "Open data folder").clicked() {
+                        if pageshell::outline(ui, "Open data folder").on_hover_text(store::backend_label()).clicked() {
                             crate::platform::open_path(&store::store_dir());
                         }
                     });
@@ -2585,18 +2596,21 @@ impl crate::App {
                         ui.label(theme::text("Uses your subscription on this computer. There is nothing else to set up."));
                         if app.settings.ai_provider == "claude-cli" {
                             ui.add_space(6.0);
-                            ui.horizontal(|ui| {
-                                ui.label(theme::text("Model"));
-                                let picks = [("sonnet", "Sonnet (recommended)"), ("opus", "Opus (slower, strongest)"), ("haiku", "Haiku (fastest)")];
-                                let cur = picks.iter().find(|p| p.0 == app.settings.ai_model).map_or(picks[0].1, |p| p.1);
-                                egui::ComboBox::from_id_salt("settings_claude_model").selected_text(cur).width(240.0).show_ui(ui, |ui| {
-                                    for (id, label) in picks {
-                                        if ui.selectable_label(app.settings.ai_model == id, label).clicked() {
-                                            app.settings.ai_model = id.to_string();
+                            // Folded like the other AIs' model (Stage B): Sonnet works, so the choice
+                            // is one level down, named, not an open menu in the AI card.
+                            let picks = [("sonnet", "Sonnet (recommended)"), ("opus", "Opus (slower, strongest)"), ("haiku", "Haiku (fastest)")];
+                            let cur = picks.iter().find(|p| p.0 == app.settings.ai_model).map_or(picks[0].1, |p| p.1);
+                            egui::CollapsingHeader::new(theme::muted(format!("Model: {cur} · Change")).size(12.5))
+                                .id_salt("settings_claude_model_fold")
+                                .show(ui, |ui| {
+                                    egui::ComboBox::from_id_salt("settings_claude_model").selected_text(cur).width(240.0).show_ui(ui, |ui| {
+                                        for (id, label) in picks {
+                                            if ui.selectable_label(app.settings.ai_model == id, label).clicked() {
+                                                app.settings.ai_model = id.to_string();
+                                            }
                                         }
-                                    }
+                                    });
                                 });
-                            });
                         }
                     } else if app.settings.ai_provider == "account" {
                         // The server chooses the model and holds the key; the picker would show another provider's default.

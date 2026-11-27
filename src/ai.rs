@@ -309,7 +309,7 @@ pub fn clean_key(raw: &str) -> String {
 }
 
 /// Whose key this is, read from its start, for the services whose keys always start the same way.
-fn key_owner(key: &str) -> Option<&'static str> {
+pub fn key_owner(key: &str) -> Option<&'static str> {
     if key.starts_with("sk-or-") {
         Some("OpenRouter")
     } else if key.starts_with("sk-ant-") {
