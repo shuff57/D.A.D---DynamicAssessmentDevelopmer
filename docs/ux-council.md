@@ -26,6 +26,17 @@ This file is the ledger for the `ux-council` skill (agent-evo): its Stage A–D 
 | 2026-11-27, run 2 | C after rounds 1 to 3 | R1 7.3, R2 8.2, R3 7.8 | R1 7.8, R2 7.6, R3 8.0 | R1 7.55, R2 7.9, R3 7.9: a plateau; the owner approved and locked it |
 | 2026-11-27, run 2 | D after rounds 1 to 3 | R1 7.6, R2 8.1, R3 7.9 | R1 7.0, R2 7.6, R3 7.0 (two of R3's top gaps were misreads) | R1 7.3, R2 7.85, R3 7.45: three rounds; the owner kept all and locked it |
 
+**Run 2 final scorecard** (2026-11-27, `dad/engine` at `a21351dd`). Same panel, scenes and grade-all mode as run 1, so the two compare directly:
+
+| Phase | Start (run 1) | Opus 5.5 | DeepSeek V4.1 Flash | Mean | Weakest law: top gap |
+|---|---|---|---|---|---|
+| A, perception and layout | 6.7 | 7.6 | 7.0 | **7.3** | Fitts 6.8. Delete is a small text link about 55 px from Open. Disabled buttons have three different looks. |
+| B, decisions and memory | 6.7 | 8.0 | 8.0 | **8.0** | Cognitive Load 7.0. Try it's heading is the raw "Name - Description". The Needs fixing reason "3/2 … reduced fraction" reads as contradictory. |
+| C, familiar patterns and forgiving input | 7.1 | 8.6 | 8.3 | **8.4** | Jakob 8.5. Show key is a text line, not an eye in the field. An OpenRouter key still shows Ollama's key help. |
+| D, time, progress and the end | 7.4 | 8.6 | 7.9 | **8.2** | Doherty 8.0. The step pills grey out while writing. The bar sits at its first dot for the first stage. |
+
+Phase A is the one below 8 and the place to start next. A small bug the final grade found: "or drop a photo" shows beside the picture button while the AI isn't ready.
+
 **These numbers do not compare with the stage scores above.** The stages graded each stage's own scenes, one stage at a time. This grade covers 29 scenes across the whole app, graded against all four phases together. The scenes include the older screens, a narrow window, no AI set up, pasted input, a write in progress and an error. Use this table as the starting point for the next run.
 
 Void and re-graded: the first C and D scores were voided. One scripted click missed Import (C03), and the seeded store had no remembered assessment name (D04). Both scenes were captured again, and both members graded C and D again on the full set. One gap in DeepSeek's D grade is a misread: it says step 3 has no tick on the finish, but it does.
