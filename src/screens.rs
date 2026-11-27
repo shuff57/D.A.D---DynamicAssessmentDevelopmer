@@ -276,7 +276,8 @@ pub fn draw_nav_icon_k(
         NavIcon::Home => hand::HOME,
         NavIcon::Banks => hand::BANKS,
         NavIcon::Exams => hand::EXAMS,
-        NavIcon::Import => hand::IMPORT,
+        // Into the app: the arrow points down into the tray (the up arrow read as upload or export).
+        NavIcon::Import => hand::DOWNLOAD,
         NavIcon::Figures => hand::FIGURES,
         NavIcon::Grade => hand::GRADE,
         NavIcon::Help => hand::HELP,
