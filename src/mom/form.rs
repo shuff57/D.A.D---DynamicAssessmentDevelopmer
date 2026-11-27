@@ -520,7 +520,7 @@ pub fn plain_error(e: &str) -> String {
         return "Couldn't reach the AI. Check your internet connection and try again.".into();
     }
     if l.contains("429") || l.contains("answered 5") || l.contains("503") || l.contains("502") || l.contains("overloaded") || l.contains("rate limit") {
-        return "The AI is busy right now. Wait a minute and try again.".into();
+        return "The AI is busy right now. Wait a minute and press it again, or use a different AI.".into();
     }
     if l.contains("engine") {
         return if cfg!(target_arch = "wasm32") {

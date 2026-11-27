@@ -24,6 +24,7 @@ This file is the ledger for the `ux-council` skill (agent-evo): its Stage A–D 
 | 2026-11-27, run 2 | A after rounds 1 and 2 | R1 7.2, R2 7.2 | R1 7.4, R2 6.7 | R1 7.3, R2 6.95: a plateau; the owner approved and locked it |
 | 2026-11-27, run 2 | B after rounds 2 and 3 (round 1 void: a missed scripted tap) | R2 7.2, R3 7.6 | R2 7.7, R3 7.8 | R2 7.45, R3 7.7: three rounds; the owner approved and locked it |
 | 2026-11-27, run 2 | C after rounds 1 to 3 | R1 7.3, R2 8.2, R3 7.8 | R1 7.8, R2 7.6, R3 8.0 | R1 7.55, R2 7.9, R3 7.9: a plateau; the owner approved and locked it |
+| 2026-11-27, run 2 | D after rounds 1 to 3 | R1 7.6, R2 8.1, R3 7.9 | R1 7.0, R2 7.6, R3 7.0 (two of R3's top gaps were misreads) | R1 7.3, R2 7.85, R3 7.45: three rounds; the owner kept all and locked it |
 
 **These numbers do not compare with the stage scores above.** The stages graded each stage's own scenes, one stage at a time. This grade covers 29 scenes across the whole app, graded against all four phases together. The scenes include the older screens, a narrow window, no AI set up, pasted input, a write in progress and an error. Use this table as the starting point for the next run.
 
@@ -158,6 +159,26 @@ Capture tooling: the QA hook (`App::raw_input_hook`) reports the window as focus
   - The first-run notice has a corner × named "Close"; Esc and a click outside also close it.
   - "or drop a photo on this window" sits beside Add a reference picture when that button can be used.
   [Jakob]
+
+## Phase D, run 2: locked (2026-11-27, `dad/council-d`)
+
+The run went 7.4 → 7.3 → 7.85 → 7.45. The owner kept all three rounds. Marked images: `~/.cache/dad-ux-council/2026-11-27/phase-d/`. Still open for D:
+- The bar sits at its first dot for the first stage, so it can look stalled.
+- There's no Stop away from Questions.
+- The dock's "Writing…" has no motion.
+- The busy error gives no countdown.
+- Show on the being-written row does nothing while its card is on screen.
+- The rows' generic Open doesn't say what's left.
+
+- **The writing card** shows a thin bar with "N of 3 stages done" and all three stages from the start: Write it (or Rewrite it), Test it with 3 sets of random numbers, Ready to try. Each is marked ✔ done, current (spinner) or to come (○). A detail line shows only when it says more than the stage name. [Goal-Gradient; Doherty]
+- **My Questions:**
+  - A question being written heads the list: "Being written · stage · m:ss" with Show.
+  - "✔ N of M in MyOpenMath".
+  - Needs fixing rows show the first problem the check found.
+  - The paused-rows note names the job and Stop.
+  [Zeigarnik]
+- **A busy AI on step 1** is a calm gate line, not red: "The AI is busy right now. Wait a minute and press Write My Question again, or use a different AI." It has a "Use a Different AI" button that opens the Your AI card, and Show details. There's no second retry button (Write My Question is the retry). `form::plain_error` says "Wait a minute and press it again, or use a different AI." [Peak-End]
+- **The finish** quotes the short name and has no New Question in the step row, so Write Another Question is its one next step. Step 3's connect card says "Last added to <place>." in strong text (`Poster::last_place`). [Peak-End; Goal-Gradient]
 
 ## Choices already decided (don't reopen as new findings)
 
