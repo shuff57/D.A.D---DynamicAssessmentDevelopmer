@@ -11,6 +11,31 @@ Repo: `/home/shuff57/Documents/GitHub/D.A.D`. Stage A is in commit `3b47865d`, p
 | A, perception and layout | Aesthetic-Usability, Proximity, Von Restorff, Fitts | 6.0 | 8.6 / 8.6 (R3). Re-checked on the Stage B tree: Opus 8.8. DeepSeek 8.1 before the Try it fixes listed below. |
 | B, decisions and memory | Cognitive Load, Hick, Miller, Serial Position, Tesler | 6.6 / 6.0 | 8.9 / about 8.0, a plateau; the owner stopped here |
 
+## Scorecard (`ux-council` skill)
+
+This file is the ledger for the `ux-council` skill (agent-evo): its Stage A–D sections are Phases A–D. Run 1 was grade-only (no changes) on `dad/engine` at `68f8b4a2`, 2026-11-27. The panel was Claude Opus 5.5 (effort high) and DeepSeek V4.1 Flash (OpenCode, variant high), the same two models as the stages.
+
+| Run | Phase | Opus 5.5 | DeepSeek V4.1 Flash | Mean |
+|---|---|---|---|---|
+| 2026-11-27 | A, perception and layout | 6.8 | 6.5 | 6.7 |
+| 2026-11-27 | B, decisions and memory | 7.1 | 6.3 | 6.7 |
+| 2026-11-27 | C, familiar patterns and forgiving input | 6.8 | 7.4 | 7.1 |
+| 2026-11-27 | D, time, progress and the end | 7.0 | 7.8 | 7.4 |
+
+**These numbers do not compare with the stage scores above.** The stages graded each stage's own scenes, one stage at a time. This grade covers 29 scenes across the whole app, graded against all four phases together. The scenes include the older screens, a narrow window, no AI set up, pasted input, a write in progress and an error. Use this table as the starting point for the next run.
+
+Void and re-graded: the first C and D scores were voided. One scripted click missed Import (C03), and the seeded store had no remembered assessment name (D04). Both scenes were captured again, and both members graded C and D again on the full set. One gap in DeepSeek's D grade is a misread: it says step 3 has no tick on the finish, but it does.
+
+Found by run 1 (not fixed; carry forward):
+- **Postel:** a key shaped for another service (OpenRouter's `sk-or-…`, with a label and spaces) pasted into the Ollama Cloud box gets no warning. Enter then shows "✔ Ollama Cloud accepted the key". Both members ranked this first in C.
+- **Doherty:** while a question is written, every Open and Delete in My Questions turns grey with no reason given, and the progress card shows one line with no stages.
+- **Fitts and Jakob:** the Course level list opens detached, above and to the right of its field, over the page title (B03).
+- **Cognitive Load:** Settings, My Questions shows the raw data-folder path and a sentence about "publication receipts".
+- **Zeigarnik:** My Questions lists questions in the order they were made, so "Needs fixing" is last and under the fold. The "1 to review · 1 to fix" counts can't be pressed.
+- **Layout:** at 860 px wide a lone "My Questions" heading floats above the form, and the Your AI card drops below it (A09). Report is missing from the dock on first open (A01).
+
+Captures, stores and scripts: `~/.cache/dad-ux-council/2026-11-27/`. `scenes.py <outdir> [ids]` recaptures any scene from `target/debug/vershion`, using a scratch HOME and a local fake AI. Each member's lines are in `grade-r0/out/`, and the voided ones are in `grade-r0/void/`.
+
 ## Stage A: locked layout (`3b47865d`)
 
 - **Questions, step 1.** Order: description, then Course and Topic side by side, then **Write My Question** with the reference-picture button beside it, then a closed "More options" that shows how many options are set. [Primary action under the eye; fewer things to see at once.]
