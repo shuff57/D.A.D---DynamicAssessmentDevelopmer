@@ -620,13 +620,28 @@ fn share_questions(ui: &mut Ui, st: &mut State) {
         "Download a D.A.D package another teacher can import with Import.");
     ui.add_space(12.0);
     let mut export = None;
+    let mut export_ready: Option<Vec<Saved>> = None;
     // The page's column: the quiet bar and the clickable More below cue, as on Questions.
     column(ui, "mom_share_page", |ui| {
         pageshell::card(ui, |ui| {
             if st.library.questions.is_empty() {
                 ui.label(theme::muted("Create, convert, or import a question to share it here."));
-            } else if pageshell::primary(ui, "Download all questions").clicked() {
-                export = Some(st.library.questions.as_slice());
+            } else {
+                // The questions ready to share come first; "all" includes drafts still being fixed or
+                // reviewed, so it is the quieter choice and says so.
+                if st.published.is_none() { st.published = Some(published_ids()); }
+                let ready: Vec<Saved> = st.library.questions.iter()
+                    .filter(|s| st.published.as_ref().is_some_and(|p| p.contains(&s.id)) || (s.reviewed && s.passed))
+                    .cloned().collect();
+                ui.horizontal_wrapped(|ui| {
+                    if pageshell::primary_on(ui, &format!("Download {} ready question{}", ready.len(), if ready.len() == 1 { "" } else { "s" }), !ready.is_empty()).clicked() && !ready.is_empty() {
+                        export_ready = Some(ready.clone());
+                    }
+                    if pageshell::outline(ui, "Download all questions").clicked() {
+                        export = Some(st.library.questions.as_slice());
+                    }
+                });
+                ui.add(egui::Label::new(theme::muted("All includes questions that still need review or fixing.").size(12.0)).wrap());
             }
             if st.published.is_none() { st.published = Some(published_ids()); }
             let published = st.published.clone().unwrap_or_default();
@@ -658,6 +673,8 @@ fn share_questions(ui: &mut Ui, st: &mut State) {
             error_box(ui, st);
         });
     });
+    let ready_owned = export_ready;
+    let export = export.or(ready_owned.as_deref());
     if let Some(questions) = export {
         match export_shared_questions(questions) {
             Ok(true) => { st.error = None; st.lib_note = Some("Question package saved.".into()); }
@@ -2335,7 +2352,10 @@ fn ai_card(ui: &mut Ui, st: &mut State, cfg: &crate::ai::AiCfg, chosen: bool) {
                 return;
             }
             // Readiness and a plain name: a model id is one more thing to ignore here.
-            ui.label(theme::text(ai_name(cfg)).size(14.0));
+            // On Convert the AI that reads the worksheet is the one named (Codex stands in for
+            // Claude, which can't read pages); the line below says so.
+            let reader = st.worksheet_mode && st.step == Step::Describe && cfg.provider == "claude-cli" && local.contains(&"codex-cli");
+            ui.label(theme::text(if reader { "Codex on this computer".to_string() } else { ai_name(cfg) }).size(14.0));
             let change = chosen && ready && !open;
             if !ready {
                 // A setup step, not an error: the warning colour, as Write's gate line uses.
@@ -2363,7 +2383,7 @@ fn ai_card(ui: &mut Ui, st: &mut State, cfg: &crate::ai::AiCfg, chosen: bool) {
         // On Convert, which AI reads the worksheet, said where the AI is named (Claude can't read
         // pages as pictures, so Codex reads them when it is installed).
         if st.worksheet_mode && st.step == Step::Describe && cfg.provider == "claude-cli" && ready {
-            let line = if local.contains(&"codex-cli") { "Worksheets are read by Codex on this computer." } else { "Claude can't read PDFs or photos: upload Word or text, or change AI." };
+            let line = if local.contains(&"codex-cli") { "Codex on this computer reads worksheets here, because Claude can't read pages as pictures. Change sets the AI that writes." } else { "Claude can't read PDFs or photos: upload Word or text, or change AI." };
             ui.add(egui::Label::new(theme::muted(line).size(12.5)).wrap());
         }
         if !open { return; }
@@ -2435,7 +2455,7 @@ fn ai_card(ui: &mut Ui, st: &mut State, cfg: &crate::ai::AiCfg, chosen: bool) {
             r.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::TextEdit, true, "AI key"));
             // What the key is, under the field while it is empty (the label sits right on the field
             // it names; once a key is in, what matters is whether it fits).
-            if let Some(need) = need_line && st.ai_card_key.is_empty() {
+            if let Some(need) = need_line && st.ai_card_key.is_empty() && key_page.is_none() {
                 ui.add(egui::Label::new(theme::muted(need).size(12.0)).wrap());
             }
             // Whatever came with the paste (a "Key:" label, quotes, a line break) is dropped on save;
@@ -2827,6 +2847,10 @@ fn describe(ui: &mut Ui, ctx: &egui::Context, st: &mut State, cfg: &crate::ai::A
                     Ok(file) => picked = file,
                     Err(error) => st.topic_image_error = Some(error),
                 }
+            }
+            // A blocked action says why in one short line (the hover has the full sentence).
+            if picture_blocked && st.topic_image.is_none() {
+                ui.label(theme::muted("This AI can't read pictures").size(12.0));
             }
             if st.topic_image.is_none() && !picture_blocked && !working && ai_ready(cfg) {
                 // As Convert and Import say: a photo can be dropped here too.
@@ -3964,10 +3988,10 @@ fn side(ui: &mut Ui, ctx: &egui::Context, st: &mut State) {
             ui.add(egui::Label::new(theme::strong(title).size(14.0)).wrap());
             ui.horizontal(|ui| {
                 // Where it has got and for how long, so from another page it doesn't look frozen.
-                let stage = ["writing", "testing it", "ready"][write_stage(st).min(2)];
+                let stage = ["Writing it", "Testing it", "Almost ready"][write_stage(st).min(2)];
                 let secs = (ui.input(|i| i.time) - st.write_started).max(0.0) as u64;
                 ui.ctx().request_repaint_after(std::time::Duration::from_secs(1));
-                crate::kit::status_tag(ui, &format!("Being written · {stage} · {}:{:02}", secs / 60, secs % 60), theme::accent_col());
+                crate::kit::status_tag(ui, &format!("{stage} · {}:{:02}", secs / 60, secs % 60), theme::accent_col());
                 ui.add_space(8.0);
                 if crate::kit::secondary(ui, "Show", 32.0).on_hover_text("Go to its progress, with Stop").clicked() {
                     request_destination(ui.ctx(), Destination::Questions);
@@ -3979,7 +4003,7 @@ fn side(ui: &mut Ui, ctx: &egui::Context, st: &mut State) {
             ui.add_space(4.0);
             let what = st.job.lock().map(|j| j.what).unwrap_or("");
             let job = match what { "Writing" => "the question being written is done", "Revising" => "the rewrite is done", "MyOpenMath" => "the add to MyOpenMath is done", _ => "the worksheet job is done" };
-            ui.add(egui::Label::new(theme::muted(format!("Open and Delete wait until {job}, or until you press Stop.")).size(12.0)).wrap());
+            ui.add(egui::Label::new(theme::muted(format!("Open and Delete wait until {job}. To stop it, press Show, then Stop.")).size(12.0)).wrap());
         }
         // What needs the teacher comes first (to fix, to review, ready to add), finished work last:
         // the question most in need of a look is never the one under the fold. Saved order within each.
@@ -4860,7 +4884,10 @@ mod autoadd {
             pageshell::heading(ui, "Add it to MyOpenMath for me");
             ui.add_space(4.0);
             if st.poster.courses.is_empty() {
-                ui.add(egui::Label::new(theme::muted("Connect to MyOpenMath in D.A.D. Pick a course and assessment to preview or publish the question.").size(13.0)).wrap());
+                // With a remembered place, that is all there is to say before the button.
+                if st.poster.last_place().is_none() {
+                    ui.add(egui::Label::new(theme::muted("Connect to MyOpenMath in D.A.D. Pick a course and assessment to preview or publish the question.").size(13.0)).wrap());
+                }
                 // Where the last one went, so the last step looks as short as it is.
                 if let Some(place) = st.poster.last_place() {
                     // Connecting picks the same place again (the pickers start on the remembered one).
