@@ -296,7 +296,9 @@ fn import_questions(ui: &mut Ui, st: &mut State) {
             if let Some(i) = remove { st.question_files.remove(i); }
             // It takes more than code (a chat reply, a problem in words), so the label says "a question".
             let caption = ui.label(theme::strong("Or paste a question"));
-            let paste = ui.add(egui::TextEdit::multiline(&mut st.import_source).desired_width(f32::INFINITY).desired_rows(5)
+            // Fixed ids for both boxes: the rows around them come and go with the hint, and an id
+            // taken from position would change, losing focus (and the focus moved to the second box).
+            let paste = ui.add(egui::TextEdit::multiline(&mut st.import_source).id_salt("mom_import_paste").desired_width(f32::INFINITY).desired_rows(5)
                 .margin(egui::Margin::symmetric(12, 8))
                 .hint_text("MyOpenMath code, a reply from an AI chat, or a problem in your own words"))
                 .labelled_by(caption.id);
@@ -391,7 +393,7 @@ fn import_questions(ui: &mut Ui, st: &mut State) {
                     };
                     let caption = ui.label(theme::strong(title));
                     ui.add(egui::Label::new(theme::muted(why).size(13.0)).wrap());
-                    let other = ui.add(egui::TextEdit::multiline(&mut st.import_qtext).desired_width(f32::INFINITY).desired_rows(3)
+                    let other = ui.add(egui::TextEdit::multiline(&mut st.import_qtext).id_salt("mom_import_second").desired_width(f32::INFINITY).desired_rows(3)
                         .margin(egui::Margin::symmetric(12, 8)))
                         .labelled_by(caption.id);
                     // The next paste goes here, so the cursor does too (not left in the first box).

@@ -725,7 +725,9 @@ fn apply_style(style: &mut egui::Style) {
         v.warn_fg_color = p.muted;
         v.error_fg_color = p.red;
         v.selection.bg_fill = p.accent_faded;
-        v.selection.stroke = Stroke::new(0.0, p.ink);
+        // egui draws a focused text field's edge with this stroke: at width 0 a field with the
+        // cursor in it looked like any other, so nobody could see where typing would go.
+        v.selection.stroke = Stroke::new(2.0, p.ink);
 
         v.widgets.noninteractive.fg_stroke = Stroke::new(1.0, p.text);
         v.widgets.noninteractive.bg_stroke = Stroke::new(1.0, p.border);
