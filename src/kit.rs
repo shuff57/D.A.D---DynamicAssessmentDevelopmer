@@ -146,7 +146,9 @@ pub fn quiet_scroll_area<R>(ui: &mut Ui, area: egui::ScrollArea, add: impl FnOnc
         let saved = ui.style().clone();
         let s = &mut ui.spacing_mut().scroll;
         *s = egui::style::ScrollStyle::floating();
-        s.bar_width = 6.0;
+        // 3 px in every state but a drag: it widened to 6 px (and darkened) whenever the column
+        // scrolled itself, e.g. to the question just opened, and read as a dark card edge.
+        s.bar_width = 3.0;
         s.floating_width = 3.0;
         s.bar_inner_margin = 3.0;
         s.foreground_color = false;
@@ -167,7 +169,7 @@ pub fn quiet_scroll_area<R>(ui: &mut Ui, area: egui::ScrollArea, add: impl FnOnc
         v.widgets.inactive.bg_fill = handle;
         // Light under the pointer too (it showed as a dark stripe whenever the pointer rested
         // near a card's edge); dark only while dragged.
-        v.widgets.hovered.bg_fill = theme::muted_col().gamma_multiply(0.5);
+        v.widgets.hovered.bg_fill = handle;
         v.widgets.active.bg_fill = theme::muted_col();
         for w in [&mut v.widgets.inactive, &mut v.widgets.hovered, &mut v.widgets.active] {
             w.corner_radius = CornerRadius::same(3);
