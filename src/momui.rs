@@ -363,7 +363,7 @@ fn import_questions(ui: &mut Ui, st: &mut State) {
                     ui.add(egui::Label::new(theme::strong("That's a link. D.A.D can't read web pages.").size(14.0)).wrap());
                     // Steps, one per line, that stay on screen while the teacher is in the browser.
                     let steps: &[&str] = if url.contains("myopenmath.com") {
-                        &["1. Open the question in MyOpenMath's question editor (the button below opens the link).",
+                        &["1. Open the link (the button below) and go to that question's editor in MyOpenMath. Not your question? Ask its author for its two boxes.",
                           "2. Copy its Common Control box and paste it in the box above, in place of the link.",
                           "3. D.A.D then shows a second box for its Question Text."]
                     } else {
@@ -394,6 +394,8 @@ fn import_questions(ui: &mut Ui, st: &mut State) {
                     let other = ui.add(egui::TextEdit::multiline(&mut st.import_qtext).desired_width(f32::INFINITY).desired_rows(3)
                         .margin(egui::Margin::symmetric(12, 8)))
                         .labelled_by(caption.id);
+                    // The next paste goes here, so the cursor does too (not left in the first box).
+                    if std::mem::take(&mut st.import_focus_second) { other.request_focus(); }
                     let ok = !busy(st) && !st.import_qtext.trim().is_empty();
                     let send = other.has_focus() && ui.input_mut(|i| i.consume_key(egui::Modifiers::COMMAND, egui::Key::Enter));
                     let pressed = ui.horizontal(|ui| {
@@ -542,6 +544,7 @@ fn import_drafts(st: &mut State) {
                 if q.qtext.trim().is_empty() {
                     if std::ptr::eq(file, &paste) {
                         st.import_hint = Some(not_a_question(&src));
+                        st.import_focus_second = true;
                     } else {
                         unfinished.push((file.name.clone(), src));
                     }
@@ -561,6 +564,7 @@ fn import_drafts(st: &mut State) {
         let (name, src) = &unfinished[0];
         st.import_source = src.clone();
         st.import_hint = Some(not_a_question(src));
+        st.import_focus_second = true;
         // The other chosen files are in (or were duplicates): clear the list so a second press
         // does not bring them in again, and the half question's box is the one next step.
         let _ = name;
@@ -880,6 +884,8 @@ struct State {
     ai_chosen: bool,
     /// An AI-chat reply as it was pasted into Import, before the box was cleaned to its code (Undo).
     import_original: Option<String>,
+    /// The Import hint just appeared: put the cursor in its second box, where the next paste goes.
+    import_focus_second: bool,
     /// "Keep my current AI" was pressed.
     ai_keep: bool,
     /// The first-open check that picks a working AI by itself has run.
@@ -2465,7 +2471,10 @@ fn ai_card(ui: &mut Ui, st: &mut State, cfg: &crate::ai::AiCfg, chosen: bool) {
                 // With the switch on offer, one line naming the cause; the button carries the fix.
                 let text = if switch_to_openrouter { format!("This is an OpenRouter key, not an {name} key.").replace("an Ollama Cloud", "an Ollama") }
                     else if turned_down { format!("{name} turned this key down. {problem}") } else { problem.clone() };
-                ui.add(egui::Label::new(RichText::new(text).color(theme::red()).size(12.0)).wrap());
+                // Understood and fixable (the switch below) is a warning, not an error: the error red
+                // is kept for a key that was turned down with no way forward.
+                let color = if switch_to_openrouter { theme::on_attention() } else { theme::red() };
+                ui.add(egui::Label::new(RichText::new(text).color(color).size(12.0)).wrap());
                 // An OpenRouter key pasted here can go where it works in one press: switch the AI
                 // and keep the key, instead of a sentence that sends the teacher to find OpenRouter.
                 let key = crate::ai::clean_key(&st.ai_card_key);

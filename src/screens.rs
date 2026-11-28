@@ -285,7 +285,8 @@ pub fn draw_nav_icon_k(
         NavIcon::Pencil => hand::EDIT,
         NavIcon::Plus => hand::ADD,
         NavIcon::Info => hand::INFO,
-        NavIcon::Shared => hand::SHARED,
+        // A paper plane (sending a copy on): two people read as Users or Class, not sharing.
+        NavIcon::Shared => hand::PUBLISH,
         NavIcon::Account => hand::PERSON,
     };
     hand::paint_glyph(painter, c, glyph, 16.0 * k, c_col);
