@@ -639,19 +639,36 @@ fn share_questions(ui: &mut Ui, st: &mut State) {
                 let ready: Vec<Saved> = st.library.questions.iter()
                     .filter(|s| st.published.as_ref().is_some_and(|p| p.contains(&s.id)) || (s.reviewed && s.passed))
                     .cloned().collect();
-                ui.horizontal_wrapped(|ui| {
+                ui.horizontal_top(|ui| {
                     if pageshell::primary_on(ui, &format!("Download {} ready question{}", ready.len(), if ready.len() == 1 { "" } else { "s" }), !ready.is_empty()).clicked() && !ready.is_empty() {
                         export_ready = Some(ready.clone());
                     }
-                    if pageshell::outline(ui, "Download all questions").clicked() {
-                        export = Some(st.library.questions.as_slice());
-                    }
+                    // The note sits under the button it describes.
+                    ui.vertical(|ui| {
+                        if pageshell::outline(ui, "Download all questions").clicked() {
+                            export = Some(st.library.questions.as_slice());
+                        }
+                        ui.label(theme::muted("Includes drafts still being fixed or reviewed.").size(12.0));
+                    });
                 });
-                ui.add(egui::Label::new(theme::muted("All includes questions that still need review or fixing.").size(12.0)).wrap());
             }
             if st.published.is_none() { st.published = Some(published_ids()); }
             let published = st.published.clone().unwrap_or_default();
-            for draft in &st.library.questions {
+            // Ready to share first, then drafts, each under its own heading, so the two download
+            // buttons map straight onto the list.
+            let is_ready = |s: &Saved| published.contains(&s.id) || (s.reviewed && s.passed);
+            let mut listed: Vec<&Saved> = st.library.questions.iter().collect();
+            listed.sort_by_key(|s| !is_ready(s));
+            let n_ready = listed.iter().filter(|s| is_ready(s)).count();
+            let mut last: Option<bool> = None;
+            for draft in listed {
+                let group = is_ready(draft);
+                if last != Some(group) {
+                    ui.add_space(if last.is_none() { 8.0 } else { 14.0 });
+                    let head = if group { format!("Ready to share ({n_ready})") } else { format!("Drafts ({})", st.library.questions.len() - n_ready) };
+                    ui.label(theme::strong(head).size(13.0));
+                    last = Some(group);
+                }
                 ui.push_id(&draft.id, |ui| {
                     ui.separator();
                     let q = MomQuestion::parse(&draft.src);
@@ -667,9 +684,13 @@ fn share_questions(ui: &mut Ui, st: &mut State) {
                         if published.contains(&draft.id) { crate::kit::status_done_w(ui, status, color, 0.0); } else { crate::kit::status_tag(ui, status, color); }
                         // Download right after what it downloads, not across the full width.
                         // Share only downloads: opening a question is My Questions' job.
-                        ui.add_space(8.0);
-                        if crate::kit::tertiary(ui, egui_phosphor::regular::DOWNLOAD_SIMPLE, "Download", 32.0).clicked() {
-                            export = Some(std::slice::from_ref(draft));
+                        // Ready ones only: a draft still being fixed goes with "Download all
+                        // questions", which says it includes drafts.
+                        if group {
+                            ui.add_space(8.0);
+                            if crate::kit::tertiary(ui, egui_phosphor::regular::DOWNLOAD_SIMPLE, "Download", 32.0).clicked() {
+                                export = Some(std::slice::from_ref(draft));
+                            }
                         }
                     });
                     if !about.is_empty() { ui.add(egui::Label::new(theme::muted(about).size(12.0)).wrap()); }
@@ -1690,7 +1711,14 @@ fn dropdown_grouped(ui: &mut Ui, id: &str, labels: &[&str], cur: &mut usize, wid
     let above = field_top - screen.min.y - 16.0;
     let room = if below >= 200.0 || below >= above { below } else { above };
     let height = room.clamp(120.0, 520.0);
-    egui::ComboBox::from_id_salt(id).selected_text(shown).width(width).height(height).show_ui(ui, |ui| {
+    // A list that scrolls shows its bar at all times (thin, solid), so a cut-off last entry reads
+    // as "more below", not as the end of the list.
+    let bar: egui::style::StyleModifier = (|s: &mut egui::Style| {
+        s.spacing.scroll = egui::style::ScrollStyle::solid();
+        s.spacing.scroll.bar_width = 5.0;
+        s.visuals.widgets.inactive.bg_fill = theme::muted_col().gamma_multiply(0.6);
+    }).into();
+    egui::ComboBox::from_id_salt(id).selected_text(shown).width(width).height(height).popup_style(bar).show_ui(ui, |ui| {
         for (i, l) in labels.iter().enumerate() {
             if let Some((_, head)) = heads.iter().find(|(at, _)| *at == i) {
                 if i > 0 { ui.add_space(4.0); }
@@ -1790,9 +1818,13 @@ pub fn advanced_setting(ui: &mut Ui) {
 /// One scrolling column of the Questions page: the quiet scroller (no rail in the gutter at rest)
 /// over a short cue strip that says "More below" while the column really continues.
 fn column(ui: &mut Ui, salt: &str, add: impl FnOnce(&mut Ui)) {
-    const CUE_H: f32 = 22.0;
+    // A 30 px row: the cue is pressed to scroll, so it is a target, not a caption.
+    const CUE_H: f32 = 30.0;
     let jump = egui::Id::new((salt, "more_below_jump"));
-    let mut area = egui::ScrollArea::vertical().id_salt(salt).max_height((ui.available_height() - CUE_H).max(80.0)).auto_shrink([false, true]);
+    // The cue and the gap before it fit inside the column's height: overrunning it by the item
+    // gap grew the row, so the next column got 8 px more and the two cues sat at different heights.
+    let gap = ui.spacing().item_spacing.y;
+    let mut area = egui::ScrollArea::vertical().id_salt(salt).max_height((ui.available_height() - CUE_H - gap).max(80.0)).auto_shrink([false, true]);
     if let Some(y) = ui.ctx().data_mut(|d| d.remove_temp::<f32>(jump)) {
         area = area.vertical_scroll_offset(y);
     }
@@ -1807,7 +1839,7 @@ fn column(ui: &mut Ui, salt: &str, add: impl FnOnce(&mut Ui)) {
         let bg = ui.visuals().panel_fill;
         let p = ui.painter();
         let lines: Vec<&str> = sticky.as_deref().map(|s| s.lines().filter(|l| !l.is_empty()).collect()).unwrap_or_default();
-        let band = if lines.is_empty() { 0.0 } else { 12.0 + 18.0 * lines.len() as f32 };
+        let band = if lines.is_empty() { 0.0 } else { 22.0 + 18.0 * lines.len() as f32 };
         if !lines.is_empty() {
             // A solid header with a hairline under it, so the rows plainly pass beneath it
             // instead of showing half-faded behind its text.
@@ -1819,14 +1851,15 @@ fn column(ui: &mut Ui, salt: &str, add: impl FnOnce(&mut Ui)) {
             p.with_clip_rect(head.expand2(egui::vec2(1.0, 0.0))).rect_stroke(head.with_max_y(head.bottom() + 20.0), round, egui::Stroke::new(1.0, theme::edge()), egui::StrokeKind::Inside);
             p.hline(head.x_range().shrink(21.0), head.bottom(), egui::Stroke::new(1.0, theme::edge()));
             // A short fade under the line, so a row cut there softens instead of slicing.
-            for i in 0..8 {
-                let a = (255.0 * (1.0 - i as f32 / 8.0)) as u8;
+            // 24 px: tall enough to cover a cut line, so a half row never shows at full strength.
+            for i in 0..16 {
+                let a = (255.0 * (1.0 - i as f32 / 16.0)) as u8;
                 let c = egui::Color32::from_rgba_unmultiplied(card.r(), card.g(), card.b(), a);
                 p.rect_filled(egui::Rect::from_min_size(egui::pos2(r.left() + 1.0, head.bottom() + 1.0 + i as f32 * 1.5), egui::vec2(r.width() - 2.0, 1.5)), 0.0, c);
             }
             // In line with the rows' content (inside the card's padding).
             for (i, line) in lines.iter().enumerate() {
-                p.text(egui::pos2(r.left() + 21.0, r.top() + 15.0 + 18.0 * i as f32), egui::Align2::LEFT_CENTER, *line, egui::FontId::new(12.5, theme::semibold()), theme::text_col());
+                p.text(egui::pos2(r.left() + 21.0, r.top() + 20.0 + 18.0 * i as f32), egui::Align2::LEFT_CENTER, *line, egui::FontId::new(12.5, theme::semibold()), theme::text_col());
             }
         } else {
             for i in 0..12 {
@@ -1850,6 +1883,22 @@ fn column(ui: &mut Ui, salt: &str, add: impl FnOnce(&mut Ui)) {
             ui.ctx().request_repaint();
         }
     }
+}
+
+/// A My Questions count as a quiet pill: a 28 px target with a light fill that deepens under the
+/// pointer, its text and arrow in the link colour.
+fn count_pill(ui: &mut Ui, text: &str) -> egui::Response {
+    let col = theme::accent_col();
+    let g = ui.painter().layout_no_wrap(text.to_owned(), egui::FontId::new(crate::kit::ty::META, theme::semibold()), col);
+    let (rect, resp) = ui.allocate_exact_size(egui::vec2((g.size().x + 17.0 + 20.0).ceil(), 28.0), egui::Sense::click());
+    let resp = resp.on_hover_cursor(egui::CursorIcon::PointingHand);
+    // The card fill with an accent outline, like Open: a grey fill read as unavailable.
+    let fill = if resp.hovered() { theme::hover_bg() } else { theme::card() };
+    ui.painter().rect(rect, 14.0, fill, egui::Stroke::new(1.0, theme::accent_col()), egui::StrokeKind::Inside);
+    ui.painter().galley(egui::pos2(rect.left() + 10.0, rect.center().y - g.size().y / 2.0), g, col);
+    crate::handicons::paint_glyph(ui.painter(), egui::pos2(rect.right() - 16.5, rect.center().y + 0.5), egui_phosphor::regular::ARROW_RIGHT, 13.0, col);
+    resp.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::Button, true, text));
+    resp
 }
 
 /// The three steps across the top; a step opens once the one before it is done.
@@ -2423,7 +2472,8 @@ fn ai_card(ui: &mut Ui, st: &mut State, cfg: &crate::ai::AiCfg, chosen: bool) {
         // On Convert, which AI reads the worksheet, said where the AI is named (Claude can't read
         // pages as pictures, so Codex reads them when it is installed).
         if st.worksheet_mode && st.step == Step::Describe && cfg.provider == "claude-cli" && ready {
-            let line = if local.contains(&"codex-cli") { "Worksheets are read by Codex on this computer." } else { "Claude can't read PDFs or photos: upload Word or text, or change AI." };
+            // Two AIs at work: each named with its job, so Change plainly means the writer.
+            let line = if local.contains(&"codex-cli") { "Claude writes the questions. Codex, also on this computer, reads the worksheet pages." } else { "Claude can't read PDFs or photos: upload Word or text, or change AI." };
             ui.add(egui::Label::new(theme::muted(line).size(12.5)).wrap());
         }
         if !open { return; }
@@ -2441,6 +2491,12 @@ fn ai_card(ui: &mut Ui, st: &mut State, cfg: &crate::ai::AiCfg, chosen: bool) {
             for (i, (provider, name, need, model)) in all.into_iter().enumerate() {
                 let pick = if Some(i) == recommended {
                     let r = pageshell::primary(ui, name);
+                    // "Go to the AI choices" on Write's blocked line lands here.
+                    ui.ctx().data_mut(|d| d.insert_temp(egui::Id::new("mom_key_field"), r.id));
+                    if ui.ctx().data_mut(|d| d.remove_temp::<bool>(egui::Id::new("mom_key_jump"))).unwrap_or(false) {
+                        r.request_focus();
+                        r.scroll_to_me(Some(egui::Align::Center));
+                    }
                     ui.add(egui::Label::new(theme::muted(format!("Recommended. {need}")).size(12.0)).wrap());
                     r
                 } else {
@@ -2472,6 +2528,13 @@ fn ai_card(ui: &mut Ui, st: &mut State, cfg: &crate::ai::AiCfg, chosen: bool) {
             if let Some((label, url)) = key_page && !foreign {
                 ui.add_space(6.0);
                 if crate::kit::link(ui, label, true).clicked() { crate::platform::open_url(url); }
+                // Both ways to get a key together, before the field (the video was under Save Key).
+                if crate::platform::help_clip_name(&cfg.provider).is_some() && crate::kit::link(ui, "Watch how to get a key", false).clicked() {
+                    crate::platform::open_help_video(&cfg.provider);
+                }
+                // What a key is, for a teacher who hasn't met one.
+                let site = if cfg.provider == "cloud" { "free Ollama" } else { "OpenRouter" };
+                ui.add(egui::Label::new(theme::muted(format!("The key is a password for your {site} account: it lets D.A.D write questions with it.")).size(12.0)).wrap());
             }
             // The label row carries Show key, right beside the field it reveals.
             ui.add_space(10.0);
@@ -2493,6 +2556,12 @@ fn ai_card(ui: &mut Ui, st: &mut State, cfg: &crate::ai::AiCfg, chosen: bool) {
             let r = ui.add(egui::TextEdit::singleline(&mut st.ai_card_key).id_salt("mom_ai_card_key").password(!st.ai_key_shown).margin(egui::Margin::symmetric(10, 8))
                 .desired_width(ui.available_width()).hint_text("paste a key"));
             r.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::TextEdit, true, "AI key"));
+            // Write's blocked line can send the teacher straight here ("Go to the key box").
+            ui.ctx().data_mut(|d| d.insert_temp(egui::Id::new("mom_key_field"), r.id));
+            if ui.ctx().data_mut(|d| d.remove_temp::<bool>(egui::Id::new("mom_key_jump"))).unwrap_or(false) {
+                r.request_focus();
+                r.scroll_to_me(Some(egui::Align::Center));
+            }
             // What the key is, under the field while it is empty (the label sits right on the field
             // it names; once a key is in, what matters is whether it fits).
             if let Some(need) = need_line && st.ai_card_key.is_empty() && key_page.is_none() {
@@ -2576,7 +2645,7 @@ fn ai_card(ui: &mut Ui, st: &mut State, cfg: &crate::ai::AiCfg, chosen: bool) {
                     Err(error) => st.error = Some(format!("Could not save the key: {error}")),
                 }
             }
-            if !switch_to_openrouter && crate::platform::help_clip_name(&cfg.provider).is_some() && crate::kit::link(ui, "Watch how to get a key", false).clicked() {
+            if !switch_to_openrouter && (key_page.is_none() || foreign) && crate::platform::help_clip_name(&cfg.provider).is_some() && crate::kit::link(ui, "Watch how to get a key", false).clicked() {
                 crate::platform::open_help_video(&cfg.provider);
             }
             ui.add_space(8.0);
@@ -2899,6 +2968,10 @@ fn describe(ui: &mut Ui, ctx: &egui::Context, st: &mut State, cfg: &crate::ai::A
             // A blocked action says why in one short line (the hover has the full sentence).
             if picture_blocked && st.topic_image.is_none() {
                 ui.label(theme::muted("This AI can't read pictures").size(12.0));
+                // The way forward, not only the reason: Your AI opens with the other choices.
+                if crate::kit::quiet_link_h(ui, "Change AI", 32.0).on_hover_text("Open Your AI to pick one that reads pictures").clicked() {
+                    st.ai_open = true;
+                }
             }
             if st.topic_image.is_none() && !picture_blocked && !working && ai_ready(cfg) {
                 // As Convert and Import say: a photo can be dropped here too.
@@ -2939,7 +3012,22 @@ fn describe(ui: &mut Ui, ctx: &egui::Context, st: &mut State, cfg: &crate::ai::A
             let setup = (st.form.clone(), image);
             write_question(st, ctx, cfg, request, None, Some(setup));
         }
-        if let Some(why) = missing { crate::kit::gated_reason(ui, why); }
+        if let Some(why) = missing {
+            // A missing key or AI is one press away: the line itself puts the cursor on the fix
+            // (the key box, or the recommended AI), with no second line saying it again.
+            let key_missing = !ai_ready(cfg) && st.ai_chosen && cfg.uses_key() && cfg.provider != "account";
+            let none_picked = !ai_ready(cfg) && !st.ai_chosen;
+            let target = ui.ctx().data(|d| d.get_temp::<egui::Id>(egui::Id::new("mom_key_field"))).is_some();
+            if (key_missing || none_picked) && target {
+                let hover = if none_picked { "Go to the AI choices" } else { "Go to the key box" };
+                if crate::kit::gated_reason_go(ui, why).on_hover_text(hover).clicked() {
+                    ui.ctx().data_mut(|d| d.insert_temp(egui::Id::new("mom_key_jump"), true));
+                    ui.ctx().request_repaint();
+                }
+            } else {
+                crate::kit::gated_reason(ui, why);
+            }
+        }
         // A busy AI is a wait, not a failure: said calmly, with the retry and the way round it.
         if st.error.as_deref().is_some_and(|e| form::plain_error(e).starts_with("The AI is busy")) {
             let raw = st.error.clone().unwrap_or_default();
@@ -2964,9 +3052,21 @@ fn describe(ui: &mut Ui, ctx: &egui::Context, st: &mut State, cfg: &crate::ai::A
         // A 32 px row to press, not just its text.
         ui.scope(|ui| {
             ui.spacing_mut().interact_size.y = 32.0;
-            egui::CollapsingHeader::new(theme::strong(more).size(14.0)).id_salt("mom_more_options").show(ui, |ui| {
+            let reveal = egui::Id::new("mom_more_options_reveal");
+            let r = egui::CollapsingHeader::new(theme::strong(more).size(14.0)).id_salt("mom_more_options").show(ui, |ui| {
                 more_options(ui, st);
             });
+            // Just opened: scroll so the heading sits at the top and what it holds fills the view
+            // below it (its controls sat under the fold), for as long as the opening takes.
+            let now = ui.input(|i| i.time);
+            if ui.ctx().data(|d| d.get_temp::<f64>(reveal)).is_some_and(|t| now - t < 0.5) {
+                r.header_response.scroll_to_me(Some(egui::Align::Min));
+                ui.ctx().request_repaint();
+            }
+            if r.header_response.clicked() && r.openness < 0.5 {
+                let now = ui.input(|i| i.time);
+                ui.ctx().data_mut(|d| d.insert_temp(reveal, now));
+            }
         });
     });
 }
@@ -3117,6 +3217,9 @@ fn part_count_picker(ui: &mut Ui, form: &mut Form) {
     let mut mode = if form.part_range.is_some() { 2 } else if form.part_count.is_some() { 1 } else { 0 };
     let before = mode;
     ui.horizontal_wrapped(|ui| {
+        // Each choice a 32 px row, well apart, so a press lands on the one meant.
+        ui.spacing_mut().interact_size.y = 32.0;
+        ui.spacing_mut().item_spacing.x = 22.0;
         ui.radio_value(&mut mode, 0, AI_CHOOSES);
         ui.radio_value(&mut mode, 1, "Exact number");
         ui.radio_value(&mut mode, 2, "Range");
@@ -3450,7 +3553,7 @@ fn try_it(ui: &mut Ui, ctx: &egui::Context, st: &mut State, cfg: &crate::ai::AiC
             }
             // Names the section above (either of its buttons counts), so the reason points at
             // something on screen.
-            if !seen { crate::kit::gated_reason(ui, "Try it as a student first, with either button above."); }
+            if !seen { crate::kit::gated_hint(ui, "Try it as a student first, with either button above."); }
         }
 
         error_box(ui, st);
@@ -3580,12 +3683,18 @@ fn question_follow_ups(ui: &mut Ui, ctx: &egui::Context, st: &mut State, cfg: &c
                 ui.add_space(8.0);
                 let can_send = !current.follow_up_draft.trim().is_empty();
                 let shortcut = ui.ctx().format_shortcut(&egui::KeyboardShortcut::new(egui::Modifiers::COMMAND, egui::Key::Enter));
-                rewrite = ui.add_enabled_ui(can_send, |ui| pageshell::outline(ui, "Rewrite It")).inner
-                    .on_hover_text(format!("Or press {shortcut} in the box below")).clicked() && can_send;
+                // Not wrapped in a disabled Ui: egui fades everything inside one, so it read lighter
+                // than Looks Good's unavailable look on the same card.
+                rewrite = if can_send {
+                    pageshell::outline(ui, "Rewrite It").on_hover_text(format!("Or press {shortcut} in the box below")).clicked()
+                } else {
+                    pageshell::unavailable(ui, "Rewrite It", 40.0, "Pick a change above, or type one below, first.");
+                    false
+                };
             });
             // A disabled button says what it waits for.
             if current.follow_up_draft.trim().is_empty() {
-                crate::kit::gated_reason(ui, "Pick a change above, or type one below, then press Rewrite It.");
+                crate::kit::gated_hint(ui, "Pick a change above, or type one below, then press Rewrite It.");
             }
             egui::CollapsingHeader::new(theme::muted("More changes").size(13.0)).id_salt("mom_more_changes").show(ui, |ui| {
                 ui.horizontal_wrapped(|ui| {
@@ -4057,8 +4166,9 @@ fn side(ui: &mut Ui, ctx: &egui::Context, st: &mut State) {
         if !parts.is_empty() && st.library.questions.len() > 1 {
             // Lines are filled by measured width, so a separator never ends or starts a line.
             let max_w = ui.available_width();
-            let w_of = |ui: &Ui, t: &str| ui.painter().layout_no_wrap(t.to_owned(), egui::FontId::new(crate::kit::ty::META, theme::semibold()), theme::accent_col()).size().x + 17.0;
-            let sep_w = 14.0;
+            // Each count a quiet pill (text, arrow and padding), set apart by space, not middots.
+            let w_of = |ui: &Ui, t: &str| ui.painter().layout_no_wrap(t.to_owned(), egui::FontId::new(crate::kit::ty::META, theme::semibold()), theme::accent_col()).size().x + 17.0 + 20.0;
+            let sep_w = 6.0;
             let mut lines: Vec<Vec<usize>> = vec![Vec::new()];
             let mut used = 0.0;
             for (i, (_, text)) in parts.iter().enumerate() {
@@ -4068,16 +4178,15 @@ fn side(ui: &mut Ui, ctx: &egui::Context, st: &mut State) {
                 else { used += if cur.is_empty() { w } else { sep_w + w }; cur.push(i); }
             }
             ui.scope(|ui| {
-                // Rows the height of the links, not of a button.
-                ui.spacing_mut().interact_size.y = 18.0;
-                ui.spacing_mut().item_spacing.y = 4.0;
+                // Each count a 28 px pill (pressed to jump), 6 px apart, rows 6 px apart.
+                ui.spacing_mut().interact_size.y = 28.0;
+                ui.spacing_mut().item_spacing.y = 6.0;
                 for line in lines {
                     ui.horizontal(|ui| {
-                        ui.spacing_mut().item_spacing.x = 4.0;
-                        for (k, &i) in line.iter().enumerate() {
-                            if k > 0 { ui.label(theme::muted("·").size(12.5)); }
+                        ui.spacing_mut().item_spacing.x = 6.0;
+                        for &i in &line {
                             let (group, text) = &parts[i];
-                            if crate::kit::link(ui, text, true).on_hover_text("Go to the first one").clicked() { st.jump_to_group = Some(*group); }
+                            if count_pill(ui, text).on_hover_text("Go to the first one").clicked() { st.jump_to_group = Some(*group); }
                         }
                     });
                 }
@@ -4106,7 +4215,7 @@ fn side(ui: &mut Ui, ctx: &egui::Context, st: &mut State) {
                 }
                 ui.add_space(6.0);
                 // Not wanted after all: the row and the message go; the description stays in the box.
-                if crate::kit::link(ui, "Dismiss", false).on_hover_text("Remove this row and the error message (the description stays in the box)").clicked() {
+                if crate::kit::link_h(ui, "Dismiss", false, 32.0).on_hover_text("Remove this row and the error message (the description stays in the box)").clicked() {
                     st.error = None;
                 }
             });
@@ -4143,12 +4252,23 @@ fn side(ui: &mut Ui, ctx: &egui::Context, st: &mut State) {
         let mut order: Vec<usize> = (0..st.library.questions.len()).collect();
         order.sort_by_key(|&i| rank(&st.library.questions[i]));
         let on_screen = st.current.as_ref().and_then(|c| c.saved_id.clone());
+        // Each group under a quiet heading in the counts' own words, so where a group starts is
+        // read once, not worked out from each row's dot (as Share's lists are labelled).
+        let heads = [("To fix", fix), ("To review", review), ("Ready to add", ready), ("In MyOpenMath", done)];
+        let mut last_rank: Option<u8> = None;
         for s in order.iter().map(|&i| &st.library.questions[i]) {
             // A count above was pressed: bring the first question of its group into view.
             if st.jump_to_group == Some(rank(s)) {
                 st.jump_to_group = None;
                 ui.scroll_to_cursor(Some(egui::Align::Min));
             }
+            let first_of_group = last_rank != Some(rank(s));
+            if first_of_group && st.library.questions.len() > 1 {
+                let (head, n) = heads[rank(s) as usize];
+                ui.add_space(if last_rank.is_none() { 12.0 } else { 18.0 });
+                ui.label(RichText::new(format!("{head} ({n})")).family(theme::bold_family()).size(11.5).color(theme::muted_col()));
+            }
+            last_rank = Some(rank(s));
             let q = MomQuestion::parse(&s.src);
             let name = if q.name.is_empty() { "Untitled question".to_string() } else { q.name.clone() };
             // MyOpenMath's "Name - Description": the name is what tells rows apart, so it leads and
@@ -4156,10 +4276,15 @@ fn side(ui: &mut Ui, ctx: &egui::Context, st: &mut State) {
             let (title, about) = name.split_once(" - ").map_or((name.as_str(), ""), |(t, a)| (t.trim(), a.trim()));
             // Entries apart from each other by clearly more than an entry's own lines are, with a
             // hairline between them, so each row reads as one unit.
-            ui.add_space(10.0);
-            let (line, _) = ui.allocate_exact_size(egui::vec2(ui.available_width(), 1.0), egui::Sense::hover());
-            ui.painter().hline(line.x_range(), line.center().y, egui::Stroke::new(1.0, theme::border()));
-            ui.add_space(10.0);
+            // A group's first row sits under its heading; the hairline goes between rows.
+            if first_of_group && st.library.questions.len() > 1 {
+                ui.add_space(4.0);
+            } else {
+                ui.add_space(10.0);
+                let (line, _) = ui.allocate_exact_size(egui::vec2(ui.available_width(), 1.0), egui::Sense::hover());
+                ui.painter().hline(line.x_range(), line.center().y, egui::Stroke::new(1.0, theme::border()));
+                ui.add_space(10.0);
+            }
             ui.add(egui::Label::new(theme::strong(title).size(14.0)).wrap());
             if !about.is_empty() {
                 ui.add(egui::Label::new(theme::muted(about).size(12.0)).wrap());

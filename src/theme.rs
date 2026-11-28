@@ -484,6 +484,10 @@ pub fn table() -> Color32 { pal().table }
 pub fn grid_line() -> Color32 { pal().grid_line }
 /// Dark ink for text painted on the highlighter (same in both modes).
 pub fn on_highlighter() -> Color32 { Color32::from_rgb(0x19, 0x15, 0x10) }
+/// The active dock item: a cream pill with forest ink. Gold read as the loudest thing on screen and
+/// shared the warnings' amber family.
+pub fn dock_active() -> Color32 { DAD_CREAM }
+pub fn on_dock_active() -> Color32 { DAD_FOREST }
 /// Dock label color (AA on the rail in both modes).
 pub fn dock_text() -> Color32 { DAD_CREAM }
 pub fn green() -> Color32 { pal().green }

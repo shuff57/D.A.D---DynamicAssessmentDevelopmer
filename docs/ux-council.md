@@ -332,6 +332,41 @@ Phase D went 8.15 → 8.3 → 8.2 → 8.1. The owner kept round 3 with four fixe
   [Zeigarnik; Peak-End]
 - **The finish** says the question is also kept in My Questions, marked In MyOpenMath. [Peak-End]
 
+## Phases A and B, run 3 pass: locked (2026-11-28, `dad/council3-ab`)
+
+A second pass on A and B only, same panel; C and D stayed locked. A went 8.0 → 8.1 → 8.15 → 7.95, B 8.3 → void → 8.3 → 8.25. Three B grades were voided for broken captures (taps moved or dropped under heavy load) and regraded. The owner kept round 3, plus a scrollbar fix made after grading (not graded). Marked images: `~/.cache/dad-ux-council/2026-11-27/phase-ab/`.
+
+- **Targets:**
+  - My Questions' counts are 28 px pills with the card fill and an accent outline, set apart by space (no middots).
+  - The More below rows are 30 px, and the two columns' cues share one bottom edge: the gap before a cue fits inside the column's height.
+  - Dismiss and Change AI are 32 px rows.
+  - Number of parts has 32 px choices.
+  - The first-run notice's close is a visible round button.
+  [Fitts]
+- **One loud thing:**
+  - The current dock item is a cream pill with forest ink, not gold.
+  - Hints under buttons that wait on an ordinary step ("Try it as a student first", "Pick a change above") are quiet grey text with a neutral icon; amber stays for real blockers.
+  - Rewrite It, unavailable, has the one unavailable look (no disabled-Ui fade).
+  [Von Restorff; Aesthetic-Usability]
+- **The quiet scroll handle** is 3 px and light in every state but a drag. Figures' search field has the 3:1 control edge. [Aesthetic-Usability]
+- **Groups said once:**
+  - My Questions labels each group above its first row: To fix, To review, Ready to add, In MyOpenMath, with counts.
+  - Share lists "Ready to share (N)", then "Drafts (N)". Drafts have no row Download; "Download all questions" carries them, with its note under it.
+  [Miller; Proximity]
+- **The way to the fix:**
+  - Write's blocked line for a missing key or AI is itself the link: it focuses the key box or the recommended AI.
+  - Both ways to get a key sit above the field, then one line on what a key is for.
+  - "This AI can't read pictures" offers a quiet Change AI.
+  - Opening More options brings its heading to the top of the view.
+  [Tesler; Proximity]
+- **Plain words:**
+  - Convert: "Claude writes the questions. Codex, also on this computer, reads the worksheet pages."
+  - Settings names only the ready AIs: "Ready here: … The others need a key or sign-in." The chips stay plain (the owner's Phase B call, kept).
+  - The Course level list shows a thin solid scrollbar when it overflows.
+  [Cognitive Load; Hick]
+
+Still open: the Convert card still leaves unclear which AI Change replaces (both members); the C05 wrong-key help is several stacked notes (a C lock); D06's pinned header can cut a row title while its Open shows.
+
 ## Choices already decided (don't reopen as new findings)
 
 - **D.A.D AI is gated** on `dad_ai_offered()`. Without a server it led to a dead-end server form. DeepSeek wanted it as the first chip whenever it's offered; it isn't first yet.

@@ -101,6 +101,36 @@ pub fn gated_reason(ui: &mut Ui, reason: &str) -> egui::Response {
     .response
 }
 
+/// `gated_reason` that is also the way to the fix: the line itself is pressed (an arrow after
+/// it, the pointer hand, an underline under the pointer), so no second line repeats it as a link.
+pub fn gated_reason_go(ui: &mut Ui, reason: &str) -> egui::Response {
+    let r = ui.horizontal(|ui| {
+        ui.spacing_mut().item_spacing.x = 6.0;
+        ui.label(RichText::new(egui_phosphor::regular::INFO).font(theme::icon_font(15.0)).color(warn_col()));
+        let t = ui.add(egui::Label::new(RichText::new(reason).family(theme::bold_family()).size(ty::META).color(warn_col())).wrap_mode(egui::TextWrapMode::Extend));
+        ui.label(RichText::new(egui_phosphor::regular::ARROW_RIGHT).font(theme::icon_font(14.0)).color(warn_col()));
+        t.rect
+    });
+    let resp = ui.interact(r.response.rect, ui.id().with(("gated_go", reason)), Sense::click()).on_hover_cursor(egui::CursorIcon::PointingHand);
+    if resp.hovered() {
+        let t = r.inner;
+        ui.painter().hline(t.x_range(), t.bottom() + 1.0, Stroke::new(1.0, warn_col()));
+    }
+    resp.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::Button, true, reason));
+    resp
+}
+
+/// A hint under a button that waits on an ordinary step (try it first, pick a change): quiet text
+/// with a neutral icon, so the warning colour stays for real blockers (a missing key, a busy AI).
+pub fn gated_hint(ui: &mut Ui, reason: &str) -> egui::Response {
+    ui.horizontal(|ui| {
+        ui.spacing_mut().item_spacing.x = 6.0;
+        ui.label(RichText::new(egui_phosphor::regular::INFO).font(theme::icon_font(15.0)).color(theme::muted_col()));
+        ui.add(egui::Label::new(RichText::new(reason).size(ty::META).color(theme::muted_col())).wrap_mode(egui::TextWrapMode::Extend));
+    })
+    .response
+}
+
 /// A field that gates a button and is still empty wears an accent ring, so the eye goes to the step
 /// that is missing. Call with the field's response after adding it.
 pub fn attention_ring(ui: &Ui, field: &egui::Response) {
@@ -116,7 +146,9 @@ pub fn quiet_scroll_area<R>(ui: &mut Ui, area: egui::ScrollArea, add: impl FnOnc
         let saved = ui.style().clone();
         let s = &mut ui.spacing_mut().scroll;
         *s = egui::style::ScrollStyle::floating();
-        s.bar_width = 6.0;
+        // 3 px in every state but a drag: it widened to 6 px (and darkened) whenever the column
+        // scrolled itself, e.g. to the question just opened, and read as a dark card edge.
+        s.bar_width = 3.0;
         s.floating_width = 3.0;
         s.bar_inner_margin = 3.0;
         s.foreground_color = false;
@@ -135,7 +167,9 @@ pub fn quiet_scroll_area<R>(ui: &mut Ui, area: egui::ScrollArea, add: impl FnOnc
         // A light handle: it says "this scrolls" without reading as a dark stripe in the card.
         let handle = theme::muted_col().gamma_multiply(0.4);
         v.widgets.inactive.bg_fill = handle;
-        v.widgets.hovered.bg_fill = theme::muted_col().gamma_multiply(0.7);
+        // Light under the pointer too (it showed as a dark stripe whenever the pointer rested
+        // near a card's edge); dark only while dragged.
+        v.widgets.hovered.bg_fill = handle;
         v.widgets.active.bg_fill = theme::muted_col();
         for w in [&mut v.widgets.inactive, &mut v.widgets.hovered, &mut v.widgets.active] {
             w.corner_radius = CornerRadius::same(3);
@@ -217,7 +251,8 @@ pub fn search_field_with(ui: &mut Ui, text: &mut String, w: f32, hint: &str, id:
     let mut out = None;
     egui::Frame::new()
         .fill(theme::card())
-        .stroke(Stroke::new(1.0, theme::border()))
+        // The 3:1 control edge, as the buttons beside it (`border` read as faint or disabled).
+        .stroke(Stroke::new(1.0, theme::edge()))
         .corner_radius(CornerRadius::same(12))
         .inner_margin(Margin::symmetric(13, 10))
         .show(ui, |ui| {
@@ -700,13 +735,35 @@ pub fn quiet_more_dots(ui: &mut Ui, side: f32, tip: &str) -> egui::Response {
 /// A text link: 13 pt accent semibold, no underline at rest, underlined under the pointer and
 /// when focused (plus the ring); `arrow` adds a trailing →. At least 18 tall. Returns its own click.
 pub fn link(ui: &mut Ui, label: &str, arrow: bool) -> egui::Response {
+    link_h(ui, label, arrow, 18.0)
+}
+
+/// A link in the quiet text colour (accent under the pointer), on a `min_h` hit row: a way round
+/// that sits beside the main action without competing with it.
+pub fn quiet_link_h(ui: &mut Ui, label: &str, min_h: f32) -> egui::Response {
+    // Laid out with the placeholder colour, so the paint below picks the colour per state.
+    let galley = ui.painter().layout_no_wrap(label.to_owned(), FontId::new(ty::META, theme::semibold()), Color32::PLACEHOLDER);
+    let size = galley.size();
+    let (rect, resp) = ui.allocate_exact_size(Vec2::new(size.x.ceil(), size.y.max(min_h)), Sense::click());
+    let resp = resp.on_hover_cursor(egui::CursorIcon::PointingHand);
+    let col = if resp.hovered() { theme::accent_col() } else { theme::muted_col() };
+    let top = rect.center().y - size.y / 2.0;
+    ui.painter().galley(Pos2::new(rect.left(), top), galley, col);
+    ui.painter().hline(rect.left()..=rect.left() + size.x, top + size.y, Stroke::new(1.0, col.gamma_multiply(if resp.hovered() { 1.0 } else { 0.5 })));
+    resp.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::Link, true, label));
+    resp
+}
+
+/// `link` whose hit row is at least `min_h` tall (the text stays centred), for links that are
+/// pressed often and sit in a row of their own, so they are not a 16 px target.
+pub fn link_h(ui: &mut Ui, label: &str, arrow: bool, min_h: f32) -> egui::Response {
     let enabled = ui.is_enabled();
     let col = if enabled { theme::accent_col() } else { theme::muted_col() };
     let galley = ui.painter().layout_no_wrap(label.to_owned(), FontId::new(ty::META, theme::semibold()), col);
     let text = galley.size();
     let arrow_w = if arrow { 4.0 + 13.0 } else { 0.0 };
     let sense = if enabled { Sense::click() } else { Sense::hover() };
-    let (rect, resp) = ui.allocate_exact_size(Vec2::new((text.x + arrow_w).ceil(), text.y.max(18.0)), sense);
+    let (rect, resp) = ui.allocate_exact_size(Vec2::new((text.x + arrow_w).ceil(), text.y.max(min_h)), sense);
     let top = rect.center().y - text.y / 2.0;
     ui.painter().galley(Pos2::new(rect.left(), top), galley, col);
     if arrow {
