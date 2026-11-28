@@ -135,7 +135,9 @@ pub fn quiet_scroll_area<R>(ui: &mut Ui, area: egui::ScrollArea, add: impl FnOnc
         // A light handle: it says "this scrolls" without reading as a dark stripe in the card.
         let handle = theme::muted_col().gamma_multiply(0.4);
         v.widgets.inactive.bg_fill = handle;
-        v.widgets.hovered.bg_fill = theme::muted_col().gamma_multiply(0.7);
+        // Light under the pointer too (it showed as a dark stripe whenever the pointer rested
+        // near a card's edge); dark only while dragged.
+        v.widgets.hovered.bg_fill = theme::muted_col().gamma_multiply(0.5);
         v.widgets.active.bg_fill = theme::muted_col();
         for w in [&mut v.widgets.inactive, &mut v.widgets.hovered, &mut v.widgets.active] {
             w.corner_radius = CornerRadius::same(3);
@@ -217,7 +219,8 @@ pub fn search_field_with(ui: &mut Ui, text: &mut String, w: f32, hint: &str, id:
     let mut out = None;
     egui::Frame::new()
         .fill(theme::card())
-        .stroke(Stroke::new(1.0, theme::border()))
+        // The 3:1 control edge, as the buttons beside it (`border` read as faint or disabled).
+        .stroke(Stroke::new(1.0, theme::edge()))
         .corner_radius(CornerRadius::same(12))
         .inner_margin(Margin::symmetric(13, 10))
         .show(ui, |ui| {
@@ -700,13 +703,19 @@ pub fn quiet_more_dots(ui: &mut Ui, side: f32, tip: &str) -> egui::Response {
 /// A text link: 13 pt accent semibold, no underline at rest, underlined under the pointer and
 /// when focused (plus the ring); `arrow` adds a trailing →. At least 18 tall. Returns its own click.
 pub fn link(ui: &mut Ui, label: &str, arrow: bool) -> egui::Response {
+    link_h(ui, label, arrow, 18.0)
+}
+
+/// `link` whose hit row is at least `min_h` tall (the text stays centred), for links that are
+/// pressed often and sit in a row of their own, so they are not a 16 px target.
+pub fn link_h(ui: &mut Ui, label: &str, arrow: bool, min_h: f32) -> egui::Response {
     let enabled = ui.is_enabled();
     let col = if enabled { theme::accent_col() } else { theme::muted_col() };
     let galley = ui.painter().layout_no_wrap(label.to_owned(), FontId::new(ty::META, theme::semibold()), col);
     let text = galley.size();
     let arrow_w = if arrow { 4.0 + 13.0 } else { 0.0 };
     let sense = if enabled { Sense::click() } else { Sense::hover() };
-    let (rect, resp) = ui.allocate_exact_size(Vec2::new((text.x + arrow_w).ceil(), text.y.max(18.0)), sense);
+    let (rect, resp) = ui.allocate_exact_size(Vec2::new((text.x + arrow_w).ceil(), text.y.max(min_h)), sense);
     let top = rect.center().y - text.y / 2.0;
     ui.painter().galley(Pos2::new(rect.left(), top), galley, col);
     if arrow {

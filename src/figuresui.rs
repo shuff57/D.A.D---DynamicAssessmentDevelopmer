@@ -1142,11 +1142,11 @@ impl Workspace {
         let mut picked = None;
         // On the page (not the modal) the grid ends in a "More below" strip while it continues, so a
         // row cut at the window edge reads as a scroll, not a rendering fault.
-        const CUE_H: f32 = 22.0;
+        const CUE_H: f32 = 30.0;
         let cue = !self.modal && max_h > 200.0;
         let out = ScrollArea::vertical()
             .id_salt("figs_browser")
-            .max_height(if cue { max_h - CUE_H } else { max_h })
+            .max_height(if cue { max_h - CUE_H - ui.spacing().item_spacing.y } else { max_h })
             .auto_shrink([!self.modal, true])
             .show(ui, |ui| {
                 if list.is_empty() {

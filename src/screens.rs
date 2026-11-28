@@ -2542,9 +2542,14 @@ impl crate::App {
                         for ((_, name), works) in main.iter().zip(&ok) {
                             if *works { ready.push(*name) } else { needs.push(*name) }
                         }
-                        let mut line = String::new();
-                        if !ready.is_empty() { line.push_str(&format!("Ready here: {}.", ready.join(", "))); }
-                        if !needs.is_empty() { if !line.is_empty() { line.push(' '); } line.push_str(&format!("Need a key or sign-in: {}.", needs.join(", "))); }
+                        // Only the ready ones by name; the rest are "the others", so the line isn't
+                        // a second copy of the chips to map back onto them.
+                        let join = |v: &[&str]| match v { [one] => one.to_string(), [a, b] => format!("{a} and {b}"), _ => format!("{} and {}", v[..v.len() - 1].join(", "), v[v.len() - 1]) };
+                        let line = match (ready.is_empty(), needs.is_empty()) {
+                            (false, false) => format!("Ready here: {}. The others need a key or sign-in.", join(&ready)),
+                            (false, true) => format!("All ready here: {}.", join(&ready)),
+                            (true, _) => "None is ready yet: each needs a key or sign-in.".to_string(),
+                        };
                         ui.add(egui::Label::new(theme::muted(line).size(12.0)).wrap());
                     }
                     ui.add_space(6.0);

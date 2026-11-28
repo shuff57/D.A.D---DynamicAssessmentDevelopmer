@@ -1690,7 +1690,14 @@ fn dropdown_grouped(ui: &mut Ui, id: &str, labels: &[&str], cur: &mut usize, wid
     let above = field_top - screen.min.y - 16.0;
     let room = if below >= 200.0 || below >= above { below } else { above };
     let height = room.clamp(120.0, 520.0);
-    egui::ComboBox::from_id_salt(id).selected_text(shown).width(width).height(height).show_ui(ui, |ui| {
+    // A list that scrolls shows its bar at all times (thin, solid), so a cut-off last entry reads
+    // as "more below", not as the end of the list.
+    let bar: egui::style::StyleModifier = (|s: &mut egui::Style| {
+        s.spacing.scroll = egui::style::ScrollStyle::solid();
+        s.spacing.scroll.bar_width = 5.0;
+        s.visuals.widgets.inactive.bg_fill = theme::muted_col().gamma_multiply(0.6);
+    }).into();
+    egui::ComboBox::from_id_salt(id).selected_text(shown).width(width).height(height).popup_style(bar).show_ui(ui, |ui| {
         for (i, l) in labels.iter().enumerate() {
             if let Some((_, head)) = heads.iter().find(|(at, _)| *at == i) {
                 if i > 0 { ui.add_space(4.0); }
@@ -1790,9 +1797,13 @@ pub fn advanced_setting(ui: &mut Ui) {
 /// One scrolling column of the Questions page: the quiet scroller (no rail in the gutter at rest)
 /// over a short cue strip that says "More below" while the column really continues.
 fn column(ui: &mut Ui, salt: &str, add: impl FnOnce(&mut Ui)) {
-    const CUE_H: f32 = 22.0;
+    // A 30 px row: the cue is pressed to scroll, so it is a target, not a caption.
+    const CUE_H: f32 = 30.0;
     let jump = egui::Id::new((salt, "more_below_jump"));
-    let mut area = egui::ScrollArea::vertical().id_salt(salt).max_height((ui.available_height() - CUE_H).max(80.0)).auto_shrink([false, true]);
+    // The cue and the gap before it fit inside the column's height: overrunning it by the item
+    // gap grew the row, so the next column got 8 px more and the two cues sat at different heights.
+    let gap = ui.spacing().item_spacing.y;
+    let mut area = egui::ScrollArea::vertical().id_salt(salt).max_height((ui.available_height() - CUE_H - gap).max(80.0)).auto_shrink([false, true]);
     if let Some(y) = ui.ctx().data_mut(|d| d.remove_temp::<f32>(jump)) {
         area = area.vertical_scroll_offset(y);
     }
@@ -2423,7 +2434,8 @@ fn ai_card(ui: &mut Ui, st: &mut State, cfg: &crate::ai::AiCfg, chosen: bool) {
         // On Convert, which AI reads the worksheet, said where the AI is named (Claude can't read
         // pages as pictures, so Codex reads them when it is installed).
         if st.worksheet_mode && st.step == Step::Describe && cfg.provider == "claude-cli" && ready {
-            let line = if local.contains(&"codex-cli") { "Worksheets are read by Codex on this computer." } else { "Claude can't read PDFs or photos: upload Word or text, or change AI." };
+            // Two AIs at work: each named with its job, so Change plainly means the writer.
+            let line = if local.contains(&"codex-cli") { "Claude writes the questions. Codex, also on this computer, reads the worksheet pages." } else { "Claude can't read PDFs or photos: upload Word or text, or change AI." };
             ui.add(egui::Label::new(theme::muted(line).size(12.5)).wrap());
         }
         if !open { return; }
@@ -2472,6 +2484,10 @@ fn ai_card(ui: &mut Ui, st: &mut State, cfg: &crate::ai::AiCfg, chosen: bool) {
             if let Some((label, url)) = key_page && !foreign {
                 ui.add_space(6.0);
                 if crate::kit::link(ui, label, true).clicked() { crate::platform::open_url(url); }
+                // Both ways to get a key together, before the field (the video was under Save Key).
+                if crate::platform::help_clip_name(&cfg.provider).is_some() && crate::kit::link(ui, "Watch how to get a key", false).clicked() {
+                    crate::platform::open_help_video(&cfg.provider);
+                }
             }
             // The label row carries Show key, right beside the field it reveals.
             ui.add_space(10.0);
@@ -2493,6 +2509,12 @@ fn ai_card(ui: &mut Ui, st: &mut State, cfg: &crate::ai::AiCfg, chosen: bool) {
             let r = ui.add(egui::TextEdit::singleline(&mut st.ai_card_key).id_salt("mom_ai_card_key").password(!st.ai_key_shown).margin(egui::Margin::symmetric(10, 8))
                 .desired_width(ui.available_width()).hint_text("paste a key"));
             r.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::TextEdit, true, "AI key"));
+            // Write's blocked line can send the teacher straight here ("Go to the key box").
+            ui.ctx().data_mut(|d| d.insert_temp(egui::Id::new("mom_key_field"), r.id));
+            if ui.ctx().data_mut(|d| d.remove_temp::<bool>(egui::Id::new("mom_key_jump"))).unwrap_or(false) {
+                r.request_focus();
+                r.scroll_to_me(Some(egui::Align::Center));
+            }
             // What the key is, under the field while it is empty (the label sits right on the field
             // it names; once a key is in, what matters is whether it fits).
             if let Some(need) = need_line && st.ai_card_key.is_empty() && key_page.is_none() {
@@ -2576,7 +2598,7 @@ fn ai_card(ui: &mut Ui, st: &mut State, cfg: &crate::ai::AiCfg, chosen: bool) {
                     Err(error) => st.error = Some(format!("Could not save the key: {error}")),
                 }
             }
-            if !switch_to_openrouter && crate::platform::help_clip_name(&cfg.provider).is_some() && crate::kit::link(ui, "Watch how to get a key", false).clicked() {
+            if !switch_to_openrouter && (key_page.is_none() || foreign) && crate::platform::help_clip_name(&cfg.provider).is_some() && crate::kit::link(ui, "Watch how to get a key", false).clicked() {
                 crate::platform::open_help_video(&cfg.provider);
             }
             ui.add_space(8.0);
@@ -2939,7 +2961,17 @@ fn describe(ui: &mut Ui, ctx: &egui::Context, st: &mut State, cfg: &crate::ai::A
             let setup = (st.form.clone(), image);
             write_question(st, ctx, cfg, request, None, Some(setup));
         }
-        if let Some(why) = missing { crate::kit::gated_reason(ui, why); }
+        if let Some(why) = missing {
+            crate::kit::gated_reason(ui, why);
+            // A missing key is one press from its box: the link puts the cursor in it.
+            let key_missing = !ai_ready(cfg) && st.ai_chosen && cfg.uses_key() && cfg.provider != "account";
+            if key_missing && ui.ctx().data(|d| d.get_temp::<egui::Id>(egui::Id::new("mom_key_field"))).is_some()
+                && crate::kit::link(ui, "Go to the key box", true).clicked()
+            {
+                ui.ctx().data_mut(|d| d.insert_temp(egui::Id::new("mom_key_jump"), true));
+                ui.ctx().request_repaint();
+            }
+        }
         // A busy AI is a wait, not a failure: said calmly, with the retry and the way round it.
         if st.error.as_deref().is_some_and(|e| form::plain_error(e).starts_with("The AI is busy")) {
             let raw = st.error.clone().unwrap_or_default();
@@ -4068,16 +4100,16 @@ fn side(ui: &mut Ui, ctx: &egui::Context, st: &mut State) {
                 else { used += if cur.is_empty() { w } else { sep_w + w }; cur.push(i); }
             }
             ui.scope(|ui| {
-                // Rows the height of the links, not of a button.
-                ui.spacing_mut().interact_size.y = 18.0;
-                ui.spacing_mut().item_spacing.y = 4.0;
+                // Each link is a 28 px target (pressed to jump), with no extra gap between rows.
+                ui.spacing_mut().interact_size.y = 28.0;
+                ui.spacing_mut().item_spacing.y = 0.0;
                 for line in lines {
                     ui.horizontal(|ui| {
                         ui.spacing_mut().item_spacing.x = 4.0;
                         for (k, &i) in line.iter().enumerate() {
                             if k > 0 { ui.label(theme::muted("·").size(12.5)); }
                             let (group, text) = &parts[i];
-                            if crate::kit::link(ui, text, true).on_hover_text("Go to the first one").clicked() { st.jump_to_group = Some(*group); }
+                            if crate::kit::link_h(ui, text, true, 28.0).on_hover_text("Go to the first one").clicked() { st.jump_to_group = Some(*group); }
                         }
                     });
                 }
