@@ -2516,25 +2516,34 @@ impl crate::App {
                     // D.A.D AI needs a school server; until one is signed in it sits with the IT options.
                     let technical_list: Vec<(&str, &str)> = [("ollama", "Ollama (local)"), ("workers", "D.A.D relay"), ("custom", "Custom endpoint")]
                         .into_iter().chain((!crate::momui::dad_ai_offered()).then_some(("account", "D.A.D AI (school server)"))).collect();
-                    // Each chip says whether it works here already or needs a key or sign-in, so a
-                    // teacher needn't press each one to find out.
+                    // Which of these work here already and which need a key, so a teacher needn't press
+                    // each one to find out.
                     let works = |p: &str| -> bool {
                         if p == "account" { return crate::ai::account_ai_ready(); }
                         let mut s = app.settings.clone();
                         s.ai_provider = p.to_string();
                         crate::ai::AiCfg::from(&s).has_key_or_needs_none()
                     };
-                    let shown: Vec<(&str, String)> = main.iter().map(|(val, label)| {
-                        let tag = if works(val) { "✔" } else if *val == "account" { "· sign in" } else { "· needs a key" };
-                        (*val, format!("{label} {tag}"))
-                    }).collect();
+                    // Read once, before a chip press can change the settings.
+                    let ok: Vec<bool> = main.iter().map(|(val, _)| works(val)).collect();
                     ui.horizontal_wrapped(|ui| {
-                        for (val, label) in &shown {
+                        for (val, label) in &main {
                             if kit::chip_toggle(ui, label, app.settings.ai_provider == *val).clicked() {
                                 app.settings.ai_provider = val.to_string();
                             }
                         }
                     });
+                    {
+                        let mut ready = Vec::new();
+                        let mut needs = Vec::new();
+                        for ((_, name), works) in main.iter().zip(&ok) {
+                            if *works { ready.push(*name) } else { needs.push(*name) }
+                        }
+                        let mut line = String::new();
+                        if !ready.is_empty() { line.push_str(&format!("Ready here: {}.", ready.join(", "))); }
+                        if !needs.is_empty() { if !line.is_empty() { line.push(' '); } line.push_str(&format!("Need a key or sign-in: {}.", needs.join(", "))); }
+                        ui.add(egui::Label::new(theme::muted(line).size(12.0)).wrap());
+                    }
                     ui.add_space(6.0);
                     let cli = matches!(app.settings.ai_provider.as_str(), "claude-cli" | "codex-cli");
                     if app.settings.ai_provider == "custom" || app.settings.ai_provider == "workers" {

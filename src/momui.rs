@@ -2352,10 +2352,7 @@ fn ai_card(ui: &mut Ui, st: &mut State, cfg: &crate::ai::AiCfg, chosen: bool) {
                 return;
             }
             // Readiness and a plain name: a model id is one more thing to ignore here.
-            // On Convert the AI that reads the worksheet is the one named (Codex stands in for
-            // Claude, which can't read pages); the line below says so.
-            let reader = st.worksheet_mode && st.step == Step::Describe && cfg.provider == "claude-cli" && local.contains(&"codex-cli");
-            ui.label(theme::text(if reader { "Codex on this computer".to_string() } else { ai_name(cfg) }).size(14.0));
+            ui.label(theme::text(ai_name(cfg)).size(14.0));
             let change = chosen && ready && !open;
             if !ready {
                 // A setup step, not an error: the warning colour, as Write's gate line uses.
@@ -2383,7 +2380,7 @@ fn ai_card(ui: &mut Ui, st: &mut State, cfg: &crate::ai::AiCfg, chosen: bool) {
         // On Convert, which AI reads the worksheet, said where the AI is named (Claude can't read
         // pages as pictures, so Codex reads them when it is installed).
         if st.worksheet_mode && st.step == Step::Describe && cfg.provider == "claude-cli" && ready {
-            let line = if local.contains(&"codex-cli") { "Codex on this computer reads worksheets here, because Claude can't read pages as pictures. Change sets the AI that writes." } else { "Claude can't read PDFs or photos: upload Word or text, or change AI." };
+            let line = if local.contains(&"codex-cli") { "Worksheets are read by Codex on this computer." } else { "Claude can't read PDFs or photos: upload Word or text, or change AI." };
             ui.add(egui::Label::new(theme::muted(line).size(12.5)).wrap());
         }
         if !open { return; }
