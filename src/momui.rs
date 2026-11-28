@@ -1806,10 +1806,14 @@ fn column(ui: &mut Ui, salt: &str, add: impl FnOnce(&mut Ui)) {
         let r = out.inner_rect;
         let bg = ui.visuals().panel_fill;
         let p = ui.painter();
-        let band = if sticky.is_some() { 26.0 } else { 0.0 };
-        if let Some(text) = &sticky {
+        let lines: Vec<&str> = sticky.as_deref().map(|s| s.lines().filter(|l| !l.is_empty()).collect()).unwrap_or_default();
+        let band = if lines.is_empty() { 0.0 } else { 10.0 + 18.0 * lines.len() as f32 };
+        if !lines.is_empty() {
             p.rect_filled(egui::Rect::from_min_size(r.min, egui::vec2(r.width(), band)), 0.0, bg);
-            p.text(egui::pos2(r.left() + 6.0, r.top() + band / 2.0), egui::Align2::LEFT_CENTER, text, egui::FontId::new(12.5, theme::semibold()), theme::text_col());
+            // In line with the rows' content (inside the card's padding).
+            for (i, line) in lines.iter().enumerate() {
+                p.text(egui::pos2(r.left() + 21.0, r.top() + 14.0 + 18.0 * i as f32), egui::Align2::LEFT_CENTER, *line, egui::FontId::new(12.5, theme::semibold()), theme::text_col());
+            }
         }
         for i in 0..12 {
             let a = (230.0 * (1.0 - i as f32 / 12.0)) as u8;
@@ -3227,7 +3231,9 @@ fn writing(ui: &mut Ui, st: &State) -> bool {
         let within = if stage < names.len() { (1.0 - (-elapsed / 12.0).exp()).min(0.85) } else { 0.0 };
         ui.add(egui::ProgressBar::new((stage as f32 + within) / names.len() as f32).desired_width(320.0).desired_height(8.0)
             .fill(theme::accent_col()).corner_radius(3.0));
-        ui.label(theme::muted(format!("{stage} of {} stages done", names.len())).size(12.5));
+        // Which stage, and the time so far, right by the bar (the bar's fill is the stage under way).
+        let el = elapsed as u64;
+        ui.label(theme::muted(format!("Stage {} of {} · {}:{:02} so far", (stage + 1).min(names.len()), names.len(), el / 60, el % 60)).size(12.5));
         for (i, name) in names.iter().enumerate() {
             ui.horizontal(|ui| {
                 // One 18 px slot for the mark, so the three names share a left edge.
@@ -3258,7 +3264,7 @@ fn writing(ui: &mut Ui, st: &State) -> bool {
             format!("Taking longer than usual ({}:{:02}). The AI is still working; it keeps going while you use Import, Share, Figures or Settings.", secs / 60, secs % 60)
         } else {
             ui.ctx().request_repaint_after(std::time::Duration::from_secs(1));
-            format!("{}:{:02} so far. This usually takes between 10 seconds and a minute. It keeps going while you use Import, Share, Figures or Settings.", secs / 60, secs % 60)
+            "This usually takes between 10 seconds and a minute. It keeps going while you use Import, Share, Figures or Settings.".to_string()
         };
         ui.add(egui::Label::new(theme::muted(timing).size(13.0)).wrap());
         if let Some(note) = &st.wait_note {
@@ -3837,6 +3843,8 @@ fn copy_step(ui: &mut Ui, ctx: &egui::Context, st: &mut State) {
             ui.add(egui::Label::new(theme::text(line).size(14.0)).wrap());
             if let Some(revision) = &revision { ui.label(theme::muted(revision.line(timestamp())).size(12.0)); }
             if let Some(p) = &receipt { ui.label(theme::muted(format!("MyOpenMath question ID {}", p.question)).size(12.0)); }
+            // Where else it is: the end says the work is kept, not only where it went.
+            ui.label(theme::muted("It's also kept in My Questions, marked In MyOpenMath.").size(12.0));
             ui.add_space(8.0);
             ui.horizontal_wrapped(|ui| {
                 finish_actions(ui, st);
@@ -4014,14 +4022,18 @@ fn side(ui: &mut Ui, ctx: &egui::Context, st: &mut State) {
         // In the rows' own order (to fix, to review, ready), so the counts map straight onto them.
         // The same totals, pinned over the column's top while it is scrolled (see `column`).
         {
-            // Short enough for the narrow column.
-            let mut summary = format!("✔ {done} of {} added", st.library.questions.len());
-            for (n, what) in [(fix, "to fix"), (review, "to review"), (ready, "ready")] { if n > 0 { summary.push_str(&format!(" · {n} {what}")); } }
+            // The list's own words, on two lines so they fit the narrow column.
+            let mut rest: Vec<String> = Vec::new();
+            for (n, what) in [(fix, "to fix"), (review, "to review"), (ready, "ready to add")] { if n > 0 { rest.push(format!("{n} {what}")); } }
+            let summary = format!("✔ {done} of {} in MyOpenMath\n{}", st.library.questions.len(), rest.join(" · "));
             ui.ctx().data_mut(|d| d.insert_temp(egui::Id::new(("mom_side", "sticky")), summary));
         }
         // Each count is a link to its first question, so picking up the next one isn't a scan.
-        let parts: Vec<(u8, String)> = [(0u8, fix, "to fix"), (1, review, "to review"), (2, ready, "ready to add")]
+        let not_written = (!busy(st) && st.current.is_none() && st.error.is_some() && !st.form.topic_text.trim().is_empty()) as usize;
+        let mut parts: Vec<(u8, String)> = [(0u8, fix, "to fix"), (1, review, "to review"), (2, ready, "ready to add")]
             .into_iter().filter(|(_, n, _)| *n > 0).map(|(g, n, what)| (g, format!("{n} {what}"))).collect();
+        // A write that failed counts as unfinished work too (it heads the list; the link goes there).
+        if not_written > 0 { parts.insert(0, (9, format!("{not_written} not written yet"))); }
         if !parts.is_empty() && st.library.questions.len() > 1 {
             ui.horizontal_wrapped(|ui| {
                 ui.spacing_mut().item_spacing.x = 4.0;
@@ -4034,16 +4046,22 @@ fn side(ui: &mut Ui, ctx: &egui::Context, st: &mut State) {
         // A write that failed (a busy AI, a dropped connection) is unfinished work too: its request
         // heads the list with Try Again, so it isn't only on the form that happens to be open.
         if !busy(st) && st.current.is_none() && st.error.is_some() && !st.form.topic_text.trim().is_empty() {
+            if st.jump_to_group == Some(9) { st.jump_to_group = None; ui.scroll_to_cursor(Some(egui::Align::Min)); }
             ui.add_space(10.0);
             let asked = st.form.topic_text.trim();
             let title: String = asked.chars().take(60).collect::<String>() + if asked.chars().count() > 60 { "…" } else { "" };
             ui.add(egui::Label::new(theme::strong(title).size(14.0)).wrap());
+            // Why it stopped, in the same plain words as the message on the form.
+            if let Some(e) = &st.error {
+                let why = form::plain_error(e);
+                let first = why.split(". ").next().unwrap_or(&why).trim_end_matches('.').to_string();
+                ui.add(egui::Label::new(theme::muted(format!("{first}.")).size(12.0)).wrap());
+            }
             ui.horizontal(|ui| {
                 crate::kit::status_tag_w(ui, "Not written yet", theme::on_attention(), 112.0);
                 ui.add_space(8.0);
-                if crate::kit::secondary(ui, "Try Again", 32.0).clicked() {
-                    st.error = None;
-                    st.write_now = true;
+                // Back to the description, where Write My Question is the one retry.
+                if crate::kit::secondary(ui, "Show", 32.0).on_hover_text("Go back to the description; press Write My Question to try again").clicked() {
                     request_destination(ui.ctx(), Destination::Questions);
                 }
             });
