@@ -51,6 +51,41 @@ Found by run 1 (not fixed; carry forward):
 
 Captures, stores and scripts: `~/.cache/dad-ux-council/2026-11-27/`. `scenes.py <outdir> [ids]` recaptures any scene from `target/debug/vershion`, using a scratch HOME and a local fake AI. Each member's lines are in `grade-r0/out/`, and the voided ones are in `grade-r0/void/`.
 
+**Run 3 final scorecard** (2026-11-28, `dad/engine` at `28f4b031`). The panel was Claude Opus 5.5 (effort high) and GPT-6.2 Sol (Codex, reasoning high), on the same 29 scenes in grade-all mode. "Start" is this panel's own grade before run 3 (B–D were graded after Phase A was locked). Run 2's final scores came from a different panel, so they are shown for reference only.
+
+| Phase | Run 2 final (Opus / DeepSeek) | Run 3 start | Opus 5.5 | GPT-6.2 Sol | Mean | Weakest law: top gap |
+|---|---|---|---|---|---|---|
+| A, perception and layout | 7.3 | 7.4 | 8.1 | 7.9 | **8.0** | Fitts 7.25. The count links and More below cues are short targets, about 16–22 px. |
+| B, decisions and memory | 8.0 | 8.05 | 8.6 | 8.0 | **8.3** | Cognitive Load 7.5. Convert's Your AI card names Claude, then says Codex reads worksheets. |
+| C, familiar patterns and forgiving input | 8.4 | 8.1 | 8.6 | 8.8 | **8.7** | Jakob 8.25. After Import's plain-problem fallback, Write a Question From It has no keyboard cue. |
+| D, time, progress and the end | 8.2 | 8.15 | 8.6 | 8.8 | **8.7** | Goal-Gradient 8.25. The pinned totals' hairline still cuts the first row's title. The pinned counts aren't links. |
+
+C and D reached 8.5. A and B didn't: A needs bigger targets (Fitts), and B needs one AI name per job on Convert. Phase D's final fixes (the caption, header, Back to It and Dismiss, ring spinner) were graded here for the first time.
+
+Carry forward from run 3's grade:
+- **A:**
+  - Taller count links and More below rows (32 px).
+  - Try it's card scrollbar is heavier than the quiet bar.
+  - The two columns' More below cues sit at different heights.
+  - The Figures search field's edge is faint.
+- **B:**
+  - Convert: say which AI writes and which reads worksheets.
+  - B02: make "Paste your Ollama Cloud key" focus the key field.
+  - The Course level list needs a visible scrollbar when it overflows.
+  - Settings' readiness line repeats all four AI names.
+- **C:**
+  - Import from a MyOpenMath link (the link has the qsetid).
+  - The wrong-key help is six blocks.
+  - Open in Your Browser has no external-link mark.
+- **D:**
+  - The pinned header's line still cuts a row title.
+  - The pinned counts aren't links.
+  - Back to It shows even when the description is already on screen.
+  - "Not written yet" shares the amber dot with Needs review.
+  - Stop is only reachable through Show.
+
+Captures, both members' lines and the locks the panel read: `~/.cache/dad-ux-council/2026-11-27/final-run3/`.
+
 ## Stage A: locked layout (`3b47865d`)
 
 - **Questions, step 1.** Order: description, then Course and Topic side by side, then **Write My Question** with the reference-picture button beside it, then a closed "More options" that shows how many options are set. [Primary action under the eye; fewer things to see at once.]
