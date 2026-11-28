@@ -136,6 +136,8 @@ pub struct App {
     pub grade: Option<crate::gradeui::GradeState>,
     /// QA hook: scripted input (VERSHION_SCRIPT), see `raw_input_hook`.
     pub qa_steps: Vec<String>,
+    /// `VERSHION_SCRIPT` was set: the run reports window focus to its end (see `raw_input_hook`).
+    pub qa_scripted: bool,
     /// QA hook: VERSHION_SHOT=<file.png> saves a screenshot of this window's own contents and exits.
     pub qa_shot: Option<(String, u32)>,
     pub qa_frame: u64,
@@ -270,6 +272,7 @@ impl App {
             mine: Default::default(),
             grade: None,
             qa_shot: crate::env_var("VERSHION_SHOT").ok().map(|p| (p, 0)),
+            qa_scripted: crate::env_var("VERSHION_SCRIPT").is_ok(),
             qa_steps: crate::env_var("VERSHION_SCRIPT")
                 .map(|v| v.split(';').map(|t| t.trim().to_string()).filter(|t| !t.is_empty()).collect())
                 .unwrap_or_default(),
@@ -466,13 +469,14 @@ impl App {
             raw.events.append(&mut evs);
             ctx.request_repaint();
         }
+        // A scripted run is a window with the keyboard, for the whole run (to the screenshot, not
+        // only while steps remain): under Xvfb with no window manager the window never gains OS
+        // focus, and egui's `has_focus()` (which needs it) then failed every scripted Ctrl+Enter and
+        // drew no focused field.
+        if self.qa_scripted { raw.focused = true; }
         if self.qa_steps.is_empty() {
             return;
         }
-        // A scripted run is a window with the keyboard: under Xvfb with no window manager the
-        // window never gains OS focus, and egui's `has_focus()` (which needs it) then failed every
-        // Ctrl+Enter shortcut the script pressed.
-        raw.focused = true;
         ctx.request_repaint();
         self.qa_frame += 1;
         if self.qa_frame < 60 || self.qa_frame % 10 != 0 {

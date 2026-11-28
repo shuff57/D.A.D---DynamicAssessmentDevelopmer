@@ -1029,11 +1029,8 @@ impl Workspace {
                 if ghost(ui, "Open link…").on_hover_text("Reopen a figure from a share link someone copied").clicked() {
                     self.link_open = !self.link_open;
                 }
-                ui.add(
-                    TextEdit::singleline(&mut self.search)
-                        .hint_text("Search figures…")
-                        .desired_width(180.0),
-                );
+                // The app's one search box, with its magnifier, so it reads as search once typed in.
+                crate::kit::search_field(ui, &mut self.search, 180.0, "Search figures…");
             });
             }
         });
@@ -1062,8 +1059,7 @@ impl Workspace {
             let row = |ui: &mut Ui, this: &mut Self| {
                 crate::momui::control_edges(ui);
                 // As tall as the buttons beside it.
-                ui.add(TextEdit::singleline(&mut this.search).hint_text("Search figures…").desired_width(220.0)
-                    .min_size(Vec2::new(220.0, 36.0)).vertical_align(Align::Center));
+                crate::kit::search_field(ui, &mut this.search, 220.0, "Search figures…");
                 let actions = |ui: &mut Ui, this: &mut Self| {
                     if ghost(ui, "Import SVG/PNG…").clicked() {
                         this.import_open = !this.import_open;

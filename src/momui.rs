@@ -296,7 +296,9 @@ fn import_questions(ui: &mut Ui, st: &mut State) {
             if let Some(i) = remove { st.question_files.remove(i); }
             // It takes more than code (a chat reply, a problem in words), so the label says "a question".
             let caption = ui.label(theme::strong("Or paste a question"));
-            let paste = ui.add(egui::TextEdit::multiline(&mut st.import_source).desired_width(f32::INFINITY).desired_rows(5)
+            // Fixed ids for both boxes: the rows around them come and go with the hint, and an id
+            // taken from position would change, losing focus (and the focus moved to the second box).
+            let paste = ui.add(egui::TextEdit::multiline(&mut st.import_source).id_salt("mom_import_paste").desired_width(f32::INFINITY).desired_rows(5)
                 .margin(egui::Margin::symmetric(12, 8))
                 .hint_text("MyOpenMath code, a reply from an AI chat, or a problem in your own words"))
                 .labelled_by(caption.id);
@@ -363,7 +365,7 @@ fn import_questions(ui: &mut Ui, st: &mut State) {
                     ui.add(egui::Label::new(theme::strong("That's a link. D.A.D can't read web pages.").size(14.0)).wrap());
                     // Steps, one per line, that stay on screen while the teacher is in the browser.
                     let steps: &[&str] = if url.contains("myopenmath.com") {
-                        &["1. Open the question in MyOpenMath's question editor (the button below opens the link).",
+                        &["1. Open the link (the button below) and go to that question's editor in MyOpenMath. Not your question? Ask its author for its Common Control and Question Text boxes.",
                           "2. Copy its Common Control box and paste it in the box above, in place of the link.",
                           "3. D.A.D then shows a second box for its Question Text."]
                     } else {
@@ -391,9 +393,11 @@ fn import_questions(ui: &mut Ui, st: &mut State) {
                     };
                     let caption = ui.label(theme::strong(title));
                     ui.add(egui::Label::new(theme::muted(why).size(13.0)).wrap());
-                    let other = ui.add(egui::TextEdit::multiline(&mut st.import_qtext).desired_width(f32::INFINITY).desired_rows(3)
+                    let other = ui.add(egui::TextEdit::multiline(&mut st.import_qtext).id_salt("mom_import_second").desired_width(f32::INFINITY).desired_rows(3)
                         .margin(egui::Margin::symmetric(12, 8)))
                         .labelled_by(caption.id);
+                    // The next paste goes here, so the cursor does too (not left in the first box).
+                    if std::mem::take(&mut st.import_focus_second) { other.request_focus(); }
                     let ok = !busy(st) && !st.import_qtext.trim().is_empty();
                     let send = other.has_focus() && ui.input_mut(|i| i.consume_key(egui::Modifiers::COMMAND, egui::Key::Enter));
                     let pressed = ui.horizontal(|ui| {
@@ -542,6 +546,7 @@ fn import_drafts(st: &mut State) {
                 if q.qtext.trim().is_empty() {
                     if std::ptr::eq(file, &paste) {
                         st.import_hint = Some(not_a_question(&src));
+                        st.import_focus_second = true;
                     } else {
                         unfinished.push((file.name.clone(), src));
                     }
@@ -561,6 +566,7 @@ fn import_drafts(st: &mut State) {
         let (name, src) = &unfinished[0];
         st.import_source = src.clone();
         st.import_hint = Some(not_a_question(src));
+        st.import_focus_second = true;
         // The other chosen files are in (or were duplicates): clear the list so a second press
         // does not bring them in again, and the half question's box is the one next step.
         let _ = name;
@@ -880,6 +886,8 @@ struct State {
     ai_chosen: bool,
     /// An AI-chat reply as it was pasted into Import, before the box was cleaned to its code (Undo).
     import_original: Option<String>,
+    /// The Import hint just appeared: put the cursor in its second box, where the next paste goes.
+    import_focus_second: bool,
     /// "Keep my current AI" was pressed.
     ai_keep: bool,
     /// The first-open check that picks a working AI by itself has run.
@@ -2356,7 +2364,8 @@ fn ai_card(ui: &mut Ui, st: &mut State, cfg: &crate::ai::AiCfg, chosen: bool) {
             let change = chosen && ready && !open;
             if !ready {
                 // A setup step, not an error: the warning colour, as Write's gate line uses.
-                let need = if cfg.provider == "account" { "needs you to sign in" } else { "needs a key" };
+                // Once a key is typed in, the card no longer says it needs one: it isn't saved yet.
+                let need = if cfg.provider == "account" { "needs you to sign in" } else if !st.ai_card_key.trim().is_empty() { "key not saved yet" } else { "needs a key" };
                 ui.label(RichText::new(need).color(theme::on_attention()).size(13.0));
             }
             // A real button at the card's edge, not a small link: it changes every question written.
@@ -2465,17 +2474,25 @@ fn ai_card(ui: &mut Ui, st: &mut State, cfg: &crate::ai::AiCfg, chosen: bool) {
                 // With the switch on offer, one line naming the cause; the button carries the fix.
                 let text = if switch_to_openrouter { format!("This is an OpenRouter key, not an {name} key.").replace("an Ollama Cloud", "an Ollama") }
                     else if turned_down { format!("{name} turned this key down. {problem}") } else { problem.clone() };
-                ui.add(egui::Label::new(RichText::new(text).color(theme::red()).size(12.0)).wrap());
+                // Understood and fixable (the switch below) is a warning, not an error: the error red
+                // is kept for a key that was turned down with no way forward.
+                let color = if switch_to_openrouter { theme::on_attention() } else { theme::red() };
+                ui.add(egui::Label::new(RichText::new(text).color(color).size(12.0)).wrap());
                 // An OpenRouter key pasted here can go where it works in one press: switch the AI
                 // and keep the key, instead of a sentence that sends the teacher to find OpenRouter.
                 let key = crate::ai::clean_key(&st.ai_card_key);
                 // The switch is then the next step, so it is the filled button and Save Key steps back.
                 // Enter in the key box presses the one action on offer, as Enter does in a form.
                 let enter_here = r.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter));
-                let switch_pressed = switch_to_openrouter
-                    && (pageshell::primary(ui, "Use This Key With OpenRouter").clicked() || enter_here);
+                let switch_pressed = switch_to_openrouter && {
+                    // The shortcut beside the action it presses.
+                    // On its own line: beside the button it ran past the narrow column.
+                    let pressed = pageshell::primary(ui, "Use This Key With OpenRouter").clicked();
+                    ui.label(theme::muted("or press Enter in the key box").size(12.0));
+                    pressed || enter_here
+                };
                 if switch_to_openrouter {
-                    ui.add(egui::Label::new(theme::muted("OpenRouter needs a few dollars of credit on the account.").size(12.0)).wrap());
+                    ui.add(egui::Label::new(theme::muted("OpenRouter needs a few dollars of credit on the account. Meant to use Ollama Cloud? Paste an Ollama key instead.").size(12.0)).wrap());
                 }
                 if switch_pressed
                 {
@@ -2945,7 +2962,7 @@ pub(crate) fn control_edges(ui: &mut Ui) {
     let w = &mut ui.visuals_mut().widgets;
     w.inactive.bg_stroke = egui::Stroke::new(1.0, theme::edge());
     // Hover reads as "this one", by its edge (the theme keeps the card fill under the pointer).
-    w.hovered.bg_stroke = egui::Stroke::new(1.5, theme::accent_col());
+    w.hovered.bg_stroke = egui::Stroke::new(1.0, theme::accent_col());
 }
 
 /// Checkboxes in this `ui` draw square: the theme's radius 12 turns a 13 px box into a circle that

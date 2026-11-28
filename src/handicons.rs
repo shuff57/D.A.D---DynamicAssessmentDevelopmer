@@ -52,6 +52,7 @@ glyphs! {
     MOON = "i-moon",
     DOWNLOAD = "i-download",
     SPARKLE = "i-sparkle",
+    PUBLISH = "i-publish",
 }
 
 /// Ink width of the drawing in 24-grid units, unless the symbol or the path says otherwise.
