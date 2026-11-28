@@ -247,6 +247,32 @@ Same panel, starting from the clean set. Phase B went 8.05 → 7.9 → 8.35 → 
   - The being-written row reads "Writing it · 0:03".
   - The paused-rows note says to press Show, then Stop.
 
+## Phase C, run 3: locked (2026-11-28, `dad/council3-c`)
+
+Phase C went 8.1 → 8.2 → 8.2 → 8.05, a plateau. The owner locked it. Still open, as features:
+- Import a question from its MyOpenMath link (the link carries the question ID, and D.A.D signs in to MyOpenMath).
+- Import code that has no question text.
+- Take SVG/PNG drops on Figures, with a cue.
+- A scroll cue inside long dropdowns.
+
+- **Focus is visible and lands where the next keystroke goes:**
+  - A focused text field has a 2 px edge (`selection.stroke`); hover is a 1 px edge, so it never reads as focus.
+  - After Ctrl+Enter raises the second Import box, the cursor moves into it.
+  - Both Import boxes (`mom_import_paste`, `mom_import_second`) and the key box have fixed ids, so focus survives rows coming and going.
+  [Jakob]
+- **Familiar shapes:**
+  - The dock's Share is the paper plane (`hand::PUBLISH`).
+  - Figures' search uses `kit::search_field`, with its magnifier.
+  - Settings' My Questions has the shelf icon.
+  - Home's import tile says "Pick or drop spreadsheets, quiz exports".
+  [Jakob]
+- **Forgiving input:**
+  - A pasted link's first step says to go to the question's editor, or to ask its author for its Common Control and Question Text boxes.
+  - An OpenRouter key in the Ollama box is named in the warning colour, with "or press Enter in the key box" and a line for anyone who meant Ollama Cloud.
+  - The header says "key not saved yet" once a key is typed.
+  [Postel]
+- **QA hook:** a scripted run reports window focus to its end.
+
 ## Choices already decided (don't reopen as new findings)
 
 - **D.A.D AI is gated** on `dad_ai_offered()`. Without a server it led to a dead-end server form. DeepSeek wanted it as the first chip whenever it's offered; it isn't first yet.
