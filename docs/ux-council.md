@@ -217,6 +217,36 @@ Push-to-8.5 run with Opus 5.5 and GPT-6.2 Sol, both at high. Phase A went 7.4 �
   - The step pills keep their look during a job (presses are ignored).
   - "or drop a photo" shows only when the AI is ready.
 
+## Phase B, run 3: locked (2026-11-28, `dad/council3-b`)
+
+Same panel, starting from the clean set. Phase B went 8.05 → 7.9 → 8.35 → 8.1. The owner kept round 3, minus its two changes both members disliked, so the final version wasn't regraded.
+
+- **Write's blocked line names what's missing:**
+  - Pick an AI.
+  - Paste your Ollama Cloud / OpenRouter key.
+  - Sign in to D.A.D.
+  - Use your pasted key with OpenRouter.
+  [Tesler: a blocked action says why and points at the fix]
+- **The Your AI key form starts with where to get a key** (the ollama.com or openrouter.ai link), then a field labelled for that AI ("Paste your Ollama key here"), with Show key on its label row. "needs a key" is in the warning colour. The field has a fixed id (`mom_ai_card_key`), so focus and Enter survive Show key appearing. The OpenRouter switch says it needs a few dollars of credit. [Tesler; Cognitive Load]
+- **Plain words:**
+  - Try it's heading is the short name, with the description on a quiet line.
+  - Try it's instruction is one line.
+  - The common check failure reads "The answer is wrong for every set of numbers tried." (`plain_problem`), in quiet text beside the red dot.
+  - The My Questions summary runs in row order (to fix, to review, ready).
+  [Cognitive Load; Miller]
+- **Step 3:** with a remembered place, it says only "Last added to …" and "Connect, and D.A.D picks it again." (it does).
+- **Share:** "Download N ready questions" (in MyOpenMath, or approved and passing) is filled. "Download all questions" is quieter and says it includes drafts.
+- **Settings:**
+  - A line under the AI chips says which are ready here and which need a key or sign-in.
+  - Other AIs are folded last.
+  - Back Up My Questions is filled, and the card says how to restore.
+  - The checkbox has 3:1 edges.
+- **Smaller changes:**
+  - Convert's Your AI card says "Worksheets are read by Codex on this computer."
+  - A disabled picture button says "This AI can't read pictures".
+  - The being-written row reads "Writing it · 0:03".
+  - The paused-rows note says to press Show, then Stop.
+
 ## Choices already decided (don't reopen as new findings)
 
 - **D.A.D AI is gated** on `dad_ai_offered()`. Without a server it led to a dead-end server form. DeepSeek wanted it as the first chip whenever it's offered; it isn't first yet.
