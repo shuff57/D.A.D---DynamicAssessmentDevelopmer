@@ -2364,7 +2364,8 @@ fn ai_card(ui: &mut Ui, st: &mut State, cfg: &crate::ai::AiCfg, chosen: bool) {
             let change = chosen && ready && !open;
             if !ready {
                 // A setup step, not an error: the warning colour, as Write's gate line uses.
-                let need = if cfg.provider == "account" { "needs you to sign in" } else { "needs a key" };
+                // Once a key is typed in, the card no longer says it needs one: it isn't saved yet.
+                let need = if cfg.provider == "account" { "needs you to sign in" } else if !st.ai_card_key.trim().is_empty() { "key not saved yet" } else { "needs a key" };
                 ui.label(RichText::new(need).color(theme::on_attention()).size(13.0));
             }
             // A real button at the card's edge, not a small link: it changes every question written.

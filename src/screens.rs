@@ -1599,7 +1599,8 @@ impl crate::App {
         let exam = (0, NavIcon::Plus, "New exam", "Start from a blank page", !fresh);
         let bank = (1, NavIcon::Banks, "New bank", "A shelf for questions", fresh);
         // Named for what it reads, so it doesn't sound like the dock's Import (question code).
-        let import = (2, NavIcon::Import, "Import into a question bank", "Spreadsheets, quiz exports, photos", false);
+        // Says files can be dropped here too (Home takes drops), so dragging one is no guess.
+        let import = (2, NavIcon::Import, "Import into a question bank", "Pick or drop spreadsheets, quiz exports", false);
         let tiles: [(usize, NavIcon, &str, &str, bool); 3] = if fresh { [bank, exam, import] } else { [exam, bank, import] };
         let mut tile_hit: Option<usize> = None;
         // A narrow window keeps the three actions on one row of equal compact tiles, so the
@@ -2391,7 +2392,8 @@ impl crate::App {
                 let items = [
                     pageshell::NavItem { icon: crate::handicons::SPARKLE, label: "AI" },
                     pageshell::NavItem { icon: egui_phosphor::regular::KEY, label: "MyOpenMath login" },
-                    pageshell::NavItem { icon: crate::handicons::DOWNLOAD, label: "My Questions" },
+                    // A shelf, not the download tray Import and Share use: one icon, one meaning.
+                    pageshell::NavItem { icon: crate::handicons::BANKS, label: "My Questions" },
                     pageshell::NavItem { icon: crate::handicons::HELP, label: "Help & community" },
                     pageshell::NavItem { icon: crate::handicons::PERSON, label: "D.A.D account (optional)" },
                 ];
