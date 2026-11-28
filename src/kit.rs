@@ -101,6 +101,36 @@ pub fn gated_reason(ui: &mut Ui, reason: &str) -> egui::Response {
     .response
 }
 
+/// `gated_reason` that is also the way to the fix: the line itself is pressed (an arrow after
+/// it, the pointer hand, an underline under the pointer), so no second line repeats it as a link.
+pub fn gated_reason_go(ui: &mut Ui, reason: &str) -> egui::Response {
+    let r = ui.horizontal(|ui| {
+        ui.spacing_mut().item_spacing.x = 6.0;
+        ui.label(RichText::new(egui_phosphor::regular::INFO).font(theme::icon_font(15.0)).color(warn_col()));
+        let t = ui.add(egui::Label::new(RichText::new(reason).family(theme::bold_family()).size(ty::META).color(warn_col())).wrap_mode(egui::TextWrapMode::Extend));
+        ui.label(RichText::new(egui_phosphor::regular::ARROW_RIGHT).font(theme::icon_font(14.0)).color(warn_col()));
+        t.rect
+    });
+    let resp = ui.interact(r.response.rect, ui.id().with(("gated_go", reason)), Sense::click()).on_hover_cursor(egui::CursorIcon::PointingHand);
+    if resp.hovered() {
+        let t = r.inner;
+        ui.painter().hline(t.x_range(), t.bottom() + 1.0, Stroke::new(1.0, warn_col()));
+    }
+    resp.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::Button, true, reason));
+    resp
+}
+
+/// A hint under a button that waits on an ordinary step (try it first, pick a change): quiet text
+/// with a neutral icon, so the warning colour stays for real blockers (a missing key, a busy AI).
+pub fn gated_hint(ui: &mut Ui, reason: &str) -> egui::Response {
+    ui.horizontal(|ui| {
+        ui.spacing_mut().item_spacing.x = 6.0;
+        ui.label(RichText::new(egui_phosphor::regular::INFO).font(theme::icon_font(15.0)).color(theme::muted_col()));
+        ui.add(egui::Label::new(RichText::new(reason).size(ty::META).color(theme::muted_col())).wrap_mode(egui::TextWrapMode::Extend));
+    })
+    .response
+}
+
 /// A field that gates a button and is still empty wears an accent ring, so the eye goes to the step
 /// that is missing. Call with the field's response after adding it.
 pub fn attention_ring(ui: &Ui, field: &egui::Response) {

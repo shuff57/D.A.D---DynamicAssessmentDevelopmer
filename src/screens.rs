@@ -1262,13 +1262,13 @@ fn dock_item(
     // flag for it (`WidgetInfo::selected`) makes every item a toggle button.
     resp.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::Button, ui.is_enabled(), label));
     if active {
-        ui.painter().rect_filled(rect, CornerRadius::same(13), theme::highlighter());
+        ui.painter().rect_filled(rect, CornerRadius::same(13), theme::dock_active());
     } else if resp.hovered() {
         ui.painter().rect_filled(rect, CornerRadius::same(13), theme::dock_text().gamma_multiply(0.12));
     }
     dock_focus_ring(ui, rect, &resp);
     let (icon_c, text_c) = if active {
-        (theme::on_highlighter(), theme::on_highlighter())
+        (theme::on_dock_active(), theme::on_dock_active())
     } else {
         (theme::dock_text(), theme::dock_text())
     };

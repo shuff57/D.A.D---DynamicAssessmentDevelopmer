@@ -51,7 +51,8 @@ fn popup_modal(ctx: &egui::Context) -> Outcome {
                 kit::small_caps(ui, "Alpha");
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                     let x = ui.add(egui::Button::new(egui::RichText::new(egui_phosphor::regular::X).font(theme::icon_font(16.0)).color(theme::muted_col()))
-                        .frame(false).min_size(egui::vec2(32.0, 32.0)));
+                        // A visible round target, not a bare glyph in the corner.
+                        .fill(theme::hover_bg()).corner_radius(16).min_size(egui::vec2(32.0, 32.0)));
                     x.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::Button, true, "Close"));
                     if x.on_hover_text("Close").clicked() { out = Outcome::Closed; }
                 });
