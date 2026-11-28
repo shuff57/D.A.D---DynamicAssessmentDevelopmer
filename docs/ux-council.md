@@ -273,6 +273,30 @@ Phase C went 8.1 → 8.2 → 8.2 → 8.05, a plateau. The owner locked it. Still
   [Postel]
 - **QA hook:** a scripted run reports window focus to its end.
 
+## Phase D, run 3: locked (2026-11-28, `dad/council3-d`)
+
+Phase D went 8.15 → 8.3 → 8.2 → 8.1. The owner kept round 3 with four fixes: the locked caption wording back, a solid pinned header, Back to It and Dismiss on the failed row, and a ring spinner. That final version wasn't regraded. Marked images: `~/.cache/dad-ux-council/2026-11-27/phase-d/fix/`.
+
+- **The writing card:**
+  - The bar creeps on within a stage with time, never past 85 % of the stage.
+  - Under the bar: "N of 3 stages done · m:ss so far". This is the run-2 wording with the time added, not "Stage N of 3".
+  - The current stage's mark is a turning three-quarter ring of fixed length, so it never shows as a dot.
+  [Doherty; Goal-Gradient]
+- **My Questions:**
+  - Questions in MyOpenMath show a ✔, not the waiting dot (also in Share).
+  - Each count is a link to the first question of its group.
+  - The counts fill lines by measured width, so no "·" starts or ends a line.
+  - Needs review rows say "Try it as a student, then approve it."
+  - Opening a saved question scrolls the list back to its top.
+  [Goal-Gradient; Zeigarnik]
+- **Pinned totals:** while My Questions is scrolled, its done count and what's left (in the list's own words, on two lines) sit in a solid header. The header has the card's outline and a hairline under it, and a short fade below where rows pass beneath. [Goal-Gradient]
+- **A failed write is unfinished work:**
+  - It heads My Questions as "Not written yet", with the first sentence of why and a "N not written yet" count link.
+  - Its "Back to It" button goes to the description, where Write My Question is the one retry.
+  - A quiet Dismiss clears the row and the message, and keeps the description.
+  [Zeigarnik; Peak-End]
+- **The finish** says the question is also kept in My Questions, marked In MyOpenMath. [Peak-End]
+
 ## Choices already decided (don't reopen as new findings)
 
 - **D.A.D AI is gated** on `dad_ai_offered()`. Without a server it led to a dead-end server form. DeepSeek wanted it as the first chip whenever it's offered; it isn't first yet.
