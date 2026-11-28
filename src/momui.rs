@@ -1807,18 +1807,33 @@ fn column(ui: &mut Ui, salt: &str, add: impl FnOnce(&mut Ui)) {
         let bg = ui.visuals().panel_fill;
         let p = ui.painter();
         let lines: Vec<&str> = sticky.as_deref().map(|s| s.lines().filter(|l| !l.is_empty()).collect()).unwrap_or_default();
-        let band = if lines.is_empty() { 0.0 } else { 10.0 + 18.0 * lines.len() as f32 };
+        let band = if lines.is_empty() { 0.0 } else { 12.0 + 18.0 * lines.len() as f32 };
         if !lines.is_empty() {
-            p.rect_filled(egui::Rect::from_min_size(r.min, egui::vec2(r.width(), band)), 0.0, bg);
+            // A solid header with a hairline under it, so the rows plainly pass beneath it
+            // instead of showing half-faded behind its text.
+            let card = theme::card();
+            // The card's own outline continues round the header (its top scrolled away).
+            let head = egui::Rect::from_min_size(r.min, egui::vec2(r.width(), band));
+            let round = egui::CornerRadius { nw: 12, ne: 12, sw: 0, se: 0 };
+            p.rect_filled(head, round, card);
+            p.with_clip_rect(head.expand2(egui::vec2(1.0, 0.0))).rect_stroke(head.with_max_y(head.bottom() + 20.0), round, egui::Stroke::new(1.0, theme::edge()), egui::StrokeKind::Inside);
+            p.hline(head.x_range().shrink(21.0), head.bottom(), egui::Stroke::new(1.0, theme::edge()));
+            // A short fade under the line, so a row cut there softens instead of slicing.
+            for i in 0..8 {
+                let a = (255.0 * (1.0 - i as f32 / 8.0)) as u8;
+                let c = egui::Color32::from_rgba_unmultiplied(card.r(), card.g(), card.b(), a);
+                p.rect_filled(egui::Rect::from_min_size(egui::pos2(r.left() + 1.0, head.bottom() + 1.0 + i as f32 * 1.5), egui::vec2(r.width() - 2.0, 1.5)), 0.0, c);
+            }
             // In line with the rows' content (inside the card's padding).
             for (i, line) in lines.iter().enumerate() {
-                p.text(egui::pos2(r.left() + 21.0, r.top() + 14.0 + 18.0 * i as f32), egui::Align2::LEFT_CENTER, *line, egui::FontId::new(12.5, theme::semibold()), theme::text_col());
+                p.text(egui::pos2(r.left() + 21.0, r.top() + 15.0 + 18.0 * i as f32), egui::Align2::LEFT_CENTER, *line, egui::FontId::new(12.5, theme::semibold()), theme::text_col());
             }
-        }
-        for i in 0..12 {
-            let a = (230.0 * (1.0 - i as f32 / 12.0)) as u8;
-            let c = egui::Color32::from_rgba_unmultiplied(bg.r(), bg.g(), bg.b(), a);
-            p.rect_filled(egui::Rect::from_min_size(egui::pos2(r.left(), r.top() + band + i as f32 * 2.0), egui::vec2(r.width(), 2.0)), 0.0, c);
+        } else {
+            for i in 0..12 {
+                let a = (230.0 * (1.0 - i as f32 / 12.0)) as u8;
+                let c = egui::Color32::from_rgba_unmultiplied(bg.r(), bg.g(), bg.b(), a);
+                p.rect_filled(egui::Rect::from_min_size(egui::pos2(r.left(), r.top() + i as f32 * 2.0), egui::vec2(r.width(), 2.0)), 0.0, c);
+            }
         }
     }
     let more = out.state.offset.y + out.inner_rect.height() < out.content_size.y - 4.0;
@@ -3231,9 +3246,9 @@ fn writing(ui: &mut Ui, st: &State) -> bool {
         let within = if stage < names.len() { (1.0 - (-elapsed / 12.0).exp()).min(0.85) } else { 0.0 };
         ui.add(egui::ProgressBar::new((stage as f32 + within) / names.len() as f32).desired_width(320.0).desired_height(8.0)
             .fill(theme::accent_col()).corner_radius(3.0));
-        // Which stage, and the time so far, right by the bar (the bar's fill is the stage under way).
+        // How many stages are done (the locked wording) and the time so far, right by the bar.
         let el = elapsed as u64;
-        ui.label(theme::muted(format!("Stage {} of {} · {}:{:02} so far", (stage + 1).min(names.len()), names.len(), el / 60, el % 60)).size(12.5));
+        ui.label(theme::muted(format!("{} of {} stages done · {}:{:02} so far", stage.min(names.len()), names.len(), el / 60, el % 60)).size(12.5));
         for (i, name) in names.iter().enumerate() {
             ui.horizontal(|ui| {
                 // One 18 px slot for the mark, so the three names share a left edge.
@@ -3242,7 +3257,12 @@ fn writing(ui: &mut Ui, st: &State) -> bool {
                     ui.painter().text(slot.center(), egui::Align2::CENTER_CENTER, "✔", egui::FontId::proportional(14.0), theme::green());
                     ui.label(theme::muted(*name).size(14.0));
                 } else if i == stage {
-                    egui::Spinner::new().size(18.0).paint_at(ui, slot.expand(1.0));
+                    // A three-quarter ring that turns: its length never changes, so no moment of
+                    // it reads as a dot (egui's spinner shrinks to one mid-cycle).
+                    let t = ui.input(|i| i.time) as f32 * 4.0;
+                    let pts: Vec<egui::Pos2> = (0..=24).map(|k| { let a = t + k as f32 / 24.0 * 4.7; slot.center() + 7.0 * egui::vec2(a.cos(), a.sin()) }).collect();
+                    ui.painter().add(egui::Shape::line(pts, egui::Stroke::new(2.2, theme::accent_col())));
+                    ui.ctx().request_repaint();
                     ui.label(theme::strong(*name).size(15.0));
                 } else {
                     ui.painter().circle_stroke(slot.center(), 4.5, egui::Stroke::new(1.2, theme::muted_col()));
@@ -4035,11 +4055,31 @@ fn side(ui: &mut Ui, ctx: &egui::Context, st: &mut State) {
         // A write that failed counts as unfinished work too (it heads the list; the link goes there).
         if not_written > 0 { parts.insert(0, (9, format!("{not_written} not written yet"))); }
         if !parts.is_empty() && st.library.questions.len() > 1 {
-            ui.horizontal_wrapped(|ui| {
-                ui.spacing_mut().item_spacing.x = 4.0;
-                for (i, (group, text)) in parts.iter().enumerate() {
-                    if i > 0 { ui.label(theme::muted("·").size(12.5)); }
-                    if crate::kit::link(ui, text, true).on_hover_text("Go to the first one").clicked() { st.jump_to_group = Some(*group); }
+            // Lines are filled by measured width, so a separator never ends or starts a line.
+            let max_w = ui.available_width();
+            let w_of = |ui: &Ui, t: &str| ui.painter().layout_no_wrap(t.to_owned(), egui::FontId::new(crate::kit::ty::META, theme::semibold()), theme::accent_col()).size().x + 17.0;
+            let sep_w = 14.0;
+            let mut lines: Vec<Vec<usize>> = vec![Vec::new()];
+            let mut used = 0.0;
+            for (i, (_, text)) in parts.iter().enumerate() {
+                let w = w_of(ui, text);
+                let cur = lines.last_mut().unwrap();
+                if !cur.is_empty() && used + sep_w + w > max_w { lines.push(vec![i]); used = w; }
+                else { used += if cur.is_empty() { w } else { sep_w + w }; cur.push(i); }
+            }
+            ui.scope(|ui| {
+                // Rows the height of the links, not of a button.
+                ui.spacing_mut().interact_size.y = 18.0;
+                ui.spacing_mut().item_spacing.y = 4.0;
+                for line in lines {
+                    ui.horizontal(|ui| {
+                        ui.spacing_mut().item_spacing.x = 4.0;
+                        for (k, &i) in line.iter().enumerate() {
+                            if k > 0 { ui.label(theme::muted("·").size(12.5)); }
+                            let (group, text) = &parts[i];
+                            if crate::kit::link(ui, text, true).on_hover_text("Go to the first one").clicked() { st.jump_to_group = Some(*group); }
+                        }
+                    });
                 }
             });
         }
@@ -4061,8 +4101,13 @@ fn side(ui: &mut Ui, ctx: &egui::Context, st: &mut State) {
                 crate::kit::status_tag_w(ui, "Not written yet", theme::on_attention(), 112.0);
                 ui.add_space(8.0);
                 // Back to the description, where Write My Question is the one retry.
-                if crate::kit::secondary(ui, "Show", 32.0).on_hover_text("Go back to the description; press Write My Question to try again").clicked() {
+                if crate::kit::secondary(ui, "Back to It", 32.0).on_hover_text("Go back to the description; press Write My Question to try again").clicked() {
                     request_destination(ui.ctx(), Destination::Questions);
+                }
+                ui.add_space(6.0);
+                // Not wanted after all: the row and the message go; the description stays in the box.
+                if crate::kit::link(ui, "Dismiss", false).on_hover_text("Remove this row and the error message (the description stays in the box)").clicked() {
+                    st.error = None;
                 }
             });
         }
