@@ -639,15 +639,18 @@ fn share_questions(ui: &mut Ui, st: &mut State) {
                 let ready: Vec<Saved> = st.library.questions.iter()
                     .filter(|s| st.published.as_ref().is_some_and(|p| p.contains(&s.id)) || (s.reviewed && s.passed))
                     .cloned().collect();
-                ui.horizontal_wrapped(|ui| {
+                ui.horizontal_top(|ui| {
                     if pageshell::primary_on(ui, &format!("Download {} ready question{}", ready.len(), if ready.len() == 1 { "" } else { "s" }), !ready.is_empty()).clicked() && !ready.is_empty() {
                         export_ready = Some(ready.clone());
                     }
-                    if pageshell::outline(ui, "Download all questions").clicked() {
-                        export = Some(st.library.questions.as_slice());
-                    }
+                    // The note sits under the button it describes.
+                    ui.vertical(|ui| {
+                        if pageshell::outline(ui, "Download all questions").clicked() {
+                            export = Some(st.library.questions.as_slice());
+                        }
+                        ui.label(theme::muted("Includes drafts still being fixed or reviewed.").size(12.0));
+                    });
                 });
-                ui.add(egui::Label::new(theme::muted("All includes questions that still need review or fixing.").size(12.0)).wrap());
             }
             if st.published.is_none() { st.published = Some(published_ids()); }
             let published = st.published.clone().unwrap_or_default();
@@ -1889,8 +1892,9 @@ fn count_pill(ui: &mut Ui, text: &str) -> egui::Response {
     let g = ui.painter().layout_no_wrap(text.to_owned(), egui::FontId::new(crate::kit::ty::META, theme::semibold()), col);
     let (rect, resp) = ui.allocate_exact_size(egui::vec2((g.size().x + 17.0 + 20.0).ceil(), 28.0), egui::Sense::click());
     let resp = resp.on_hover_cursor(egui::CursorIcon::PointingHand);
-    let fill = if resp.hovered() { theme::hover_bg() } else { theme::accent_col().gamma_multiply(0.07) };
-    ui.painter().rect(rect, 14.0, fill, egui::Stroke::new(1.0, theme::accent_col().gamma_multiply(0.25)), egui::StrokeKind::Inside);
+    // The card fill with an accent outline, like Open: a grey fill read as unavailable.
+    let fill = if resp.hovered() { theme::hover_bg() } else { theme::card() };
+    ui.painter().rect(rect, 14.0, fill, egui::Stroke::new(1.0, theme::accent_col()), egui::StrokeKind::Inside);
     ui.painter().galley(egui::pos2(rect.left() + 10.0, rect.center().y - g.size().y / 2.0), g, col);
     crate::handicons::paint_glyph(ui.painter(), egui::pos2(rect.right() - 16.5, rect.center().y + 0.5), egui_phosphor::regular::ARROW_RIGHT, 13.0, col);
     resp.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::Button, true, text));
@@ -2965,7 +2969,7 @@ fn describe(ui: &mut Ui, ctx: &egui::Context, st: &mut State, cfg: &crate::ai::A
             if picture_blocked && st.topic_image.is_none() {
                 ui.label(theme::muted("This AI can't read pictures").size(12.0));
                 // The way forward, not only the reason: Your AI opens with the other choices.
-                if crate::kit::link(ui, "Change AI", false).on_hover_text("Open Your AI to pick one that reads pictures").clicked() {
+                if crate::kit::quiet_link_h(ui, "Change AI", 32.0).on_hover_text("Open Your AI to pick one that reads pictures").clicked() {
                     st.ai_open = true;
                 }
             }
@@ -3051,14 +3055,14 @@ fn describe(ui: &mut Ui, ctx: &egui::Context, st: &mut State, cfg: &crate::ai::A
             let reveal = egui::Id::new("mom_more_options_reveal");
             let r = egui::CollapsingHeader::new(theme::strong(more).size(14.0)).id_salt("mom_more_options").show(ui, |ui| {
                 more_options(ui, st);
-                // Just opened: scroll so what it holds is in view (its last controls sat under
-                // the fold), for as long as the opening takes.
-                let now = ui.input(|i| i.time);
-                if ui.ctx().data(|d| d.get_temp::<f64>(reveal)).is_some_and(|t| now - t < 0.5) {
-                    ui.scroll_to_cursor(Some(egui::Align::Max));
-                    ui.ctx().request_repaint();
-                }
             });
+            // Just opened: scroll so the heading sits at the top and what it holds fills the view
+            // below it (its controls sat under the fold), for as long as the opening takes.
+            let now = ui.input(|i| i.time);
+            if ui.ctx().data(|d| d.get_temp::<f64>(reveal)).is_some_and(|t| now - t < 0.5) {
+                r.header_response.scroll_to_me(Some(egui::Align::Min));
+                ui.ctx().request_repaint();
+            }
             if r.header_response.clicked() && r.openness < 0.5 {
                 let now = ui.input(|i| i.time);
                 ui.ctx().data_mut(|d| d.insert_temp(reveal, now));
@@ -4248,12 +4252,23 @@ fn side(ui: &mut Ui, ctx: &egui::Context, st: &mut State) {
         let mut order: Vec<usize> = (0..st.library.questions.len()).collect();
         order.sort_by_key(|&i| rank(&st.library.questions[i]));
         let on_screen = st.current.as_ref().and_then(|c| c.saved_id.clone());
+        // Each group under a quiet heading in the counts' own words, so where a group starts is
+        // read once, not worked out from each row's dot (as Share's lists are labelled).
+        let heads = [("To fix", fix), ("To review", review), ("Ready to add", ready), ("In MyOpenMath", done)];
+        let mut last_rank: Option<u8> = None;
         for s in order.iter().map(|&i| &st.library.questions[i]) {
             // A count above was pressed: bring the first question of its group into view.
             if st.jump_to_group == Some(rank(s)) {
                 st.jump_to_group = None;
                 ui.scroll_to_cursor(Some(egui::Align::Min));
             }
+            let first_of_group = last_rank != Some(rank(s));
+            if first_of_group && st.library.questions.len() > 1 {
+                let (head, n) = heads[rank(s) as usize];
+                ui.add_space(if last_rank.is_none() { 12.0 } else { 18.0 });
+                ui.label(RichText::new(format!("{head} ({n})")).family(theme::bold_family()).size(11.5).color(theme::muted_col()));
+            }
+            last_rank = Some(rank(s));
             let q = MomQuestion::parse(&s.src);
             let name = if q.name.is_empty() { "Untitled question".to_string() } else { q.name.clone() };
             // MyOpenMath's "Name - Description": the name is what tells rows apart, so it leads and
@@ -4261,10 +4276,15 @@ fn side(ui: &mut Ui, ctx: &egui::Context, st: &mut State) {
             let (title, about) = name.split_once(" - ").map_or((name.as_str(), ""), |(t, a)| (t.trim(), a.trim()));
             // Entries apart from each other by clearly more than an entry's own lines are, with a
             // hairline between them, so each row reads as one unit.
-            ui.add_space(10.0);
-            let (line, _) = ui.allocate_exact_size(egui::vec2(ui.available_width(), 1.0), egui::Sense::hover());
-            ui.painter().hline(line.x_range(), line.center().y, egui::Stroke::new(1.0, theme::border()));
-            ui.add_space(10.0);
+            // A group's first row sits under its heading; the hairline goes between rows.
+            if first_of_group && st.library.questions.len() > 1 {
+                ui.add_space(4.0);
+            } else {
+                ui.add_space(10.0);
+                let (line, _) = ui.allocate_exact_size(egui::vec2(ui.available_width(), 1.0), egui::Sense::hover());
+                ui.painter().hline(line.x_range(), line.center().y, egui::Stroke::new(1.0, theme::border()));
+                ui.add_space(10.0);
+            }
             ui.add(egui::Label::new(theme::strong(title).size(14.0)).wrap());
             if !about.is_empty() {
                 ui.add(egui::Label::new(theme::muted(about).size(12.0)).wrap());

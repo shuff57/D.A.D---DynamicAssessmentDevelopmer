@@ -736,6 +736,22 @@ pub fn link(ui: &mut Ui, label: &str, arrow: bool) -> egui::Response {
     link_h(ui, label, arrow, 18.0)
 }
 
+/// A link in the quiet text colour (accent under the pointer), on a `min_h` hit row: a way round
+/// that sits beside the main action without competing with it.
+pub fn quiet_link_h(ui: &mut Ui, label: &str, min_h: f32) -> egui::Response {
+    // Laid out with the placeholder colour, so the paint below picks the colour per state.
+    let galley = ui.painter().layout_no_wrap(label.to_owned(), FontId::new(ty::META, theme::semibold()), Color32::PLACEHOLDER);
+    let size = galley.size();
+    let (rect, resp) = ui.allocate_exact_size(Vec2::new(size.x.ceil(), size.y.max(min_h)), Sense::click());
+    let resp = resp.on_hover_cursor(egui::CursorIcon::PointingHand);
+    let col = if resp.hovered() { theme::accent_col() } else { theme::muted_col() };
+    let top = rect.center().y - size.y / 2.0;
+    ui.painter().galley(Pos2::new(rect.left(), top), galley, col);
+    ui.painter().hline(rect.left()..=rect.left() + size.x, top + size.y, Stroke::new(1.0, col.gamma_multiply(if resp.hovered() { 1.0 } else { 0.5 })));
+    resp.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::Link, true, label));
+    resp
+}
+
 /// `link` whose hit row is at least `min_h` tall (the text stays centred), for links that are
 /// pressed often and sit in a row of their own, so they are not a 16 px target.
 pub fn link_h(ui: &mut Ui, label: &str, arrow: bool, min_h: f32) -> egui::Response {
