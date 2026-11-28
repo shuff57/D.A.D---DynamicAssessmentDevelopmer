@@ -1799,14 +1799,22 @@ fn column(ui: &mut Ui, salt: &str, add: impl FnOnce(&mut Ui)) {
     let out = crate::kit::quiet_scroll_area(ui, area, add);
     // Scrolled down, the top edge fades into the page, so a card cut there reads as scrolled
     // past, not broken (the bottom has its More below cue).
+    // A column may pin a one-line summary over that edge while scrolled (My Questions: its done
+    // count and what is left), so the totals stay in view while the rows scroll under them.
+    let sticky = ui.ctx().data(|d| d.get_temp::<String>(egui::Id::new((salt, "sticky"))));
     if out.state.offset.y > 2.0 {
         let r = out.inner_rect;
         let bg = ui.visuals().panel_fill;
         let p = ui.painter();
+        let band = if sticky.is_some() { 26.0 } else { 0.0 };
+        if let Some(text) = &sticky {
+            p.rect_filled(egui::Rect::from_min_size(r.min, egui::vec2(r.width(), band)), 0.0, bg);
+            p.text(egui::pos2(r.left() + 6.0, r.top() + band / 2.0), egui::Align2::LEFT_CENTER, text, egui::FontId::new(12.5, theme::semibold()), theme::text_col());
+        }
         for i in 0..12 {
             let a = (230.0 * (1.0 - i as f32 / 12.0)) as u8;
             let c = egui::Color32::from_rgba_unmultiplied(bg.r(), bg.g(), bg.b(), a);
-            p.rect_filled(egui::Rect::from_min_size(egui::pos2(r.left(), r.top() + i as f32 * 2.0), egui::vec2(r.width(), 2.0)), 0.0, c);
+            p.rect_filled(egui::Rect::from_min_size(egui::pos2(r.left(), r.top() + band + i as f32 * 2.0), egui::vec2(r.width(), 2.0)), 0.0, c);
         }
     }
     let more = out.state.offset.y + out.inner_rect.height() < out.content_size.y - 4.0;
@@ -3216,8 +3224,8 @@ fn writing(ui: &mut Ui, st: &State) -> bool {
         // Within a stage the bar creeps on with time (never past 85 % of the stage), so a long first
         // stage doesn't sit at one dot looking stalled; the words stay exact.
         let elapsed = (ui.input(|i| i.time) - st.write_started).max(0.0) as f32;
-        let within = if stage < names.len() { (1.0 - (-elapsed / 25.0).exp()).min(0.85) } else { 0.0 };
-        ui.add(egui::ProgressBar::new((stage as f32 + within) / names.len() as f32).desired_width(260.0).desired_height(6.0)
+        let within = if stage < names.len() { (1.0 - (-elapsed / 12.0).exp()).min(0.85) } else { 0.0 };
+        ui.add(egui::ProgressBar::new((stage as f32 + within) / names.len() as f32).desired_width(320.0).desired_height(8.0)
             .fill(theme::accent_col()).corner_radius(3.0));
         ui.label(theme::muted(format!("{stage} of {} stages done", names.len())).size(12.5));
         for (i, name) in names.iter().enumerate() {
@@ -3228,7 +3236,7 @@ fn writing(ui: &mut Ui, st: &State) -> bool {
                     ui.painter().text(slot.center(), egui::Align2::CENTER_CENTER, "✔", egui::FontId::proportional(14.0), theme::green());
                     ui.label(theme::muted(*name).size(14.0));
                 } else if i == stage {
-                    egui::Spinner::new().size(14.0).paint_at(ui, slot.shrink(2.0));
+                    egui::Spinner::new().size(18.0).paint_at(ui, slot.expand(1.0));
                     ui.label(theme::strong(*name).size(15.0));
                 } else {
                     ui.painter().circle_stroke(slot.center(), 4.5, egui::Stroke::new(1.2, theme::muted_col()));
@@ -3250,7 +3258,7 @@ fn writing(ui: &mut Ui, st: &State) -> bool {
             format!("Taking longer than usual ({}:{:02}). The AI is still working; it keeps going while you use Import, Share, Figures or Settings.", secs / 60, secs % 60)
         } else {
             ui.ctx().request_repaint_after(std::time::Duration::from_secs(1));
-            "This usually takes between 10 seconds and a minute. It keeps going while you use Import, Share, Figures or Settings.".to_string()
+            format!("{}:{:02} so far. This usually takes between 10 seconds and a minute. It keeps going while you use Import, Share, Figures or Settings.", secs / 60, secs % 60)
         };
         ui.add(egui::Label::new(theme::muted(timing).size(13.0)).wrap());
         if let Some(note) = &st.wait_note {
@@ -4004,6 +4012,13 @@ fn side(ui: &mut Ui, ctx: &egui::Context, st: &mut State) {
         let total = st.library.questions.len();
         if done > 0 { ui.label(RichText::new(format!("✔ {done} of {total} in MyOpenMath")).color(theme::green()).size(12.5)); }
         // In the rows' own order (to fix, to review, ready), so the counts map straight onto them.
+        // The same totals, pinned over the column's top while it is scrolled (see `column`).
+        {
+            // Short enough for the narrow column.
+            let mut summary = format!("✔ {done} of {} added", st.library.questions.len());
+            for (n, what) in [(fix, "to fix"), (review, "to review"), (ready, "ready")] { if n > 0 { summary.push_str(&format!(" · {n} {what}")); } }
+            ui.ctx().data_mut(|d| d.insert_temp(egui::Id::new(("mom_side", "sticky")), summary));
+        }
         // Each count is a link to its first question, so picking up the next one isn't a scan.
         let parts: Vec<(u8, String)> = [(0u8, fix, "to fix"), (1, review, "to review"), (2, ready, "ready to add")]
             .into_iter().filter(|(_, n, _)| *n > 0).map(|(g, n, what)| (g, format!("{n} {what}"))).collect();
@@ -4012,7 +4027,24 @@ fn side(ui: &mut Ui, ctx: &egui::Context, st: &mut State) {
                 ui.spacing_mut().item_spacing.x = 4.0;
                 for (i, (group, text)) in parts.iter().enumerate() {
                     if i > 0 { ui.label(theme::muted("·").size(12.5)); }
-                    if crate::kit::link(ui, text, false).on_hover_text("Go to the first one").clicked() { st.jump_to_group = Some(*group); }
+                    if crate::kit::link(ui, text, true).on_hover_text("Go to the first one").clicked() { st.jump_to_group = Some(*group); }
+                }
+            });
+        }
+        // A write that failed (a busy AI, a dropped connection) is unfinished work too: its request
+        // heads the list with Try Again, so it isn't only on the form that happens to be open.
+        if !busy(st) && st.current.is_none() && st.error.is_some() && !st.form.topic_text.trim().is_empty() {
+            ui.add_space(10.0);
+            let asked = st.form.topic_text.trim();
+            let title: String = asked.chars().take(60).collect::<String>() + if asked.chars().count() > 60 { "…" } else { "" };
+            ui.add(egui::Label::new(theme::strong(title).size(14.0)).wrap());
+            ui.horizontal(|ui| {
+                crate::kit::status_tag_w(ui, "Not written yet", theme::on_attention(), 112.0);
+                ui.add_space(8.0);
+                if crate::kit::secondary(ui, "Try Again", 32.0).clicked() {
+                    st.error = None;
+                    st.write_now = true;
+                    request_destination(ui.ctx(), Destination::Questions);
                 }
             });
         }
@@ -4076,6 +4108,10 @@ fn side(ui: &mut Ui, ctx: &egui::Context, st: &mut State) {
                 ui.add(egui::Label::new(theme::muted(source).size(12.0)).wrap());
             }
             // What failed, on the row, so the teacher can choose which to take on without opening each.
+            // What is left on a question that waits for review, as the fix rows say what failed.
+            if s.passed && !s.reviewed && !published.contains(&s.id) {
+                ui.add(egui::Label::new(theme::muted("Try it as a student, then approve it.").size(12.0)).wrap());
+            }
             if !s.passed && !s.needs_check && let Some(problem) = s.problems.first() {
                 let problem = plain_problem(problem);
                 let short: String = problem.chars().take(160).collect();
