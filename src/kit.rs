@@ -295,6 +295,17 @@ pub fn status_tag_w(ui: &mut Ui, label: &str, color: Color32, min_w: f32) -> egu
     .response
 }
 
+/// [`status_tag_w`] for finished work: a tick where the dot would be.
+pub fn status_done_w(ui: &mut Ui, label: &str, color: Color32, min_w: f32) -> egui::Response {
+    ui.horizontal(|ui| {
+        ui.set_min_width(min_w);
+        ui.spacing_mut().item_spacing.x = 5.0;
+        ui.label(RichText::new("✔").color(color).size(12.5));
+        ui.label(RichText::new(label).family(theme::semibold()).size(12.5).color(color));
+    })
+    .response
+}
+
 pub fn pill(ui: &mut Ui, label: &str, fill: Color32, fg: Color32) -> egui::Response {
     pill_with(ui, label, fill, fg, egui::TextWrapMode::Wrap)
 }

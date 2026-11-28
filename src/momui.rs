@@ -664,7 +664,7 @@ fn share_questions(ui: &mut Ui, st: &mut State) {
                         // Its state, as in My Questions, so a question that needs fixing isn't sent
                         // on by mistake.
                         let (status, color) = share_status(draft, &published);
-                        crate::kit::status_tag(ui, status, color);
+                        if published.contains(&draft.id) { crate::kit::status_done_w(ui, status, color, 0.0); } else { crate::kit::status_tag(ui, status, color); }
                         // Download right after what it downloads, not across the full width.
                         // Share only downloads: opening a question is My Questions' job.
                         ui.add_space(8.0);
@@ -888,6 +888,10 @@ struct State {
     import_original: Option<String>,
     /// The Import hint just appeared: put the cursor in its second box, where the next paste goes.
     import_focus_second: bool,
+    /// A saved question was just opened: scroll My Questions back to its top.
+    side_to_top: bool,
+    /// A My Questions count was pressed: scroll to the first question of that group (0 fix, 1 review, 2 ready).
+    jump_to_group: Option<u8>,
     /// "Keep my current AI" was pressed.
     ai_keep: bool,
     /// The first-open check that picks a working AI by itself has run.
@@ -1732,6 +1736,9 @@ fn page(ui: &mut Ui, ctx: &egui::Context, st: &mut State, cfg: &crate::ai::AiCfg
             ui.add_space(16.0);
             ui.allocate_ui_with_layout(egui::vec2(side_w, ui.available_height()), egui::Layout::top_down(egui::Align::Min), |ui| {
                 ui.spacing_mut().item_spacing.x = spacing;
+                if std::mem::take(&mut st.side_to_top) {
+                    ui.ctx().data_mut(|d| d.insert_temp(egui::Id::new(("mom_side", "more_below_jump")), 0.0f32));
+                }
                 column(ui, "mom_side", |ui| side_column(ui, ctx, st, cfg, chosen));
             });
         });
@@ -3206,7 +3213,11 @@ fn writing(ui: &mut Ui, st: &State) -> bool {
         let stage = write_stage(st);
         let names = [if revising { "Rewrite it" } else { "Write it" }, "Test it with 3 sets of random numbers", "Ready to try"];
         // A bar for how much is done (not "Step 1 of 3", which the page's own steps already say).
-        ui.add(egui::ProgressBar::new(stage as f32 / names.len() as f32).desired_width(260.0).desired_height(6.0)
+        // Within a stage the bar creeps on with time (never past 85 % of the stage), so a long first
+        // stage doesn't sit at one dot looking stalled; the words stay exact.
+        let elapsed = (ui.input(|i| i.time) - st.write_started).max(0.0) as f32;
+        let within = if stage < names.len() { (1.0 - (-elapsed / 25.0).exp()).min(0.85) } else { 0.0 };
+        ui.add(egui::ProgressBar::new((stage as f32 + within) / names.len() as f32).desired_width(260.0).desired_height(6.0)
             .fill(theme::accent_col()).corner_radius(3.0));
         ui.label(theme::muted(format!("{stage} of {} stages done", names.len())).size(12.5));
         for (i, name) in names.iter().enumerate() {
@@ -3936,6 +3947,9 @@ fn manual_copy(ui: &mut Ui, st: &mut State, fields: &[(&str, String, &str)], men
 }
 
 fn open_saved(st: &mut State, saved: Saved) {
+    // The list goes back to its top, so its heading and done count are in view at the question's
+    // finish (it stayed wherever the teacher had scrolled to find the row).
+    st.side_to_top = true;
     st.tool_page = None;
     st.add_elsewhere = false;
     #[cfg(not(target_arch = "wasm32"))]
@@ -3990,9 +4004,18 @@ fn side(ui: &mut Ui, ctx: &egui::Context, st: &mut State) {
         let total = st.library.questions.len();
         if done > 0 { ui.label(RichText::new(format!("✔ {done} of {total} in MyOpenMath")).color(theme::green()).size(12.5)); }
         // In the rows' own order (to fix, to review, ready), so the counts map straight onto them.
-        let parts: Vec<String> = [(fix, "to fix"), (review, "to review"), (ready, "ready to add")]
-            .into_iter().filter(|(n, _)| *n > 0).map(|(n, what)| format!("{n} {what}")).collect();
-        if !parts.is_empty() && st.library.questions.len() > 1 { ui.label(theme::muted(parts.join(" · ")).size(12.5)); }
+        // Each count is a link to its first question, so picking up the next one isn't a scan.
+        let parts: Vec<(u8, String)> = [(0u8, fix, "to fix"), (1, review, "to review"), (2, ready, "ready to add")]
+            .into_iter().filter(|(_, n, _)| *n > 0).map(|(g, n, what)| (g, format!("{n} {what}"))).collect();
+        if !parts.is_empty() && st.library.questions.len() > 1 {
+            ui.horizontal_wrapped(|ui| {
+                ui.spacing_mut().item_spacing.x = 4.0;
+                for (i, (group, text)) in parts.iter().enumerate() {
+                    if i > 0 { ui.label(theme::muted("·").size(12.5)); }
+                    if crate::kit::link(ui, text, false).on_hover_text("Go to the first one").clicked() { st.jump_to_group = Some(*group); }
+                }
+            });
+        }
         // A question being written is unfinished work too: it heads the list, with the way back to it.
         let writing_now = st.job.lock().map(|j| j.busy && matches!(j.what, "Writing" | "Revising")).unwrap_or(false);
         if writing_now {
@@ -4026,6 +4049,11 @@ fn side(ui: &mut Ui, ctx: &egui::Context, st: &mut State) {
         order.sort_by_key(|&i| rank(&st.library.questions[i]));
         let on_screen = st.current.as_ref().and_then(|c| c.saved_id.clone());
         for s in order.iter().map(|&i| &st.library.questions[i]) {
+            // A count above was pressed: bring the first question of its group into view.
+            if st.jump_to_group == Some(rank(s)) {
+                st.jump_to_group = None;
+                ui.scroll_to_cursor(Some(egui::Align::Min));
+            }
             let q = MomQuestion::parse(&s.src);
             let name = if q.name.is_empty() { "Untitled question".to_string() } else { q.name.clone() };
             // MyOpenMath's "Name - Description": the name is what tells rows apart, so it leads and
@@ -4073,7 +4101,8 @@ fn side(ui: &mut Ui, ctx: &egui::Context, st: &mut State) {
                 // One slot for the word, so every row's Open starts on the same edge.
                 // The status stays at full strength during a job (it is still true); only the
                 // controls after it pause.
-                crate::kit::status_tag_w(ui, status, fg, 112.0);
+                // Finished work wears a tick, not the same dot as work still waiting.
+                if published.contains(&s.id) { crate::kit::status_done_w(ui, status, fg, 112.0); } else { crate::kit::status_tag_w(ui, status, fg, 112.0); }
                 ui.add_space(8.0);
                 ui.add_enabled_ui(!paused, |ui| {
                 // The question already on screen says so, instead of offering to open it again.
