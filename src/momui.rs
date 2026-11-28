@@ -365,7 +365,7 @@ fn import_questions(ui: &mut Ui, st: &mut State) {
                     ui.add(egui::Label::new(theme::strong("That's a link. D.A.D can't read web pages.").size(14.0)).wrap());
                     // Steps, one per line, that stay on screen while the teacher is in the browser.
                     let steps: &[&str] = if url.contains("myopenmath.com") {
-                        &["1. Open the link (the button below) and go to that question's editor in MyOpenMath. Not your question? Ask its author for its two boxes.",
+                        &["1. Open the link (the button below) and go to that question's editor in MyOpenMath. Not your question? Ask its author for its Common Control and Question Text boxes.",
                           "2. Copy its Common Control box and paste it in the box above, in place of the link.",
                           "3. D.A.D then shows a second box for its Question Text."]
                     } else {
@@ -2484,10 +2484,15 @@ fn ai_card(ui: &mut Ui, st: &mut State, cfg: &crate::ai::AiCfg, chosen: bool) {
                 // The switch is then the next step, so it is the filled button and Save Key steps back.
                 // Enter in the key box presses the one action on offer, as Enter does in a form.
                 let enter_here = r.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter));
-                let switch_pressed = switch_to_openrouter
-                    && (pageshell::primary(ui, "Use This Key With OpenRouter").clicked() || enter_here);
+                let switch_pressed = switch_to_openrouter && {
+                    // The shortcut beside the action it presses.
+                    // On its own line: beside the button it ran past the narrow column.
+                    let pressed = pageshell::primary(ui, "Use This Key With OpenRouter").clicked();
+                    ui.label(theme::muted("or press Enter in the key box").size(12.0));
+                    pressed || enter_here
+                };
                 if switch_to_openrouter {
-                    ui.add(egui::Label::new(theme::muted("OpenRouter needs a few dollars of credit on the account.").size(12.0)).wrap());
+                    ui.add(egui::Label::new(theme::muted("OpenRouter needs a few dollars of credit on the account. Meant to use Ollama Cloud? Paste an Ollama key instead.").size(12.0)).wrap());
                 }
                 if switch_pressed
                 {
@@ -2957,7 +2962,7 @@ pub(crate) fn control_edges(ui: &mut Ui) {
     let w = &mut ui.visuals_mut().widgets;
     w.inactive.bg_stroke = egui::Stroke::new(1.0, theme::edge());
     // Hover reads as "this one", by its edge (the theme keeps the card fill under the pointer).
-    w.hovered.bg_stroke = egui::Stroke::new(1.5, theme::accent_col());
+    w.hovered.bg_stroke = egui::Stroke::new(1.0, theme::accent_col());
 }
 
 /// Checkboxes in this `ui` draw square: the theme's radius 12 turns a 13 px box into a circle that

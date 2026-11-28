@@ -742,7 +742,8 @@ fn apply_style(style: &mut egui::Style) {
         v.widgets.hovered.weak_bg_fill = p.card;
         v.widgets.hovered.bg_fill = p.card;
         v.widgets.hovered.fg_stroke = Stroke::new(1.0, p.ink);
-        v.widgets.hovered.bg_stroke = Stroke::new(1.5, p.accent);
+        // 1 px: lighter than a focused field's 2 px edge, so hover never reads as focus.
+        v.widgets.hovered.bg_stroke = Stroke::new(1.0, p.accent);
         v.widgets.hovered.corner_radius = CornerRadius::same(12);
         v.widgets.active.weak_bg_fill = p.accent_faded;
         v.widgets.active.bg_fill = p.accent_faded;
